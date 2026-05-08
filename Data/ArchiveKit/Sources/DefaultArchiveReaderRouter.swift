@@ -3,18 +3,26 @@ import Domain
 
 public struct DefaultArchiveReaderRouter: ArchiveReaderRouter {
     private let zip: ZipArchiveReader
+    private let rar: RarArchiveReader
+    private let pdf: PDFArchiveReader
 
-    public init(zip: ZipArchiveReader = ZipArchiveReader()) {
+    public init(
+        zip: ZipArchiveReader = ZipArchiveReader(),
+        rar: RarArchiveReader = RarArchiveReader(),
+        pdf: PDFArchiveReader = PDFArchiveReader()
+    ) {
         self.zip = zip
+        self.rar = rar
+        self.pdf = pdf
     }
 
     public func reader(for format: ComicFormat) -> any ArchiveReader {
         switch format {
-        case .zip, .cbz:
-            return zip
-        case .rar, .cbr, .pdf, .folder:
-            // Plan 2 adds these; for now, fail loudly so we don't silently route wrong formats.
-            preconditionFailure("Format \(format.rawValue) not supported until Plan 2")
+        case .zip, .cbz: return zip
+        case .rar, .cbr: return rar
+        case .pdf: return pdf
+        case .folder:
+            preconditionFailure("Folder format not supported")
         }
     }
 }

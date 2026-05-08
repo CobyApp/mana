@@ -48,9 +48,12 @@ import Domain
         await reader.closeArchive(handle)
     }
 
-    @Test func routerReturnsZipReaderForCbz() {
-        let router = DefaultArchiveReaderRouter(zip: ZipArchiveReader())
-        let r = router.reader(for: .cbz)
-        #expect(r is ZipArchiveReader)
+    @Test func routerRoutesByFormat() {
+        let router = DefaultArchiveReaderRouter()
+        #expect(router.reader(for: .cbz) is ZipArchiveReader)
+        #expect(router.reader(for: .zip) is ZipArchiveReader)
+        #expect(router.reader(for: .cbr) is RarArchiveReader)
+        #expect(router.reader(for: .rar) is RarArchiveReader)
+        #expect(router.reader(for: .pdf) is PDFArchiveReader)
     }
 }
