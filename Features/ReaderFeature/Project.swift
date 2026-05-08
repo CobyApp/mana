@@ -8,7 +8,8 @@ let project = Module(
         .project(target: "Domain", path: "../../Domain"),
         .project(target: "ImageCacheKit", path: "../../Data/ImageCacheKit"),
         .project(target: "DesignSystem", path: "../../DesignSystem"),
-        .project(target: "SharedUI", path: "../../SharedUI")
+        .project(target: "SharedUI", path: "../../SharedUI"),
+        .project(target: "LibraryFeature", path: "../LibraryFeature")
     ],
     externalDependencies: ["ComposableArchitecture"],
     hasTests: true

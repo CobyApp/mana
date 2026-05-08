@@ -51,4 +51,40 @@ import Domain
         let all = await repo.all()
         #expect(all.isEmpty)
     }
+
+    @Test func roundTripsReadingMode() async throws {
+        let stack = try makeStack()
+        let repo = ComicRepositoryLive(stack: stack)
+        let id = UUID()
+        let item = ComicItem(
+            id: id,
+            url: URL(fileURLWithPath: "/tmp/y.cbz"),
+            format: .cbz,
+            title: "Y",
+            pageCount: 5,
+            coverThumbnail: nil,
+            dateAdded: .init(timeIntervalSince1970: 0),
+            fileSizeBytes: 1,
+            readingMode: .scroll(direction: .rtl)
+        )
+        try await repo.upsert(item)
+        let loaded = await repo.all()
+        #expect(loaded.first?.readingMode == .scroll(direction: .rtl))
+    }
+
+    @Test func updatesReadingModeOnSecondUpsert() async throws {
+        let stack = try makeStack()
+        let repo = ComicRepositoryLive(stack: stack)
+        let id = UUID()
+        let v1 = ComicItem(id: id, url: URL(fileURLWithPath: "/tmp/z.cbz"), format: .cbz, title: "Z",
+                           pageCount: 5, coverThumbnail: nil, dateAdded: .init(timeIntervalSince1970: 0),
+                           fileSizeBytes: 1, readingMode: .single)
+        try await repo.upsert(v1)
+        let v2 = ComicItem(id: id, url: v1.url, format: .cbz, title: "Z",
+                           pageCount: 5, coverThumbnail: nil, dateAdded: v1.dateAdded,
+                           fileSizeBytes: 1, readingMode: .dual)
+        try await repo.upsert(v2)
+        let loaded = await repo.all()
+        #expect(loaded.first?.readingMode == .dual)
+    }
 }

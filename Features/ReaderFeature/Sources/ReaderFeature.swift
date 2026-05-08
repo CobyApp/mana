@@ -2,6 +2,7 @@ import Foundation
 import ComposableArchitecture
 import Domain
 import ImageCacheKit
+import LibraryFeature
 
 @Reducer
 public struct ReaderFeature {
@@ -46,6 +47,7 @@ public struct ReaderFeature {
         case prefetchHint(Int)
         case toggleControls
         case persistProgress
+        case modeChanged(ReadingMode)
         case onDisappear
         case alert(PresentationAction<Alert>)
 
@@ -56,6 +58,7 @@ public struct ReaderFeature {
     @Dependency(\.progressRepository) var progress
     @Dependency(\.imageCache) var imageCache
     @Dependency(\.mainQueue) var mainQueue
+    @Dependency(\.comicRepository) var comicRepo
 
     public var body: some ReducerOf<Self> {
         Reduce { state, action in
@@ -80,6 +83,9 @@ public struct ReaderFeature {
                 state.handle = handle
                 state.pageCount = pageCount
                 state.pageIndex = lastPage
+                if let saved = state.comic.readingMode {
+                    state.mode = saved
+                }
                 return .none
 
             case let .openFailed(message):
@@ -139,6 +145,24 @@ public struct ReaderFeature {
                     try? await progress.save(p)
                 }
                 .debounce(id: PersistDebounce(), for: .seconds(1), scheduler: mainQueue)
+
+            case let .modeChanged(mode):
+                state.mode = mode
+                let updated = ComicItem(
+                    id: state.comic.id,
+                    url: state.comic.url,
+                    format: state.comic.format,
+                    title: state.comic.title,
+                    pageCount: state.comic.pageCount,
+                    coverThumbnail: state.comic.coverThumbnail,
+                    dateAdded: state.comic.dateAdded,
+                    fileSizeBytes: state.comic.fileSizeBytes,
+                    readingMode: mode
+                )
+                state.comic = updated
+                return .run { _ in
+                    try? await comicRepo.upsert(updated)
+                }
 
             case .onDisappear:
                 guard let handle = state.handle else { return .none }

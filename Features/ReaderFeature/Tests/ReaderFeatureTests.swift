@@ -4,6 +4,7 @@ import ComposableArchitecture
 @testable import ReaderFeature
 import Domain
 import ImageCacheKit
+import LibraryFeature
 
 @Suite @MainActor struct ReaderFeatureTests {
 
@@ -68,6 +69,45 @@ import ImageCacheKit
         }
     }
 
+    @Test func modeChangedPersistsToRepo() async {
+        let comic = sampleComic()
+        let repo = StubComicRepoForReader(initial: [comic])
+        let pages = (0..<5).map { Data([UInt8($0)]) }
+        let stubHandle = ArchiveHandle()
+        let stubReader = StubReader(handle: stubHandle, pages: pages)
+
+        let store = await TestStore(initialState: ReaderFeature.State(comic: comic, pageCount: 5)) {
+            ReaderFeature()
+        } withDependencies: {
+            $0.archiveReaderRouter = StubRouter(reader: stubReader)
+            $0.progressRepository = InMemoryProgressRepo(initial: [])
+            $0.imageCache = ImageCache.inMemoryOnly()
+            $0.mainQueue = .immediate
+            $0.comicRepository = repo
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        let expectedComic = ComicItem(
+            id: comic.id,
+            url: comic.url,
+            format: comic.format,
+            title: comic.title,
+            pageCount: comic.pageCount,
+            coverThumbnail: comic.coverThumbnail,
+            dateAdded: comic.dateAdded,
+            fileSizeBytes: comic.fileSizeBytes,
+            readingMode: .scroll(direction: .rtl)
+        )
+        await store.send(.modeChanged(.scroll(direction: .rtl))) {
+            $0.mode = .scroll(direction: .rtl)
+            $0.comic = expectedComic
+        }
+        // Allow effect to flush
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        let stored = await repo.all()
+        #expect(stored.first?.readingMode == .scroll(direction: .rtl))
+    }
+
     @Test func pageChangedUpdatesIndex() async {
         let pages = (0..<5).map { Data([UInt8($0)]) }
         let stubHandle = ArchiveHandle()
@@ -102,4 +142,16 @@ actor InMemoryProgressRepo: ProgressRepository {
     }
     func load(comicId: UUID) async -> ReadingProgress? { store[comicId] }
     func save(_ progress: ReadingProgress) async throws { store[progress.comicId] = progress }
+}
+
+actor StubComicRepoForReader: ComicRepository {
+    private var items: [ComicItem]
+    init(initial: [ComicItem]) { self.items = initial }
+    func all() async -> [ComicItem] { items }
+    func comic(id: UUID) async -> ComicItem? { items.first { $0.id == id } }
+    func upsert(_ item: ComicItem) async throws {
+        if let i = items.firstIndex(where: { $0.id == item.id }) { items[i] = item }
+        else { items.append(item) }
+    }
+    func delete(_ id: UUID) async throws { items.removeAll { $0.id == id } }
 }

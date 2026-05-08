@@ -37,6 +37,7 @@ public actor ComicRepositoryLive: ComicRepository {
             existing.coverThumbnail = item.coverThumbnail
             existing.dateAdded = item.dateAdded
             existing.fileSizeBytes = item.fileSizeBytes
+            existing.readingModeRaw = item.readingMode?.rawString
         } else {
             context.insert(ComicEntity.from(item))
         }

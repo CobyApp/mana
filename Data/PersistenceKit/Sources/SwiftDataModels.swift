@@ -12,6 +12,7 @@ public final class ComicEntity {
     public var coverThumbnail: Data?
     public var dateAdded: Date
     public var fileSizeBytes: Int64
+    public var readingModeRaw: String?
 
     public init(
         id: UUID,
@@ -21,7 +22,8 @@ public final class ComicEntity {
         pageCount: Int?,
         coverThumbnail: Data?,
         dateAdded: Date,
-        fileSizeBytes: Int64
+        fileSizeBytes: Int64,
+        readingModeRaw: String? = nil
     ) {
         self.id = id
         self.urlString = urlString
@@ -31,10 +33,12 @@ public final class ComicEntity {
         self.coverThumbnail = coverThumbnail
         self.dateAdded = dateAdded
         self.fileSizeBytes = fileSizeBytes
+        self.readingModeRaw = readingModeRaw
     }
 
     public func toModel() -> ComicItem {
-        ComicItem(
+        let mode = readingModeRaw.flatMap { ReadingMode(rawString: $0) }
+        return ComicItem(
             id: id,
             url: URL(string: urlString) ?? URL(fileURLWithPath: urlString),
             format: ComicFormat(rawValue: formatRaw) ?? .zip,
@@ -42,7 +46,8 @@ public final class ComicEntity {
             pageCount: pageCount,
             coverThumbnail: coverThumbnail,
             dateAdded: dateAdded,
-            fileSizeBytes: fileSizeBytes
+            fileSizeBytes: fileSizeBytes,
+            readingMode: mode
         )
     }
 
@@ -55,7 +60,8 @@ public final class ComicEntity {
             pageCount: item.pageCount,
             coverThumbnail: item.coverThumbnail,
             dateAdded: item.dateAdded,
-            fileSizeBytes: item.fileSizeBytes
+            fileSizeBytes: item.fileSizeBytes,
+            readingModeRaw: item.readingMode?.rawString
         )
     }
 }
