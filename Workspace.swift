@@ -9,8 +9,9 @@ let workspace = Workspace(
         "Features/ReaderFeature",
         "Domain",
         "Data/ArchiveKit",
-        "Data/PersistenceKit",
         "Data/ImageCacheKit",
+        "Data/PersistenceKit",
+        "Data/ThumbnailKit",
         "DesignSystem",
         "SharedUI"
     ]
