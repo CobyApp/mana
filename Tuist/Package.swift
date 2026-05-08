@@ -6,7 +6,8 @@ import struct ProjectDescription.PackageSettings
 let packageSettings = PackageSettings(
     productTypes: [
         "ComposableArchitecture": .framework,
-        "ZIPFoundation": .framework
+        "ZIPFoundation": .framework,
+        "UnrarKit": .framework
     ]
 )
 #endif
@@ -15,6 +16,7 @@ let package = Package(
     name: "ManaDeps",
     dependencies: [
         .package(url: "https://github.com/pointfreeco/swift-composable-architecture", from: "1.15.0"),
-        .package(url: "https://github.com/weichsel/ZIPFoundation", from: "0.9.19")
+        .package(url: "https://github.com/weichsel/ZIPFoundation", from: "0.9.19"),
+        .package(url: "https://github.com/ZHK1024/UnrarKit-Swift-Package", from: "2.10.1")
     ]
 )

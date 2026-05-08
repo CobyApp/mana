@@ -1,5 +1,5 @@
 {
-  "originHash" : "a87b936f9f0de983888770fd700d4f7025f5e46cc832f77443827e8110bd6f93",
+  "originHash" : "d74098f7e5cbaeacf1c4b3d5039f6244f4ce0003ab352f37bea4597ca0fb5420",
   "pins" : [
     {
       "identity" : "combine-schedulers",
@@ -116,6 +116,15 @@
       "state" : {
         "revision" : "9de99a78f099e59caf2b2beec65a4c45d54b2081",
         "version" : "603.0.1"
+      }
+    },
+    {
+      "identity" : "unrarkit-swift-package",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ZHK1024/UnrarKit-Swift-Package",
+      "state" : {
+        "revision" : "8d749f0eed9fdaa0f39dc60a4dd53e61d54eac11",
+        "version" : "2.10.1"
       }
     },
     {
