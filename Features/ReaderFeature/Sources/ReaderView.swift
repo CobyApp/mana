@@ -29,6 +29,13 @@ public struct ReaderView: View {
                     GlassToolbar {
                         Text("\(store.pageIndex + 1) / \(store.pageCount)")
                             .foregroundStyle(.white)
+                        Spacer()
+                        Button {
+                            store.send(.bookmarksTapped(comicId: store.comic.id))
+                        } label: {
+                            Image(systemName: "bookmark")
+                                .foregroundStyle(.white)
+                        }
                     }
                     .padding(.bottom, Tokens.Spacing.l)
                 }

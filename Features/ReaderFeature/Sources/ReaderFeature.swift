@@ -48,6 +48,7 @@ public struct ReaderFeature {
         case toggleControls
         case persistProgress
         case modeChanged(ReadingMode)
+        case bookmarksTapped(comicId: UUID)
         case onDisappear
         case alert(PresentationAction<Alert>)
 
@@ -163,6 +164,10 @@ public struct ReaderFeature {
                 return .run { _ in
                     try? await comicRepo.upsert(updated)
                 }
+
+            case .bookmarksTapped:
+                // Parent (AppFeature) handles navigation
+                return .none
 
             case .onDisappear:
                 guard let handle = state.handle else { return .none }

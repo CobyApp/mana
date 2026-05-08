@@ -25,6 +25,13 @@ public struct LibraryView: View {
         }
         .navigationTitle("Library")
         .toolbar {
+            ToolbarItem(placement: .navigation) {
+                Button {
+                    store.send(.settingsTapped)
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+            }
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     showImporter = true

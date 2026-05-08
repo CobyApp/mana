@@ -3,6 +3,8 @@ import ComposableArchitecture
 import Domain
 import LibraryFeature
 import ReaderFeature
+import BookmarksFeature
+import SettingsFeature
 
 @Reducer
 public struct AppFeature {
@@ -11,6 +13,8 @@ public struct AppFeature {
     @Reducer
     public enum Path {
         case reader(ReaderFeature)
+        case bookmarks(BookmarksFeature)
+        case settings(SettingsFeature)
     }
 
     @ObservableState
@@ -41,6 +45,24 @@ public struct AppFeature {
             switch action {
             case let .library(.comicTapped(comic)):
                 state.path.append(.reader(ReaderFeature.State(comic: comic)))
+                return .none
+
+            case .library(.settingsTapped):
+                state.path.append(.settings(SettingsFeature.State()))
+                return .none
+
+            case let .path(.element(id: _, action: .reader(.bookmarksTapped(comicId)))):
+                state.path.append(.bookmarks(BookmarksFeature.State(comicId: comicId)))
+                return .none
+
+            case let .path(.element(id: _, action: .bookmarks(.tapped(bookmark)))):
+                state.path.removeLast()
+                if let lastId = state.path.ids.last,
+                   case var .reader(readerState) = state.path[id: lastId],
+                   readerState.comic.id == bookmark.comicId {
+                    readerState.pageIndex = bookmark.pageIndex
+                    state.path[id: lastId] = .reader(readerState)
+                }
                 return .none
 
             case .library, .path:

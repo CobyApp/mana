@@ -35,6 +35,7 @@ public struct LibraryFeature {
         case importFailed(String)
         case comicTapped(ComicItem)
         case delete(IndexSet)
+        case settingsTapped
         case alert(PresentationAction<Alert>)
 
         public enum Alert: Equatable {}
@@ -88,6 +89,10 @@ public struct LibraryFeature {
                 return .none
 
             case .comicTapped:
+                // Parent (AppFeature) handles navigation
+                return .none
+
+            case .settingsTapped:
                 // Parent (AppFeature) handles navigation
                 return .none
 
