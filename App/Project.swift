@@ -28,6 +28,23 @@ let project = Project(
                 "TARGETED_DEVICE_FAMILY": "1,2",
                 "SUPPORTS_MACCATALYST": "NO"
             ])
+        ),
+        .target(
+            name: "ManaTests",
+            destinations: .iOS,
+            product: .unitTests,
+            bundleId: "com.example.mana.tests",
+            deploymentTargets: .iOS("26.0"),
+            sources: ["Tests/**"],
+            resources: ["Tests/Resources/**"],
+            dependencies: [
+                .target(name: "Mana"),
+                .project(target: "Domain", path: "../Domain"),
+                .project(target: "ArchiveKit", path: "../Data/ArchiveKit"),
+                .project(target: "PersistenceKit", path: "../Data/PersistenceKit"),
+                .project(target: "ImageCacheKit", path: "../Data/ImageCacheKit"),
+                .project(target: "LibraryFeature", path: "../Features/LibraryFeature")
+            ]
         )
     ]
 )
