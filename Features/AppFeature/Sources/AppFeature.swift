@@ -51,8 +51,8 @@ public struct AppFeature {
                 state.path.append(.settings(SettingsFeature.State()))
                 return .none
 
-            case let .path(.element(id: _, action: .reader(.bookmarksTapped(comicId)))):
-                state.path.append(.bookmarks(BookmarksFeature.State(comicId: comicId)))
+            case let .path(.element(id: _, action: .reader(.bookmarksTapped(comicId, pageIndex)))):
+                state.path.append(.bookmarks(BookmarksFeature.State(comicId: comicId, currentPageIndex: pageIndex)))
                 return .none
 
             case let .path(.element(id: _, action: .bookmarks(.tapped(bookmark)))):

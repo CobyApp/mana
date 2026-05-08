@@ -3,6 +3,7 @@ import ComposableArchitecture
 import Domain
 import ImageCacheKit
 import LibraryFeature
+import SettingsFeature
 
 @Reducer
 public struct ReaderFeature {
@@ -48,7 +49,7 @@ public struct ReaderFeature {
         case toggleControls
         case persistProgress
         case modeChanged(ReadingMode)
-        case bookmarksTapped(comicId: UUID)
+        case bookmarksTapped(comicId: UUID, pageIndex: Int)
         case onDisappear
         case alert(PresentationAction<Alert>)
 
@@ -60,6 +61,7 @@ public struct ReaderFeature {
     @Dependency(\.imageCache) var imageCache
     @Dependency(\.mainQueue) var mainQueue
     @Dependency(\.comicRepository) var comicRepo
+    @Dependency(\.userDefaults) var userDefaults
 
     public var body: some ReducerOf<Self> {
         Reduce { state, action in
@@ -86,6 +88,9 @@ public struct ReaderFeature {
                 state.pageIndex = lastPage
                 if let saved = state.comic.readingMode {
                     state.mode = saved
+                } else if let raw = userDefaults.string(forKey: SettingsFeature.modeKey),
+                          let mode = ReadingMode(rawString: raw) {
+                    state.mode = mode
                 }
                 return .none
 

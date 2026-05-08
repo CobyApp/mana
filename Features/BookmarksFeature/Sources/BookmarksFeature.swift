@@ -10,10 +10,12 @@ public struct BookmarksFeature {
     public struct State: Equatable {
         public let comicId: UUID
         public var bookmarks: IdentifiedArrayOf<Bookmark> = []
+        public var currentPageIndex: Int?
 
-        public init(comicId: UUID, bookmarks: IdentifiedArrayOf<Bookmark> = []) {
+        public init(comicId: UUID, bookmarks: IdentifiedArrayOf<Bookmark> = [], currentPageIndex: Int? = nil) {
             self.comicId = comicId
             self.bookmarks = bookmarks
+            self.currentPageIndex = currentPageIndex
         }
     }
 

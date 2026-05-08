@@ -32,6 +32,17 @@ public struct BookmarksView: View {
             }
         }
         .navigationTitle("Bookmarks")
+        .toolbar {
+            if let page = store.currentPageIndex {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        store.send(.addRequested(pageIndex: page, note: nil))
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+            }
+        }
         .task { await store.send(.task).finish() }
     }
 }

@@ -45,7 +45,10 @@ public struct LibraryView: View {
             isPresented: $showImporter,
             allowedContentTypes: [
                 UTType(filenameExtension: "cbz") ?? .archive,
-                .zip
+                UTType(filenameExtension: "cbr") ?? .archive,
+                UTType(filenameExtension: "rar") ?? .archive,
+                .zip,
+                .pdf
             ],
             allowsMultipleSelection: true
         ) { result in

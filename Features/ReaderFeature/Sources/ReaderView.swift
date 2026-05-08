@@ -31,10 +31,19 @@ public struct ReaderView: View {
                             .foregroundStyle(.white)
                         Spacer()
                         Button {
-                            store.send(.bookmarksTapped(comicId: store.comic.id))
+                            store.send(.bookmarksTapped(comicId: store.comic.id, pageIndex: store.pageIndex))
                         } label: {
                             Image(systemName: "bookmark")
                                 .foregroundStyle(.white)
+                        }
+                        Menu {
+                            Button("Single") { store.send(.modeChanged(.single)) }
+                            Button("Dual") { store.send(.modeChanged(.dual)) }
+                            Button("Scroll LTR") { store.send(.modeChanged(.scroll(direction: .ltr))) }
+                            Button("Scroll RTL") { store.send(.modeChanged(.scroll(direction: .rtl))) }
+                            Button("Scroll TTB") { store.send(.modeChanged(.scroll(direction: .ttb))) }
+                        } label: {
+                            Image(systemName: "ellipsis.circle").foregroundStyle(.white)
                         }
                     }
                     .padding(.bottom, Tokens.Spacing.l)

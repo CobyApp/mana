@@ -9,7 +9,8 @@ let project = Module(
         .project(target: "ImageCacheKit", path: "../../Data/ImageCacheKit"),
         .project(target: "DesignSystem", path: "../../DesignSystem"),
         .project(target: "SharedUI", path: "../../SharedUI"),
-        .project(target: "LibraryFeature", path: "../LibraryFeature")
+        .project(target: "LibraryFeature", path: "../LibraryFeature"),
+        .project(target: "SettingsFeature", path: "../SettingsFeature")
     ],
     externalDependencies: ["ComposableArchitecture"],
     hasTests: true
