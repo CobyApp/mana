@@ -4,8 +4,11 @@ import Domain
 import ArchiveKit
 import PersistenceKit
 import ImageCacheKit
+import ThumbnailKit
 import LibraryFeature
 import ReaderFeature
+import BookmarksFeature
+import SettingsFeature
 
 enum LiveDependencies {
     static func register() {
@@ -20,8 +23,12 @@ enum LiveDependencies {
             diskDirectory: URL.cachesDirectory.appending(path: "mana-pages"),
             diskCapacityBytes: 200_000_000
         )
-
-        let importer = LibraryImporterLive(repo: comicRepo, router: router, cache: cache)
+        let thumbnails = ThumbnailProviderLive(
+            cacheDir: URL.cachesDirectory.appending(path: "mana-thumbs")
+        )
+        let importer = LibraryImporterLive(
+            repo: comicRepo, router: router, cache: cache, thumbnails: thumbnails
+        )
 
         prepareDependencies {
             $0.archiveReaderRouter = router
@@ -29,9 +36,8 @@ enum LiveDependencies {
             $0.imageCache = cache
             $0.comicRepository = comicRepo
             $0.libraryImporter = importer
+            $0.bookmarkRepository = bookmarkRepo
+            $0.userDefaults = LiveUserDefaultsClient()
         }
-
-        // Silence unused-variable warning for bookmarkRepo (used in Plan 2)
-        _ = bookmarkRepo
     }
 }
