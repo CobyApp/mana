@@ -1,28 +1,25 @@
 import SwiftUI
 import UIKit
-import ImageCacheKit
 import SharedUI
 
 public struct SinglePageRenderer: View, PageRenderer {
     let totalPages: Int
     @Binding var current: Int
-    let cache: ImageCache
+    let pageImage: (Int) async -> UIImage?
     let onPrefetchHint: (Int) -> Void
 
     @State private var image: UIImage?
     @State private var loadingIndex: Int?
 
-    @Environment(\.comicId) private var environmentComicId
-
     public init(
         totalPages: Int,
         current: Binding<Int>,
-        cache: ImageCache,
+        pageImage: @escaping (Int) async -> UIImage?,
         onPrefetchHint: @escaping (Int) -> Void
     ) {
         self.totalPages = totalPages
         self._current = current
-        self.cache = cache
+        self.pageImage = pageImage
         self.onPrefetchHint = onPrefetchHint
     }
 
@@ -52,24 +49,12 @@ public struct SinglePageRenderer: View, PageRenderer {
     private func load(_ index: Int) async {
         loadingIndex = index
         onPrefetchHint(index)
-        let key = PageKey(comicId: environmentComicId, pageIndex: index)
-        for _ in 0..<60 {
-            if let data = await cache.data(for: key), let img = UIImage(data: data) {
+        for _ in 0..<30 {
+            if let img = await pageImage(index) {
                 if loadingIndex == index { image = img }
                 return
             }
             try? await Task.sleep(nanoseconds: 50_000_000)
         }
-    }
-}
-
-private struct ComicIdKey: EnvironmentKey {
-    static let defaultValue: UUID = UUID()
-}
-
-extension EnvironmentValues {
-    public var comicId: UUID {
-        get { self[ComicIdKey.self] }
-        set { self[ComicIdKey.self] = newValue }
     }
 }

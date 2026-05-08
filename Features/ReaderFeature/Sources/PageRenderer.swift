@@ -1,11 +1,11 @@
 import SwiftUI
-import ImageCacheKit
+import UIKit
 
 public protocol PageRenderer: View {
     init(
         totalPages: Int,
         current: Binding<Int>,
-        cache: ImageCache,
+        pageImage: @escaping (Int) async -> UIImage?,
         onPrefetchHint: @escaping (Int) -> Void
     )
 }
