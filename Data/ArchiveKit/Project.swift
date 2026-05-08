@@ -6,7 +6,7 @@ import ProjectDescriptionHelpers
 private let bundleId = "com.example.mana.archivekit"
 private let deploymentTargets: DeploymentTargets = .iOS("26.0")
 
-private let externalDeps: [TargetDependency] = [.external(name: "ZIPFoundation")]
+private let externalDeps: [TargetDependency] = [.external(name: "ZIPFoundation"), .external(name: "UnrarKit")]
 private let domainDep: TargetDependency = .project(target: "Domain", path: "../../Domain")
 
 private let frameworkTarget = Target.target(
