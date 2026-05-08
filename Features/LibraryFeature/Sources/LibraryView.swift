@@ -12,47 +12,45 @@ public struct LibraryView: View {
     }
 
     public var body: some View {
-        NavigationStack {
-            List {
-                ForEach(store.comics) { comic in
-                    Button {
-                        store.send(.comicTapped(comic))
-                    } label: {
-                        LibraryRow(comic: comic)
-                    }
-                    .buttonStyle(.plain)
+        List {
+            ForEach(store.comics) { comic in
+                Button {
+                    store.send(.comicTapped(comic))
+                } label: {
+                    LibraryRow(comic: comic)
                 }
-                .onDelete { indexSet in store.send(.delete(indexSet)) }
+                .buttonStyle(.plain)
             }
-            .navigationTitle("Library")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showImporter = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    .disabled(store.isImporting)
+            .onDelete { indexSet in store.send(.delete(indexSet)) }
+        }
+        .navigationTitle("Library")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showImporter = true
+                } label: {
+                    Image(systemName: "plus")
                 }
+                .disabled(store.isImporting)
             }
-            .fileImporter(
-                isPresented: $showImporter,
-                allowedContentTypes: [
-                    UTType(filenameExtension: "cbz") ?? .archive,
-                    .zip
-                ],
-                allowsMultipleSelection: true
-            ) { result in
-                switch result {
-                case .success(let urls): store.send(.importPicked(urls))
-                case .failure: break
-                }
+        }
+        .fileImporter(
+            isPresented: $showImporter,
+            allowedContentTypes: [
+                UTType(filenameExtension: "cbz") ?? .archive,
+                .zip
+            ],
+            allowsMultipleSelection: true
+        ) { result in
+            switch result {
+            case .success(let urls): store.send(.importPicked(urls))
+            case .failure: break
             }
-            .task { await store.send(.task).finish() }
-            .alert($store.scope(state: \.alert, action: \.alert))
-            .overlay {
-                if store.isImporting { ProgressView("Importing…") }
-            }
+        }
+        .task { await store.send(.task).finish() }
+        .alert($store.scope(state: \.alert, action: \.alert))
+        .overlay {
+            if store.isImporting { ProgressView("Importing…") }
         }
     }
 }
