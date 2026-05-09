@@ -27,9 +27,6 @@
 "library.delete_folder_title"   = "폴더 삭제";
 "library.delete_folder_message" = "\"%@\" 폴더와 안에 있는 만화 %lld개를 삭제하시겠습니까?";
 "library.delete_folder_confirm" = "삭제";
-"library.sync.unavailable"     = "iCloud 동기화 사용 불가";
-"library.sync.idle"            = "iCloud와 동기화됨";
-"library.sync.active"          = "iCloud와 동기화 중";
 "library.empty.title"           = "라이브러리가 비어 있습니다";
 "library.empty.description"     = "만화 파일을 가져와서 시작해보세요";
 "library.folder_empty.title"    = "폴더가 비어 있습니다";

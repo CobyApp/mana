@@ -27,9 +27,6 @@
 "library.delete_folder_title"   = "フォルダを削除";
 "library.delete_folder_message" = "\"%@\" フォルダと中の %lld 件のコミックを削除しますか？";
 "library.delete_folder_confirm" = "削除";
-"library.sync.unavailable"     = "iCloud同期は利用不可";
-"library.sync.idle"            = "iCloudと同期済み";
-"library.sync.active"          = "iCloudと同期中";
 "library.empty.title"           = "ライブラリは空です";
 "library.empty.description"     = "コミックファイルを読み込んで始めましょう";
 "library.folder_empty.title"    = "フォルダは空です";

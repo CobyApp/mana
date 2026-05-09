@@ -20,9 +20,9 @@
 "language.ja"              = "日本語";
 "settings.reset_library"   = "ライブラリをリセット";
 "settings.danger_zone"     = "危険ゾーン";
-"settings.reset_footer"    = "このデバイスにインポートしたすべてのコミック、フォルダ、ブックマーク、読み取り進捗を削除します。iCloud Driveのファイルも削除されます。";
+"settings.reset_footer"    = "このデバイスのすべてのコミック、フォルダ、読み取り進捗を削除します。";
 "settings.reset_title"     = "ライブラリをリセットしますか？";
-"settings.reset_message"   = "すべてのコミック、フォルダ、ブックマーク、読み取り進捗が完全に削除されます。元に戻せません。";
+"settings.reset_message"   = "すべてのコミック、フォルダ、読み取り進捗が完全に削除されます。元に戻せません。";
 "settings.reset_confirm"   = "リセット";
 "settings.cancel"          = "キャンセル";
 "mode.single"              = "シングル";
