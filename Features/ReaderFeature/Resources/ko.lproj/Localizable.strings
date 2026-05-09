@@ -9,3 +9,4 @@
 "mode.scroll.ttb"          = "웹툰 (위→아래)";
 "direction.ltr"            = "왼쪽에서 오른쪽";
 "direction.rtl"            = "오른쪽에서 왼쪽";
+"reader.controls.page_offset" = "첫 페이지 단독";

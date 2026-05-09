@@ -12,6 +12,7 @@ public struct ComicItem: Identifiable, Equatable, Sendable, Hashable {
     public let readingMode: ReadingMode?
     public let folderId: UUID?
     public let pageProgressionDirection: PageProgressionDirection?
+    public let pageOffset: Bool
 
     public init(
         id: UUID,
@@ -24,7 +25,8 @@ public struct ComicItem: Identifiable, Equatable, Sendable, Hashable {
         fileSizeBytes: Int64,
         readingMode: ReadingMode? = nil,
         folderId: UUID? = nil,
-        pageProgressionDirection: PageProgressionDirection? = nil
+        pageProgressionDirection: PageProgressionDirection? = nil,
+        pageOffset: Bool = false
     ) {
         self.id = id
         self.url = url
@@ -37,5 +39,6 @@ public struct ComicItem: Identifiable, Equatable, Sendable, Hashable {
         self.readingMode = readingMode
         self.folderId = folderId
         self.pageProgressionDirection = pageProgressionDirection
+        self.pageOffset = pageOffset
     }
 }

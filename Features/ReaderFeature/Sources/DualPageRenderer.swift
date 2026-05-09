@@ -1,7 +1,6 @@
 import SwiftUI
 import UIKit
 import Domain
-import SharedUI
 
 public struct DualPageRenderer: View, PageRenderer {
     let totalPages: Int
@@ -12,6 +11,7 @@ public struct DualPageRenderer: View, PageRenderer {
     let tapZonesEnabled: Bool
     let swipeEnabled: Bool
     let onCenterTap: () -> Void
+    let pageOffset: Bool
 
     @State private var leftImage: UIImage?
     @State private var rightImage: UIImage?
@@ -24,7 +24,8 @@ public struct DualPageRenderer: View, PageRenderer {
         progressionDirection: PageProgressionDirection = .leftToRight,
         tapZonesEnabled: Bool = true,
         swipeEnabled: Bool = true,
-        onCenterTap: @escaping () -> Void = {}
+        onCenterTap: @escaping () -> Void = {},
+        pageOffset: Bool = false
     ) {
         self.totalPages = totalPages
         self._current = current
@@ -34,66 +35,138 @@ public struct DualPageRenderer: View, PageRenderer {
         self.tapZonesEnabled = tapZonesEnabled
         self.swipeEnabled = swipeEnabled
         self.onCenterTap = onCenterTap
+        self.pageOffset = pageOffset
+    }
+
+    /// Returns (leftPageIndex, rightPageIndex) — visual pair.
+    /// nil means blank pane.
+    ///
+    /// Offset mode:
+    ///   current == 0: cover alone → LTR: (nil, 0)  RTL: (0, nil)
+    ///   current >= 1 (odd): show (current, current+1)
+    ///
+    /// Normal mode:
+    ///   current always even: show (current, current+1)
+    private func logicalPair() -> (Int?, Int?) {
+        if pageOffset {
+            if current == 0 {
+                return progressionDirection == .leftToRight ? (nil, 0) : (0, nil)
+            }
+            let p1 = current
+            let p2 = current + 1
+            let validP2: Int? = p2 < totalPages ? p2 : nil
+            return progressionDirection == .leftToRight ? (p1, validP2) : (validP2, p1)
+        } else {
+            let p1 = current
+            let p2 = current + 1
+            let validP2: Int? = p2 < totalPages ? p2 : nil
+            return progressionDirection == .leftToRight ? (p1, validP2) : (validP2, p1)
+        }
     }
 
     public var body: some View {
-        ZStack {
+        let pair = logicalPair()
+        let hasLeft = pair.0 != nil
+        let hasRight = pair.1 != nil
+
+        return ZStack {
             HStack(spacing: 0) {
-                pane(image: progressionDirection == .leftToRight ? leftImage : rightImage)
-                pane(image: progressionDirection == .leftToRight ? rightImage : leftImage)
+                pane(
+                    image: leftImage,
+                    alignmentInPane: progressionDirection == .leftToRight ? .trailing : .leading
+                )
+                .opacity(hasLeft ? 1 : 0)
+                pane(
+                    image: rightImage,
+                    alignmentInPane: progressionDirection == .leftToRight ? .leading : .trailing
+                )
+                .opacity(hasRight ? 1 : 0)
             }
             if tapZonesEnabled {
                 TapZoneOverlay(
-                    onLeftTap: { applyDelta((progressionDirection == .leftToRight) ? -2 : +2) },
+                    onLeftTap: { applyDelta(.left) },
                     onCenterTap: { onCenterTap() },
-                    onRightTap: { applyDelta((progressionDirection == .leftToRight) ? +2 : -2) }
+                    onRightTap: { applyDelta(.right) }
                 )
             }
         }
         .gesture(swipeEnabled ? swipeGesture : nil)
-        .task(id: current) {
+        .task(id: TaskKey(current: current, offset: pageOffset)) {
             await loadPair()
+        }
+    }
+
+    private enum TapDir { case left, right }
+
+    private func applyDelta(_ dir: TapDir) {
+        let advance: Bool
+        switch (dir, progressionDirection) {
+        case (.left, .leftToRight): advance = false
+        case (.right, .leftToRight): advance = true
+        case (.left, .rightToLeft): advance = true
+        case (.right, .rightToLeft): advance = false
+        }
+        if advance { goNext() } else { goPrev() }
+    }
+
+    private func goNext() {
+        if pageOffset {
+            // 0 → 1, then 1 → 3, 3 → 5, ...
+            let next = current == 0 ? 1 : current + 2
+            if next < totalPages { current = next }
+        } else {
+            let next = current + 2
+            if next < totalPages { current = next }
+        }
+    }
+
+    private func goPrev() {
+        if pageOffset {
+            if current == 0 { return }
+            if current == 1 { current = 0; return }
+            current -= 2
+        } else {
+            if current == 0 { return }
+            current -= 2
         }
     }
 
     private var swipeGesture: some Gesture {
         DragGesture(minimumDistance: 30, coordinateSpace: .local)
             .onEnded { value in
-                if value.translation.width < -50 {
-                    applyDelta((progressionDirection == .leftToRight) ? +2 : -2)
-                } else if value.translation.width > 50 {
-                    applyDelta((progressionDirection == .leftToRight) ? -2 : +2)
-                }
+                if value.translation.width < -50 { applyDelta(.right) }
+                else if value.translation.width > 50 { applyDelta(.left) }
             }
     }
 
-    private func applyDelta(_ delta: Int) {
-        let target = current + delta
-        guard target >= 0, target < totalPages else { return }
-        current = target
-    }
-
     @ViewBuilder
-    private func pane(image: UIImage?) -> some View {
+    private func pane(image: UIImage?, alignmentInPane: Alignment) -> some View {
         if let image {
-            ZoomableImageView(image: image)
+            Image(uiImage: image)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignmentInPane)
         } else {
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            Color.clear
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
     private func loadPair() async {
-        let left = current
-        let right = current + 1
-        onPrefetchHint(left)
-        if right < totalPages { onPrefetchHint(right) }
-        async let leftImg = wait(for: left)
-        async let rightImg: UIImage? = right < totalPages ? wait(for: right) : nil
-        let (l, r) = await (leftImg, rightImg)
-        if current == left {
-            leftImage = l
-            rightImage = r
-        }
+        let pair = logicalPair()
+        let leftIdx = pair.0
+        let rightIdx = pair.1
+
+        if let l = leftIdx { onPrefetchHint(l) }
+        if let r = rightIdx { onPrefetchHint(r) }
+
+        let leftImg: UIImage?
+        let rightImg: UIImage?
+        if let l = leftIdx { leftImg = await wait(for: l) } else { leftImg = nil }
+        if let r = rightIdx { rightImg = await wait(for: r) } else { rightImg = nil }
+
+        leftImage = leftImg
+        rightImage = rightImg
     }
 
     private func wait(for index: Int) async -> UIImage? {
@@ -102,5 +175,11 @@ public struct DualPageRenderer: View, PageRenderer {
             try? await Task.sleep(nanoseconds: 50_000_000)
         }
         return nil
+    }
+
+    /// Stable identifier for `.task(id:)` so it re-runs when current OR offset changes.
+    private struct TaskKey: Hashable {
+        let current: Int
+        let offset: Bool
     }
 }

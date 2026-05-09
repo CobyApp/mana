@@ -24,7 +24,8 @@ public struct SinglePageRenderer: View, PageRenderer {
         progressionDirection: PageProgressionDirection = .leftToRight,
         tapZonesEnabled: Bool = true,
         swipeEnabled: Bool = true,
-        onCenterTap: @escaping () -> Void = {}
+        onCenterTap: @escaping () -> Void = {},
+        pageOffset: Bool = false
     ) {
         self.totalPages = totalPages
         self._current = current
@@ -34,6 +35,7 @@ public struct SinglePageRenderer: View, PageRenderer {
         self.tapZonesEnabled = tapZonesEnabled
         self.swipeEnabled = swipeEnabled
         self.onCenterTap = onCenterTap
+        _ = pageOffset
     }
 
     public var body: some View {

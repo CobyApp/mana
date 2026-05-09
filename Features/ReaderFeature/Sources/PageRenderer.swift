@@ -11,6 +11,7 @@ public protocol PageRenderer: View {
         progressionDirection: PageProgressionDirection,
         tapZonesEnabled: Bool,
         swipeEnabled: Bool,
-        onCenterTap: @escaping () -> Void
+        onCenterTap: @escaping () -> Void,
+        pageOffset: Bool
     )
 }

@@ -17,6 +17,7 @@ public struct ReaderFeature {
         public var pageCount: Int
         public var mode: ReadingMode
         public var pageProgressionDirection: PageProgressionDirection = .leftToRight
+        public var pageOffset: Bool = false
         public var isControlsVisible: Bool
         public var loadedIndices: Set<Int>
         public var securityScopedURL: URL?
@@ -54,6 +55,7 @@ public struct ReaderFeature {
         case persistProgress
         case modeChanged(ReadingMode)
         case progressionDirectionChanged(PageProgressionDirection)
+        case pageOffsetChanged(Bool)
         case startedSecurityScope(URL)
         case onDisappear
         case alert(PresentationAction<Alert>)
@@ -116,6 +118,7 @@ public struct ReaderFeature {
                     resolvedDirection = .leftToRight
                 }
                 state.pageProgressionDirection = resolvedDirection
+                state.pageOffset = state.comic.pageOffset
                 if let saved = savedLastPage {
                     state.pageIndex = saved
                 } else {
@@ -194,7 +197,8 @@ public struct ReaderFeature {
                     fileSizeBytes: state.comic.fileSizeBytes,
                     readingMode: mode,
                     folderId: state.comic.folderId,
-                    pageProgressionDirection: state.comic.pageProgressionDirection
+                    pageProgressionDirection: state.comic.pageProgressionDirection,
+                    pageOffset: state.comic.pageOffset
                 )
                 state.comic = updated
                 let comicRepo = self.comicRepo
@@ -209,7 +213,24 @@ public struct ReaderFeature {
                     fileSizeBytes: state.comic.fileSizeBytes,
                     readingMode: state.comic.readingMode,
                     folderId: state.comic.folderId,
-                    pageProgressionDirection: direction
+                    pageProgressionDirection: direction,
+                    pageOffset: state.comic.pageOffset
+                )
+                state.comic = updated
+                let comicRepo = self.comicRepo
+                return .run { _ in try? await comicRepo.upsert(updated) }
+
+            case let .pageOffsetChanged(offset):
+                state.pageOffset = offset
+                let updated = ComicItem(
+                    id: state.comic.id, url: state.comic.url, format: state.comic.format,
+                    title: state.comic.title, pageCount: state.comic.pageCount,
+                    coverThumbnail: state.comic.coverThumbnail, dateAdded: state.comic.dateAdded,
+                    fileSizeBytes: state.comic.fileSizeBytes,
+                    readingMode: state.comic.readingMode,
+                    folderId: state.comic.folderId,
+                    pageProgressionDirection: state.comic.pageProgressionDirection,
+                    pageOffset: offset
                 )
                 state.comic = updated
                 let comicRepo = self.comicRepo

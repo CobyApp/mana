@@ -72,7 +72,8 @@ public struct ReaderView: View {
                 progressionDirection: direction,
                 tapZonesEnabled: true,
                 swipeEnabled: true,
-                onCenterTap: centerTap
+                onCenterTap: centerTap,
+                pageOffset: store.pageOffset
             )
         case .dual:
             DualPageRenderer(
@@ -83,7 +84,8 @@ public struct ReaderView: View {
                 progressionDirection: direction,
                 tapZonesEnabled: true,
                 swipeEnabled: true,
-                onCenterTap: centerTap
+                onCenterTap: centerTap,
+                pageOffset: store.pageOffset
             )
         }
     }
@@ -174,6 +176,12 @@ public struct ReaderView: View {
                     ), label: Text("reader.controls.direction", bundle: .module)) {
                         Text("direction.ltr", bundle: .module).tag(PageProgressionDirection.leftToRight)
                         Text("direction.rtl", bundle: .module).tag(PageProgressionDirection.rightToLeft)
+                    }
+                    Toggle(isOn: Binding(
+                        get: { store.pageOffset },
+                        set: { store.send(.pageOffsetChanged($0)) }
+                    )) {
+                        Text("reader.controls.page_offset", bundle: .module)
                     }
                 } label: {
                     Image(systemName: "slider.horizontal.3")

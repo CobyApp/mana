@@ -40,6 +40,7 @@ public actor ComicRepositoryLive: ComicRepository {
             existing.readingModeRaw = item.readingMode?.rawString
             existing.folderId = item.folderId
             existing.pageProgressionDirectionRaw = item.pageProgressionDirection?.rawValue
+            existing.pageOffset = item.pageOffset
         } else {
             context.insert(ComicEntity.from(item))
         }

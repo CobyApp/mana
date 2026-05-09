@@ -15,6 +15,7 @@ public final class ComicEntity {
     public var readingModeRaw: String?
     public var folderId: UUID?
     public var pageProgressionDirectionRaw: String?
+    public var pageOffset: Bool = false
 
     public init(
         id: UUID,
@@ -27,7 +28,8 @@ public final class ComicEntity {
         fileSizeBytes: Int64,
         readingModeRaw: String? = nil,
         folderId: UUID? = nil,
-        pageProgressionDirectionRaw: String? = nil
+        pageProgressionDirectionRaw: String? = nil,
+        pageOffset: Bool = false
     ) {
         self.id = id
         self.urlString = urlString
@@ -40,6 +42,7 @@ public final class ComicEntity {
         self.readingModeRaw = readingModeRaw
         self.folderId = folderId
         self.pageProgressionDirectionRaw = pageProgressionDirectionRaw
+        self.pageOffset = pageOffset
     }
 
     public func toModel() -> ComicItem {
@@ -56,7 +59,8 @@ public final class ComicEntity {
             fileSizeBytes: fileSizeBytes,
             readingMode: mode,
             folderId: folderId,
-            pageProgressionDirection: direction
+            pageProgressionDirection: direction,
+            pageOffset: pageOffset
         )
     }
 
@@ -72,7 +76,8 @@ public final class ComicEntity {
             fileSizeBytes: item.fileSizeBytes,
             readingModeRaw: item.readingMode?.rawString,
             folderId: item.folderId,
-            pageProgressionDirectionRaw: item.pageProgressionDirection?.rawValue
+            pageProgressionDirectionRaw: item.pageProgressionDirection?.rawValue,
+            pageOffset: item.pageOffset
         )
     }
 }
