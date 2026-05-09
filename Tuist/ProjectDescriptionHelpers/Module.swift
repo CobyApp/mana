@@ -38,12 +38,24 @@ public struct Module {
             "SWIFT_VERSION": "6.0"
         ])
 
+        // For modules with localized resources, explicitly declare available
+        // localizations and the development region in the framework's Info.plist.
+        // Without this, iOS sometimes fails to detect the .lproj directories
+        // and falls back to displaying raw localization keys.
+        let frameworkInfoPlist: InfoPlist = hasResources
+            ? .extendingDefault(with: [
+                "CFBundleDevelopmentRegion": "ko",
+                "CFBundleLocalizations": ["ko", "ja"]
+            ])
+            : .default
+
         let frameworkTarget = Target.target(
             name: name,
             destinations: .iOS,
             product: .framework,
             bundleId: bundleId,
             deploymentTargets: deploymentTargets,
+            infoPlist: frameworkInfoPlist,
             sources: ["Sources/**"],
             resources: hasResources ? ["Resources/**"] : nil,
             dependencies: dependencies + externalDeps,
