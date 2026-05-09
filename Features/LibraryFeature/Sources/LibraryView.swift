@@ -33,6 +33,12 @@ public struct LibraryView: View {
                         Text("/").foregroundStyle(.secondary)
                         Text(folder.name).fontWeight(.semibold)
                     }
+                    .dropDestination(for: ComicDragPayload.self) { payloads, _ in
+                        for payload in payloads {
+                            store.send(.comicMoveToFolderRequested(comicId: payload.comicId, folderId: nil))
+                        }
+                        return !payloads.isEmpty
+                    }
                 }
             }
 
@@ -43,6 +49,7 @@ public struct LibraryView: View {
                     LibraryRow(comic: comic)
                 }
                 .buttonStyle(.plain)
+                .draggable(ComicDragPayload(comicId: comic.id))
                 .contextMenu {
                     moveMenu(for: comic)
                 }
@@ -145,7 +152,10 @@ public struct LibraryView: View {
                             folder: folder,
                             comicsInFolder: comics.filter { $0.folderId == folder.id },
                             onTap: { store.send(.folderTapped(folder)) },
-                            onDelete: { store.send(.folderDeleteRequested(folder.id)) }
+                            onDelete: { store.send(.folderDeleteRequested(folder.id)) },
+                            onDropComic: { comicId in
+                                store.send(.comicMoveToFolderRequested(comicId: comicId, folderId: folder.id))
+                            }
                         )
                     }
                 }
