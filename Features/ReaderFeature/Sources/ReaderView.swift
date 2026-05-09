@@ -3,10 +3,13 @@ import ComposableArchitecture
 import Domain
 import ImageCacheKit
 import DesignSystem
+import SharedUI
+import SettingsFeature
 
 public struct ReaderView: View {
     @Bindable public var store: StoreOf<ReaderFeature>
     @Dependency(\.imageCache) private var imageCache
+    @Environment(\.dismiss) private var dismiss
 
     public init(store: StoreOf<ReaderFeature>) {
         self.store = store
@@ -24,34 +27,20 @@ public struct ReaderView: View {
             }
 
             if store.isControlsVisible {
-                VStack {
-                    Spacer()
-                    GlassToolbar {
-                        Text("\(store.pageIndex + 1) / \(store.pageCount)")
-                            .foregroundStyle(.white)
-                        Spacer()
-                        Button {
-                            store.send(.bookmarksTapped(comicId: store.comic.id))
-                        } label: {
-                            Image(systemName: "bookmark")
-                                .foregroundStyle(.white)
-                        }
-                        Menu {
-                            Button("Single") { store.send(.modeChanged(.single)) }
-                            Button("Dual") { store.send(.modeChanged(.dual)) }
-                            Button("Scroll LTR") { store.send(.modeChanged(.scroll(direction: .ltr))) }
-                            Button("Scroll RTL") { store.send(.modeChanged(.scroll(direction: .rtl))) }
-                            Button("Scroll TTB") { store.send(.modeChanged(.scroll(direction: .ttb))) }
-                        } label: {
-                            Image(systemName: "ellipsis.circle").foregroundStyle(.white)
-                        }
-                    }
-                    .padding(.bottom, Tokens.Spacing.l)
-                }
+                controlsOverlay
+                    .transition(.opacity)
             }
         }
+        .animation(.easeInOut(duration: 0.2), value: store.isControlsVisible)
+        .toolbar(.hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden(true)
+        .statusBarHidden(true)
+        .persistentSystemOverlays(.hidden)
+        .background(SwipeBackBlocker())
         .task { await store.send(.task).finish() }
-        .onTapGesture { store.send(.toggleControls) }
+        .onLongPressGesture(minimumDuration: 0.4) {
+            store.send(.toggleControls)
+        }
         .onDisappear { store.send(.onDisappear) }
         .alert($store.scope(state: \.alert, action: \.alert))
     }
@@ -70,6 +59,7 @@ public struct ReaderView: View {
             set: { store.send(.pageChanged($0)) }
         )
         let hint: (Int) -> Void = { idx in store.send(.prefetchHint(idx)) }
+        let direction = store.pageProgressionDirection
 
         switch store.mode {
         case .single:
@@ -77,23 +67,114 @@ public struct ReaderView: View {
                 totalPages: store.pageCount,
                 current: binding,
                 pageImage: provider,
-                onPrefetchHint: hint
+                onPrefetchHint: hint,
+                progressionDirection: direction,
+                tapZonesEnabled: tapZonesEnabledFromDefaults,
+                swipeEnabled: swipeEnabledFromDefaults
             )
         case .dual:
             DualPageRenderer(
                 totalPages: store.pageCount,
                 current: binding,
                 pageImage: provider,
-                onPrefetchHint: hint
+                onPrefetchHint: hint,
+                progressionDirection: direction,
+                tapZonesEnabled: tapZonesEnabledFromDefaults,
+                swipeEnabled: swipeEnabledFromDefaults
             )
-        case .scroll(let direction):
+        case .scroll(let scrollDirection):
             ScrollPageRenderer(
                 totalPages: store.pageCount,
                 current: binding,
                 pageImage: provider,
                 onPrefetchHint: hint,
-                direction: direction
+                direction: scrollDirection
             )
         }
+    }
+
+    @ViewBuilder
+    private var controlsOverlay: some View {
+        VStack {
+            // TOP overlay
+            HStack(spacing: Tokens.Spacing.m) {
+                Button { dismiss() } label: {
+                    Image(systemName: "chevron.left").font(.title3)
+                }
+                Spacer()
+                VStack(spacing: 0) {
+                    Text(store.comic.title).font(.headline).lineLimit(1)
+                    Text("\(store.pageIndex + 1) / \(store.pageCount)")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button { store.send(.bookmarksTapped(comicId: store.comic.id)) } label: {
+                    Image(systemName: "bookmark").font(.title3)
+                }
+            }
+            .padding(.horizontal, Tokens.Spacing.l)
+            .padding(.vertical, Tokens.Spacing.m)
+            .background(.ultraThinMaterial)
+            .glassEffect(in: .rect(cornerRadius: Tokens.Radius.card))
+            .padding(Tokens.Spacing.m)
+
+            Spacer()
+
+            // BOTTOM overlay
+            HStack(spacing: Tokens.Spacing.m) {
+                Slider(
+                    value: Binding(
+                        get: { Double(store.pageIndex) },
+                        set: { store.send(.pageChanged(Int($0.rounded()))) }
+                    ),
+                    in: 0...Double(max(0, store.pageCount - 1)),
+                    step: 1,
+                    onEditingChanged: { editing in
+                        store.send(editing ? .sliderDragStart : .sliderDragEnd)
+                    }
+                )
+                .tint(Tokens.Colors.accent)
+
+                Menu {
+                    Picker("Mode", selection: Binding(
+                        get: { store.mode },
+                        set: { store.send(.modeChanged($0)) }
+                    )) {
+                        Text("Single").tag(ReadingMode.single)
+                        Text("Dual").tag(ReadingMode.dual)
+                        Text("Scroll LTR").tag(ReadingMode.scroll(direction: .ltr))
+                        Text("Scroll RTL").tag(ReadingMode.scroll(direction: .rtl))
+                        Text("Scroll TTB").tag(ReadingMode.scroll(direction: .ttb))
+                    }
+                    Picker("Direction", selection: Binding(
+                        get: { store.pageProgressionDirection },
+                        set: { store.send(.progressionDirectionChanged($0)) }
+                    )) {
+                        Text("Left to Right").tag(PageProgressionDirection.leftToRight)
+                        Text("Right to Left").tag(PageProgressionDirection.rightToLeft)
+                    }
+                } label: {
+                    Image(systemName: "rectangle.split.2x1").font(.title3)
+                }
+            }
+            .padding(.horizontal, Tokens.Spacing.l)
+            .padding(.vertical, Tokens.Spacing.m)
+            .background(.ultraThinMaterial)
+            .glassEffect(in: .rect(cornerRadius: Tokens.Radius.card))
+            .padding(Tokens.Spacing.m)
+        }
+        .foregroundStyle(.white)
+    }
+
+    private var tapZonesEnabledFromDefaults: Bool {
+        @Dependency(\.userDefaults) var defaults
+        let stored = defaults.string(forKey: SettingsFeature.tapZonesKey)
+        return stored != "false"   // default ON
+    }
+
+    private var swipeEnabledFromDefaults: Bool {
+        @Dependency(\.userDefaults) var defaults
+        let stored = defaults.string(forKey: SettingsFeature.swipeKey)
+        return stored != "false"   // default ON
     }
 }

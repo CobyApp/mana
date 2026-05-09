@@ -51,7 +51,12 @@ public struct AppFeature {
                 state.path.append(.settings(SettingsFeature.State()))
                 return .none
 
-            case let .path(.element(id: _, action: .reader(.bookmarksTapped(comicId, pageIndex)))):
+            case let .path(.element(id: id, action: .reader(.bookmarksTapped(comicId)))):
+                // Get current page from the reader state
+                var pageIndex = 0
+                if case let .reader(readerState) = state.path[id: id] {
+                    pageIndex = readerState.pageIndex
+                }
                 state.path.append(.bookmarks(BookmarksFeature.State(comicId: comicId, currentPageIndex: pageIndex)))
                 return .none
 
