@@ -25,3 +25,7 @@
 "settings.reset_message"   = "모든 만화, 폴더, 북마크, 읽기 진행률이 영구적으로 삭제됩니다. 되돌릴 수 없습니다.";
 "settings.reset_confirm"   = "초기화";
 "settings.cancel"          = "취소";
+"mode.single"              = "한 페이지";
+"mode.dual"                = "두 페이지";
+"direction.ltr"            = "왼쪽에서 오른쪽";
+"direction.rtl"            = "오른쪽에서 왼쪽";

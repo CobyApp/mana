@@ -25,3 +25,7 @@
 "settings.reset_message"   = "すべてのコミック、フォルダ、ブックマーク、読み取り進捗が完全に削除されます。元に戻せません。";
 "settings.reset_confirm"   = "リセット";
 "settings.cancel"          = "キャンセル";
+"mode.single"              = "シングル";
+"mode.dual"                = "デュアル";
+"direction.ltr"            = "左から右";
+"direction.rtl"            = "右から左";
