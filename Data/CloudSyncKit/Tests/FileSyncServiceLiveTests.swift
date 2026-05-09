@@ -13,7 +13,7 @@ import Domain
 
     @Test func ingestCopiesFileIntoContainer() async throws {
         let container = try makeFakeContainer()
-        let service = FileSyncServiceLive(containerURL: container, isAvailable: true)
+        let service = FileSyncServiceLive(containerURLProvider: { container })
 
         let source = FileManager.default.temporaryDirectory.appending(path: "src-\(UUID()).cbz")
         try Data("zip-bytes".utf8).write(to: source)
@@ -30,7 +30,7 @@ import Domain
 
     @Test func ingestRenamesOnConflict() async throws {
         let container = try makeFakeContainer()
-        let service = FileSyncServiceLive(containerURL: container, isAvailable: true)
+        let service = FileSyncServiceLive(containerURLProvider: { container })
 
         let existing = container.appending(path: "book.cbz")
         try Data("v1".utf8).write(to: existing)
@@ -50,7 +50,7 @@ import Domain
     }
 
     @Test func unavailableServiceThrowsOnIngest() async throws {
-        let service = FileSyncServiceLive(containerURL: nil, isAvailable: false)
+        let service = FileSyncServiceLive(containerURLProvider: { nil })
         let source = FileManager.default.temporaryDirectory.appending(path: "x.cbz")
         try? Data("x".utf8).write(to: source)
         await #expect(throws: SyncError.iCloudUnavailable) {
@@ -61,7 +61,7 @@ import Domain
 
     @Test func ensureLocalNoOpsForLocalFile() async throws {
         let container = try makeFakeContainer()
-        let service = FileSyncServiceLive(containerURL: container, isAvailable: true)
+        let service = FileSyncServiceLive(containerURLProvider: { container })
 
         let file = container.appending(path: "local.cbz")
         try Data("ok".utf8).write(to: file)

@@ -46,7 +46,7 @@ public struct ReaderFeature {
 
     public enum Action {
         case task
-        case opened(handle: ArchiveHandle, pageCount: Int, lastPage: Int)
+        case opened(handle: ArchiveHandle, pageCount: Int, savedLastPage: Int?)
         case openFailed(String)
         case pageChanged(Int)
         case pageLoaded(index: Int)
@@ -99,9 +99,9 @@ public struct ReaderFeature {
                             let handle = try await reader.openArchive(at: url)
                             let pageCount = await reader.pageCount(handle)
                             let saved = await progress.load(comicId: comic.id)
-                            let lastPage = saved.map { min(max(0, $0.lastPageIndex), max(0, pageCount - 1)) } ?? 0
-                            await send(.opened(handle: handle, pageCount: pageCount, lastPage: lastPage))
-                            await send(.prefetchHint(lastPage))
+                            let savedLastPage: Int? = saved.map { min(max(0, $0.lastPageIndex), max(0, pageCount - 1)) }
+                            await send(.opened(handle: handle, pageCount: pageCount, savedLastPage: savedLastPage))
+                            await send(.prefetchHint(savedLastPage ?? 0))
                             if didStart { await send(.startedSecurityScope(url)) }
                         } catch {
                             if didStart { url.stopAccessingSecurityScopedResource() }
@@ -112,21 +112,32 @@ public struct ReaderFeature {
                     }
                 }
 
-            case let .opened(handle, pageCount, lastPage):
+            case let .opened(handle, pageCount, savedLastPage):
                 state.handle = handle
                 state.pageCount = pageCount
-                state.pageIndex = lastPage
                 if let saved = state.comic.readingMode {
                     state.mode = saved
                 } else if let raw = userDefaults.string(forKey: SettingsFeature.modeKey),
                           let mode = ReadingMode(rawString: raw) {
                     state.mode = mode
                 }
+                let resolvedDirection: PageProgressionDirection
                 if let dir = state.comic.pageProgressionDirection {
-                    state.pageProgressionDirection = dir
+                    resolvedDirection = dir
                 } else if let raw = userDefaults.string(forKey: SettingsFeature.directionKey),
                           let dir = PageProgressionDirection(rawValue: raw) {
-                    state.pageProgressionDirection = dir
+                    resolvedDirection = dir
+                } else {
+                    resolvedDirection = .leftToRight
+                }
+                state.pageProgressionDirection = resolvedDirection
+                if let saved = savedLastPage {
+                    state.pageIndex = saved
+                } else {
+                    // No saved progress: RTL starts at the last page (manga cover position).
+                    state.pageIndex = (resolvedDirection == .rightToLeft && pageCount > 0)
+                        ? pageCount - 1
+                        : 0
                 }
                 return .none
 

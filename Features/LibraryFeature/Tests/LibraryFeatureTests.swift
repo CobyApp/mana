@@ -99,9 +99,11 @@ private struct UnavailableFileSync: FileSyncService {
         await store.send(.fileSyncEvent(.added(url))) {
             $0.syncStatus = .active
         }
-        // ImmediateClock makes clock.sleep(for:) return immediately so markSyncIdle fires
-        await store.receive(\.markSyncIdle) {
-            $0.syncStatus = .idle
+        // ImmediateClock makes clock.sleep(for:) return immediately so markSyncIdle fires.
+        // markSyncIdle now re-evaluates availability; UnavailableFileSync returns false → .unavailable.
+        await store.receive(\.markSyncIdle)
+        await store.receive(\.syncStatusUpdated) {
+            $0.syncStatus = .unavailable
         }
     }
 

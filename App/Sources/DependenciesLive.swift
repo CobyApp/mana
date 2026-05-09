@@ -36,10 +36,7 @@ enum LiveDependencies {
         let thumbnails = ThumbnailProviderLive(
             cacheDir: URL.cachesDirectory.appending(path: "mana-thumbs")
         )
-        let fileSync = FileSyncServiceLive(
-            containerURL: ubi.containerURL,
-            isAvailable: ubi.isAvailable
-        )
+        let fileSync = FileSyncServiceLive(ubi: ubi)
         let importer = LibraryImporterLive(
             repo: comicRepo, router: router, cache: cache,
             thumbnails: thumbnails, fileSync: fileSync

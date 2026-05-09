@@ -174,6 +174,15 @@ public struct LibraryFeature {
                     .run { send in
                         let available = await fileSync.isAvailable
                         await send(.syncStatusUpdated(available ? .idle : .unavailable))
+                        // Retry once after 2s to handle first-launch race where iOS hasn't
+                        // finished registering the ubiquity container yet.
+                        if !available {
+                            try? await Task.sleep(for: .seconds(2))
+                            let available2 = await fileSync.isAvailable
+                            if available2 {
+                                await send(.syncStatusUpdated(.idle))
+                            }
+                        }
                     }
                 )
 
@@ -403,15 +412,16 @@ public struct LibraryFeature {
                 )
 
             case let .syncStatusUpdated(status):
-                if state.syncStatus == .unavailable && status != .unavailable { return .none }
                 state.syncStatus = status
                 return .none
 
             case .markSyncIdle:
-                if state.syncStatus == .active {
-                    state.syncStatus = .idle
+                // Re-evaluate availability so the indicator updates if iCloud comes online later.
+                let fileSync = self.fileSync
+                return .run { send in
+                    let available = await fileSync.isAvailable
+                    await send(.syncStatusUpdated(available ? .idle : .unavailable))
                 }
-                return .none
 
             case .alert:
                 return .none

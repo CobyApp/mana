@@ -152,6 +152,10 @@ public struct ReaderView: View {
                         step: 1
                     )
                     .tint(Tokens.Colors.accent)
+                    .environment(
+                        \.layoutDirection,
+                        store.pageProgressionDirection == .rightToLeft ? .rightToLeft : .leftToRight
+                    )
                 } else {
                     Spacer()
                 }

@@ -4,23 +4,44 @@ import Domain
 
 public actor FileSyncServiceLive: FileSyncService {
 
-    private let containerURL: URL?
-    private let _isAvailable: Bool
+    private let ubi: UbiquityContainer
+    /// Test-only override: when set, bypasses `ubi` for container URL resolution.
+    private let containerURLProvider: (@Sendable () -> URL?)?
     private var continuations: [UUID: AsyncStream<FileSyncEvent>.Continuation] = [:]
     private var metadataQuery: NSMetadataQuery?
     private var queryObservers: [NSObjectProtocol] = []
 
-    public init(containerURL: URL?, isAvailable: Bool) {
-        self.containerURL = containerURL
-        self._isAvailable = isAvailable && containerURL != nil
+    public init(ubi: UbiquityContainer) {
+        self.ubi = ubi
+        self.containerURLProvider = nil
     }
 
-    public var isAvailable: Bool { _isAvailable }
+    /// Internal test initialiser — injects a closure so tests can supply a temp directory
+    /// without needing a real iCloud container.
+    internal init(containerURLProvider: @escaping @Sendable () -> URL?) {
+        self.ubi = UbiquityContainer(identifier: "test")
+        self.containerURLProvider = containerURLProvider
+    }
+
+    // MARK: - Availability (re-evaluated on every access)
+
+    private var resolvedContainerURL: URL? {
+        if let provider = containerURLProvider { return provider() }
+        return ubi.containerURL
+    }
+
+    private var resolvedIsAvailable: Bool { resolvedContainerURL != nil }
+
+    public var isAvailable: Bool {
+        get async { resolvedIsAvailable }
+    }
 
     public func ingest(localURL: URL) async throws -> URL {
-        guard _isAvailable, let container = containerURL else {
+        guard let container = resolvedContainerURL else {
             throw SyncError.iCloudUnavailable
         }
+        // Ensure the Documents subdirectory exists
+        try? FileManager.default.createDirectory(at: container, withIntermediateDirectories: true)
         let fm = FileManager.default
         let target = uniqueDestination(for: localURL.lastPathComponent, in: container)
         do {
@@ -32,7 +53,7 @@ public actor FileSyncServiceLive: FileSyncService {
     }
 
     public func ensureLocal(url: URL) async throws {
-        guard _isAvailable else { throw SyncError.iCloudUnavailable }
+        guard resolvedIsAvailable else { throw SyncError.iCloudUnavailable }
         let fm = FileManager.default
         if fm.fileExists(atPath: url.path) {
             return
@@ -60,7 +81,7 @@ public actor FileSyncServiceLive: FileSyncService {
     private func startObservation(continuation: AsyncStream<FileSyncEvent>.Continuation) {
         let id = UUID()
         continuations[id] = continuation
-        if metadataQuery == nil, _isAvailable {
+        if metadataQuery == nil, resolvedIsAvailable {
             startMetadataQuery()
         }
         continuation.onTermination = { [weak self] _ in
