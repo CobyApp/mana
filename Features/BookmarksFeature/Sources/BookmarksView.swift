@@ -33,14 +33,32 @@ public struct BookmarksView: View {
         }
         .navigationTitle("Bookmarks")
         .toolbar {
-            if let page = store.currentPageIndex {
+            if store.currentPageIndex != nil {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        store.send(.addRequested(pageIndex: page, note: nil))
+                        store.send(.addSheetRequested)
                     } label: {
                         Image(systemName: "plus")
                     }
                 }
+            }
+        }
+        .sheet(
+            isPresented: Binding(
+                get: { store.addSheet != nil },
+                set: { if !$0 { store.send(.addSheetDismissed) } }
+            )
+        ) {
+            if let sheet = store.addSheet {
+                BookmarkSheet(
+                    pageIndex: sheet.pageIndex,
+                    note: Binding(
+                        get: { sheet.note },
+                        set: { store.send(.addSheetNoteChanged($0)) }
+                    ),
+                    onSubmit: { store.send(.addSheetSubmitted) },
+                    onCancel: { store.send(.addSheetDismissed) }
+                )
             }
         }
         .task { await store.send(.task).finish() }

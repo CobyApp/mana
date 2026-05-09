@@ -45,6 +45,41 @@ import Domain
             $0.bookmarks.append(expected)
         }
     }
+
+    @Test func addSheetRequestedOpensSheet() async {
+        let store = await TestStore(initialState: BookmarksFeature.State(comicId: UUID(), currentPageIndex: 7)) {
+            BookmarksFeature()
+        } withDependencies: {
+            $0.bookmarkRepository = StubBookmarkRepo(initial: [])
+        }
+        await store.send(.addSheetRequested) {
+            $0.addSheet = BookmarksFeature.AddBookmarkSheet.State(pageIndex: 7)
+        }
+    }
+
+    @Test func addSheetSubmittedAddsBookmark() async {
+        let comicId = UUID()
+        let fixedUUID = UUID()
+        let fixedDate = Date(timeIntervalSince1970: 100)
+
+        var initialState = BookmarksFeature.State(comicId: comicId, currentPageIndex: 5)
+        initialState.addSheet = BookmarksFeature.AddBookmarkSheet.State(pageIndex: 5)
+        initialState.addSheet?.note = "panel A"
+
+        let store = await TestStore(initialState: initialState) {
+            BookmarksFeature()
+        } withDependencies: {
+            $0.bookmarkRepository = StubBookmarkRepo(initial: [])
+            $0.uuid = .constant(fixedUUID)
+            $0.date.now = fixedDate
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        await store.send(.addSheetSubmitted) {
+            $0.bookmarks.append(Bookmark(id: fixedUUID, comicId: comicId, pageIndex: 5, note: "panel A", createdAt: fixedDate))
+            $0.addSheet = nil
+        }
+    }
 }
 
 actor StubBookmarkRepo: BookmarkRepository {
