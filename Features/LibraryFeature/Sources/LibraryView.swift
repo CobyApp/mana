@@ -13,7 +13,7 @@ public struct LibraryView: View {
 
     public var body: some View {
         List {
-            ForEach(store.comics) { comic in
+            ForEach(store.displayedComics) { comic in
                 Button {
                     store.send(.comicTapped(comic))
                 } label: {
@@ -21,7 +21,12 @@ public struct LibraryView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .onDelete { indexSet in store.send(.delete(indexSet)) }
+            .onDelete { indexSet in
+                // Map displayed index back to original index in `comics`.
+                let ids = indexSet.map { store.displayedComics[$0].id }
+                let originalIndices = ids.compactMap { id in store.comics.firstIndex(where: { $0.id == id }) }
+                store.send(.delete(IndexSet(originalIndices)))
+            }
         }
         .navigationTitle("Library")
         .toolbar {
@@ -30,6 +35,28 @@ public struct LibraryView: View {
                     store.send(.settingsTapped)
                 } label: {
                     Image(systemName: "gearshape")
+                }
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    Picker("Sort", selection: Binding(
+                        get: { store.sort },
+                        set: { store.send(.sortChanged($0)) }
+                    )) {
+                        ForEach(LibrarySortOrder.allCases, id: \.self) { s in
+                            Text(s.rawValue).tag(s)
+                        }
+                    }
+                    Picker("Filter", selection: Binding(
+                        get: { store.filter },
+                        set: { store.send(.filterChanged($0)) }
+                    )) {
+                        ForEach(LibraryFilter.allCases, id: \.self) { f in
+                            Text(f.rawValue).tag(f)
+                        }
+                    }
+                } label: {
+                    Image(systemName: "line.3.horizontal.decrease.circle")
                 }
             }
             ToolbarItem(placement: .primaryAction) {

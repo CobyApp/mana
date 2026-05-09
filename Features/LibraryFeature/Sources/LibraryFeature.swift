@@ -8,6 +8,21 @@ public protocol LibraryImporter: Sendable {
     func importFiles(_ urls: [URL]) async throws -> [ComicItem]
 }
 
+public enum LibrarySortOrder: String, CaseIterable, Sendable, Equatable {
+    case dateAddedDesc = "Recently added"
+    case dateAddedAsc = "Oldest first"
+    case titleAsc = "Title A→Z"
+    case titleDesc = "Title Z→A"
+    case fileSizeDesc = "Largest first"
+}
+
+public enum LibraryFilter: String, CaseIterable, Sendable, Equatable {
+    case all = "All"
+    case zip = "ZIP/CBZ"
+    case rar = "RAR/CBR"
+    case pdf = "PDF"
+}
+
 @Reducer
 public struct LibraryFeature {
     public init() {}
@@ -16,14 +31,38 @@ public struct LibraryFeature {
     public struct State: Equatable {
         public var comics: IdentifiedArrayOf<ComicItem> = []
         public var isImporting: Bool = false
+        public var sort: LibrarySortOrder = .dateAddedDesc
+        public var filter: LibraryFilter = .all
         @Presents public var alert: AlertState<Action.Alert>?
 
         public init(
             comics: IdentifiedArrayOf<ComicItem> = [],
-            isImporting: Bool = false
+            isImporting: Bool = false,
+            sort: LibrarySortOrder = .dateAddedDesc,
+            filter: LibraryFilter = .all
         ) {
             self.comics = comics
             self.isImporting = isImporting
+            self.sort = sort
+            self.filter = filter
+        }
+
+        public var displayedComics: [ComicItem] {
+            let filtered: [ComicItem] = comics.filter { item in
+                switch filter {
+                case .all: return true
+                case .zip: return item.format == .zip || item.format == .cbz
+                case .rar: return item.format == .rar || item.format == .cbr
+                case .pdf: return item.format == .pdf
+                }
+            }
+            switch sort {
+            case .dateAddedDesc: return filtered.sorted { $0.dateAdded > $1.dateAdded }
+            case .dateAddedAsc: return filtered.sorted { $0.dateAdded < $1.dateAdded }
+            case .titleAsc: return filtered.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+            case .titleDesc: return filtered.sorted { $0.title.localizedStandardCompare($1.title) == .orderedDescending }
+            case .fileSizeDesc: return filtered.sorted { $0.fileSizeBytes > $1.fileSizeBytes }
+            }
         }
     }
 
@@ -38,6 +77,8 @@ public struct LibraryFeature {
         case comicTapped(ComicItem)
         case delete(IndexSet)
         case settingsTapped
+        case sortChanged(LibrarySortOrder)
+        case filterChanged(LibraryFilter)
         case alert(PresentationAction<Alert>)
 
         public enum Alert: Equatable {}
@@ -121,6 +162,14 @@ public struct LibraryFeature {
                         try? await repo.delete(id)
                     }
                 }
+
+            case let .sortChanged(s):
+                state.sort = s
+                return .none
+
+            case let .filterChanged(f):
+                state.filter = f
+                return .none
 
             case .alert:
                 return .none

@@ -91,6 +91,39 @@ private struct UnavailableFileSync: FileSyncService {
             $0.isImporting = false
         }
     }
+
+    @Test func sortByTitleAsc() {
+        let a = ComicItem(id: UUID(), url: URL(fileURLWithPath: "/x"), format: .cbz, title: "Alpha", pageCount: 0, coverThumbnail: nil, dateAdded: .init(timeIntervalSince1970: 1), fileSizeBytes: 0)
+        let b = ComicItem(id: UUID(), url: URL(fileURLWithPath: "/y"), format: .cbz, title: "Beta", pageCount: 0, coverThumbnail: nil, dateAdded: .init(timeIntervalSince1970: 0), fileSizeBytes: 0)
+        let state = LibraryFeature.State(
+            comics: IdentifiedArray(uniqueElements: [b, a]),
+            sort: .titleAsc
+        )
+        #expect(state.displayedComics.map(\.title) == ["Alpha", "Beta"])
+    }
+
+    @Test func filterByPdf() {
+        let cbz = sample("X")
+        let pdf = ComicItem(id: UUID(), url: URL(fileURLWithPath: "/p"), format: .pdf, title: "P", pageCount: 0, coverThumbnail: nil, dateAdded: .init(timeIntervalSince1970: 0), fileSizeBytes: 0)
+        let state = LibraryFeature.State(
+            comics: IdentifiedArray(uniqueElements: [cbz, pdf]),
+            filter: .pdf
+        )
+        #expect(state.displayedComics.map(\.title) == ["P"])
+    }
+
+    @Test func sortChangedActionUpdatesState() async {
+        let store = await TestStore(initialState: LibraryFeature.State()) {
+            LibraryFeature()
+        } withDependencies: {
+            $0.comicRepository = StubComicRepo(initial: [])
+            $0.libraryImporter = StubImporter()
+            $0.fileSyncService = UnavailableFileSync()
+        }
+        await store.send(.sortChanged(.titleAsc)) {
+            $0.sort = .titleAsc
+        }
+    }
 }
 
 actor StubComicRepo: ComicRepository {
