@@ -11,7 +11,7 @@
   <key>CFBundleDisplayName</key>
   <string>Mana</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.1.0</string>
+  <string>1.0.0</string>
   <key>CFBundleVersion</key>
   <string>1</string>
   <key>UILaunchScreen</key>
@@ -35,7 +35,7 @@
   <true/>
   <key>NSUbiquitousContainers</key>
   <dict>
-    <key>iCloud.com.example.mana</key>
+    <key>iCloud.com.coby.mana</key>
     <dict>
       <key>NSUbiquitousContainerIsDocumentScopePublic</key>
       <true/>

@@ -22,8 +22,7 @@ actor ZipArchiveSessionStore {
         return id
     }
 
-    func archive(for id: UUID) -> Archive? { archives[id]?.archive }
-    func entries(for id: UUID) -> [Entry]? { entryLists[id] }
+    func pageCount(for id: UUID) -> Int { entryLists[id]?.count ?? 0 }
 
     func extractPage(handle id: UUID, index: Int) throws -> Data {
         guard let entries = entryLists[id],

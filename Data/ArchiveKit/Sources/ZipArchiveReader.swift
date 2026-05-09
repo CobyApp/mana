@@ -26,7 +26,7 @@ public struct ZipArchiveReader: ArchiveReader {
     }
 
     public func pageCount(_ handle: ArchiveHandle) async -> Int {
-        await ZipArchiveSessionStore.shared.entries(for: handle.id)?.count ?? 0
+        await ZipArchiveSessionStore.shared.pageCount(for: handle.id)
     }
 
     public func pageData(_ handle: ArchiveHandle, index: Int) async throws -> Data {

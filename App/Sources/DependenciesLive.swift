@@ -12,7 +12,7 @@ import BookmarksFeature
 import SettingsFeature
 
 enum LiveDependencies {
-    static let containerIdentifier = "iCloud.com.example.mana"
+    static let containerIdentifier = "iCloud.com.coby.mana"
 
     static func register() {
         let ubi = UbiquityContainer(identifier: containerIdentifier)

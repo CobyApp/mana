@@ -30,21 +30,16 @@ public struct RarArchiveReader: ArchiveReader {
     }
 
     public func pageCount(_ handle: ArchiveHandle) async -> Int {
-        await RarSessionStore.shared.entries(for: handle.id)?.count ?? 0
+        await RarSessionStore.shared.pageCount(for: handle.id)
     }
 
     public func pageData(_ handle: ArchiveHandle, index: Int) async throws -> Data {
-        guard let entries = await RarSessionStore.shared.entries(for: handle.id),
-              let archive = await RarSessionStore.shared.archive(for: handle.id)
-        else {
-            throw ArchiveError.ioFailure(reason: "handle closed")
-        }
-        guard index >= 0, index < entries.count else {
-            throw ArchiveError.indexOutOfBounds(index)
-        }
         do {
-            let data = try archive.extractData(fromFile: entries[index])
-            return data
+            return try await RarSessionStore.shared.extractPage(handle: handle.id, index: index)
+        } catch ArchiveStoreError.handleClosed {
+            throw ArchiveError.ioFailure(reason: "handle closed")
+        } catch ArchiveStoreError.indexOutOfBounds(let i) {
+            throw ArchiveError.indexOutOfBounds(i)
         } catch let archiveError as ArchiveError {
             throw archiveError
         } catch let error as NSError {

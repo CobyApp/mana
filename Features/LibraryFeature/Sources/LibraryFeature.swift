@@ -92,6 +92,8 @@ public struct LibraryFeature {
         Reduce { state, action in
             switch action {
             case .task:
+                let repo = self.repo
+                let fileSync = self.fileSync
                 return .merge(
                     .run { send in
                         let items = await repo.all()
@@ -105,7 +107,7 @@ public struct LibraryFeature {
                 )
 
             case .fileSyncEvent:
-                // Naive refresh — Plan 4 polish would diff incrementally.
+                let repo = self.repo
                 return .run { send in
                     let items = await repo.all()
                     await send(.refreshed(items))
@@ -121,6 +123,7 @@ public struct LibraryFeature {
 
             case let .importPicked(urls):
                 state.isImporting = true
+                let importer = self.importer
                 return .run { send in
                     do {
                         let imported = try await importer.importFiles(urls)
@@ -157,6 +160,7 @@ public struct LibraryFeature {
             case let .delete(indexSet):
                 let ids = indexSet.map { state.comics[$0].id }
                 for id in ids { state.comics.remove(id: id) }
+                let repo = self.repo
                 return .run { _ in
                     for id in ids {
                         try? await repo.delete(id)

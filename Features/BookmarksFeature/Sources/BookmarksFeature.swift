@@ -54,6 +54,7 @@ public struct BookmarksFeature {
             switch action {
             case .task:
                 let comicId = state.comicId
+                let repo = self.repo
                 return .run { send in
                     let items = await repo.bookmarks(comicId: comicId)
                     await send(.refreshed(items))
@@ -66,6 +67,7 @@ public struct BookmarksFeature {
             case let .addRequested(pageIndex, note):
                 let bm = Bookmark(id: uuid(), comicId: state.comicId, pageIndex: pageIndex, note: note, createdAt: now)
                 state.bookmarks.append(bm)
+                let repo = self.repo
                 return .run { send in
                     try? await repo.add(bm)
                     await send(.bookmarkAdded(bm))
@@ -96,6 +98,7 @@ public struct BookmarksFeature {
                 )
                 state.bookmarks.append(bm)
                 state.addSheet = nil
+                let repo = self.repo
                 return .run { send in
                     try? await repo.add(bm)
                     await send(.bookmarkAdded(bm))
@@ -106,6 +109,7 @@ public struct BookmarksFeature {
 
             case let .removeRequested(id):
                 state.bookmarks.remove(id: id)
+                let repo = self.repo
                 return .run { send in
                     try? await repo.remove(id: id)
                     await send(.bookmarkRemoved(id))

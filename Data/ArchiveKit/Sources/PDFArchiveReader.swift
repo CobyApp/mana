@@ -18,32 +18,19 @@ public struct PDFArchiveReader: ArchiveReader {
     }
 
     public func pageCount(_ handle: ArchiveHandle) async -> Int {
-        await PDFSessionStore.shared.document(for: handle.id)?.pageCount ?? 0
+        await PDFSessionStore.shared.pageCount(for: handle.id)
     }
 
     public func pageData(_ handle: ArchiveHandle, index: Int) async throws -> Data {
-        guard let doc = await PDFSessionStore.shared.document(for: handle.id) else {
+        do {
+            return try await PDFSessionStore.shared.pageData(for: handle.id, at: index)
+        } catch ArchiveStoreError.handleClosed {
             throw ArchiveError.ioFailure(reason: "handle closed")
-        }
-        guard index >= 0, index < doc.pageCount, let page = doc.page(at: index) else {
-            throw ArchiveError.indexOutOfBounds(index)
-        }
-        let bounds = page.bounds(for: .mediaBox)
-        let scale: CGFloat = 2.0
-        let renderSize = CGSize(width: bounds.width * scale, height: bounds.height * scale)
-
-        let renderer = UIGraphicsImageRenderer(size: renderSize)
-        let image = renderer.image { ctx in
-            UIColor.white.setFill()
-            ctx.fill(CGRect(origin: .zero, size: renderSize))
-            ctx.cgContext.translateBy(x: 0, y: renderSize.height)
-            ctx.cgContext.scaleBy(x: scale, y: -scale)
-            page.draw(with: .mediaBox, to: ctx.cgContext)
-        }
-        guard let pngData = image.pngData() else {
+        } catch ArchiveStoreError.indexOutOfBounds(let i) {
+            throw ArchiveError.indexOutOfBounds(i)
+        } catch ArchiveStoreError.encodingFailed {
             throw ArchiveError.ioFailure(reason: "PNG encoding failed")
         }
-        return pngData
     }
 
     public func closeArchive(_ handle: ArchiveHandle) async {

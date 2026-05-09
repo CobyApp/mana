@@ -21,8 +21,17 @@ actor RarSessionStore {
         return id
     }
 
-    func archive(for id: UUID) -> URKArchive? { archives[id]?.archive }
-    func entries(for id: UUID) -> [String]? { entryNames[id] }
+    func pageCount(for id: UUID) -> Int { entryNames[id]?.count ?? 0 }
+
+    func extractPage(handle id: UUID, index: Int) throws -> Data {
+        guard let entries = entryNames[id], let archive = archives[id]?.archive else {
+            throw ArchiveStoreError.handleClosed
+        }
+        guard index >= 0, index < entries.count else {
+            throw ArchiveStoreError.indexOutOfBounds(index)
+        }
+        return try archive.extractData(fromFile: entries[index])
+    }
 
     func close(_ id: UUID) {
         archives.removeValue(forKey: id)

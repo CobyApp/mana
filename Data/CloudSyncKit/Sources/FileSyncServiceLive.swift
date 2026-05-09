@@ -82,14 +82,28 @@ public actor FileSyncServiceLive: FileSyncService {
 
         let center = NotificationCenter.default
         let updateToken = center.addObserver(forName: .NSMetadataQueryDidUpdate, object: query, queue: .main) { [weak self] note in
-            Task { await self?.handleQueryUpdate(note) }
+            let extracted = Self.extractURLs(note)
+            Task { await self?.handleEvents(added: extracted.added, removed: extracted.removed, changed: extracted.changed) }
         }
         let gatherToken = center.addObserver(forName: .NSMetadataQueryDidFinishGathering, object: query, queue: .main) { [weak self] note in
-            Task { await self?.handleQueryUpdate(note) }
+            let extracted = Self.extractURLs(note)
+            Task { await self?.handleEvents(added: extracted.added, removed: extracted.removed, changed: extracted.changed) }
         }
         queryObservers = [updateToken, gatherToken]
         query.start()
         metadataQuery = query
+    }
+
+    /// Pull Sendable URL arrays out of the Notification on the calling thread,
+    /// so we can hop into the actor with only Sendable values.
+    private nonisolated static func extractURLs(_ notification: Notification) -> (added: [URL], removed: [URL], changed: [URL]) {
+        let added = (notification.userInfo?[NSMetadataQueryUpdateAddedItemsKey] as? [NSMetadataItem])?
+            .compactMap { $0.value(forAttribute: NSMetadataItemURLKey) as? URL } ?? []
+        let removed = (notification.userInfo?[NSMetadataQueryUpdateRemovedItemsKey] as? [NSMetadataItem])?
+            .compactMap { $0.value(forAttribute: NSMetadataItemURLKey) as? URL } ?? []
+        let changed = (notification.userInfo?[NSMetadataQueryUpdateChangedItemsKey] as? [NSMetadataItem])?
+            .compactMap { $0.value(forAttribute: NSMetadataItemURLKey) as? URL } ?? []
+        return (added, removed, changed)
     }
 
     private func stopMetadataQuery() {
@@ -102,30 +116,10 @@ public actor FileSyncServiceLive: FileSyncService {
         queryObservers.removeAll()
     }
 
-    private func handleQueryUpdate(_ notification: Notification) {
-        guard let query = notification.object as? NSMetadataQuery else { return }
-        query.disableUpdates()
-        defer { query.enableUpdates() }
-
-        let added = (notification.userInfo?[NSMetadataQueryUpdateAddedItemsKey] as? [NSMetadataItem]) ?? []
-        let removed = (notification.userInfo?[NSMetadataQueryUpdateRemovedItemsKey] as? [NSMetadataItem]) ?? []
-        let changed = (notification.userInfo?[NSMetadataQueryUpdateChangedItemsKey] as? [NSMetadataItem]) ?? []
-
-        for item in added {
-            if let url = item.value(forAttribute: NSMetadataItemURLKey) as? URL {
-                emit(.added(url))
-            }
-        }
-        for item in removed {
-            if let url = item.value(forAttribute: NSMetadataItemURLKey) as? URL {
-                emit(.removed(url))
-            }
-        }
-        for item in changed {
-            if let url = item.value(forAttribute: NSMetadataItemURLKey) as? URL {
-                emit(.updated(url))
-            }
-        }
+    private func handleEvents(added: [URL], removed: [URL], changed: [URL]) {
+        for url in added { emit(.added(url)) }
+        for url in removed { emit(.removed(url)) }
+        for url in changed { emit(.updated(url)) }
     }
 
     private func emit(_ event: FileSyncEvent) {

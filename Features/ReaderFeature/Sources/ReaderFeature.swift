@@ -74,6 +74,9 @@ public struct ReaderFeature {
             switch action {
             case .task:
                 let comic = state.comic
+                let router = self.router
+                let progress = self.progress
+                let fileSync = self.fileSync
                 return .run { send in
                     do {
                         // Resolve URL: prefer the comic's stored URL; if it's missing locally
@@ -145,8 +148,9 @@ public struct ReaderFeature {
                 let comicId = state.comic.id
                 let format = state.comic.format
                 let pageCount = state.pageCount
-                // Current index first, then neighbors, so pageLoaded(index) fires before neighbors
                 let neighbors = ([index, index - 1, index + 1]).filter { $0 >= 0 && $0 < pageCount }
+                let router = self.router
+                let imageCache = self.imageCache
                 return .run { send in
                     let reader = router.reader(for: format)
                     for i in neighbors {
@@ -177,6 +181,7 @@ public struct ReaderFeature {
                     totalPages: state.pageCount,
                     updatedAt: Date()
                 )
+                let progress = self.progress
                 return .run { _ in
                     try? await progress.save(p)
                 }
@@ -197,6 +202,7 @@ public struct ReaderFeature {
                     urlBookmarkData: state.comic.urlBookmarkData
                 )
                 state.comic = updated
+                let comicRepo = self.comicRepo
                 return .run { _ in
                     try? await comicRepo.upsert(updated)
                 }
@@ -215,6 +221,7 @@ public struct ReaderFeature {
                 let handle = state.handle
                 state.handle = nil
                 let format = state.comic.format
+                let router = self.router
                 return .run { _ in
                     if let handle {
                         let reader = router.reader(for: format)
