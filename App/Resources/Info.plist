@@ -48,6 +48,13 @@
   <key>UIBackgroundModes</key>
   <array>
     <string>remote-notification</string>
+    <string>processing</string>
+  </array>
+  <key>BGTaskSchedulerPermittedIdentifiers</key>
+  <array>
+    <string>com.apple.coredata.cloudkit.activity</string>
+    <string>com.apple.coredata.cloudkit.activity.export</string>
+    <string>com.apple.coredata.cloudkit.activity.import</string>
   </array>
 </dict>
 </plist>
