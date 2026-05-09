@@ -6,6 +6,7 @@ import Domain
 import CloudSyncKit
 import ImageCacheKit
 import LibraryFeature
+import SettingsFeature
 
 private struct UnavailableFileSync: FileSyncService {
     var isAvailable: Bool { get async { false } }
@@ -14,37 +15,37 @@ private struct UnavailableFileSync: FileSyncService {
     func observeChanges() -> AsyncStream<FileSyncEvent> { AsyncStream { _ in } }
 }
 
+private func sampleComic() -> ComicItem {
+    ComicItem(
+        id: UUID(),
+        url: URL(fileURLWithPath: "/tmp/sample.cbz"),
+        format: .cbz,
+        title: "Sample",
+        pageCount: 10,
+        coverThumbnail: nil,
+        dateAdded: Date(timeIntervalSince1970: 0),
+        fileSizeBytes: 0
+    )
+}
+
+private struct StubReader: ArchiveReader {
+    let handle: ArchiveHandle
+    let pages: [Data]
+    func openArchive(at url: URL) async throws -> ArchiveHandle { handle }
+    func pageCount(_ handle: ArchiveHandle) async -> Int { pages.count }
+    func pageData(_ handle: ArchiveHandle, index: Int) async throws -> Data {
+        guard index >= 0 && index < pages.count else { throw ArchiveError.indexOutOfBounds(index) }
+        return pages[index]
+    }
+    func closeArchive(_ handle: ArchiveHandle) async {}
+}
+
+private struct StubRouter: ArchiveReaderRouter {
+    let reader: any ArchiveReader
+    func reader(for format: ComicFormat) -> any ArchiveReader { reader }
+}
+
 @Suite @MainActor struct ReaderFeatureTests {
-
-    private func sampleComic() -> ComicItem {
-        ComicItem(
-            id: UUID(),
-            url: URL(fileURLWithPath: "/tmp/sample.cbz"),
-            format: .cbz,
-            title: "Sample",
-            pageCount: 10,
-            coverThumbnail: nil,
-            dateAdded: Date(timeIntervalSince1970: 0),
-            fileSizeBytes: 0
-        )
-    }
-
-    private struct StubReader: ArchiveReader {
-        let handle: ArchiveHandle
-        let pages: [Data]
-        func openArchive(at url: URL) async throws -> ArchiveHandle { handle }
-        func pageCount(_ handle: ArchiveHandle) async -> Int { pages.count }
-        func pageData(_ handle: ArchiveHandle, index: Int) async throws -> Data {
-            guard index >= 0 && index < pages.count else { throw ArchiveError.indexOutOfBounds(index) }
-            return pages[index]
-        }
-        func closeArchive(_ handle: ArchiveHandle) async {}
-    }
-
-    private struct StubRouter: ArchiveReaderRouter {
-        let reader: any ArchiveReader
-        func reader(for format: ComicFormat) -> any ArchiveReader { reader }
-    }
 
     @Test func taskOpensArchiveAndLoadsLastPage() async {
         let pages = (0..<5).map { Data([UInt8($0)]) }
@@ -64,6 +65,7 @@ private struct UnavailableFileSync: FileSyncService {
             $0.imageCache = ImageCache.inMemoryOnly()
             $0.mainQueue = .immediate
             $0.fileSyncService = UnavailableFileSync()
+            $0.userDefaults = InMemoryUserDefaults()
         }
         store.exhaustivity = .off(showSkippedAssertions: false)
 
@@ -94,6 +96,7 @@ private struct UnavailableFileSync: FileSyncService {
             $0.mainQueue = .immediate
             $0.comicRepository = repo
             $0.fileSyncService = UnavailableFileSync()
+            $0.userDefaults = InMemoryUserDefaults()
         }
         store.exhaustivity = .off(showSkippedAssertions: false)
 
@@ -143,6 +146,7 @@ private struct UnavailableFileSync: FileSyncService {
             $0.mainQueue = .immediate
             $0.comicRepository = repo
             $0.fileSyncService = UnavailableFileSync()
+            $0.userDefaults = InMemoryUserDefaults()
         }
         store.exhaustivity = .off(showSkippedAssertions: false)
 
@@ -168,6 +172,7 @@ private struct UnavailableFileSync: FileSyncService {
             $0.imageCache = ImageCache.inMemoryOnly()
             $0.mainQueue = .immediate
             $0.fileSyncService = UnavailableFileSync()
+            $0.userDefaults = InMemoryUserDefaults()
         }
         store.exhaustivity = .off(showSkippedAssertions: false)
 
@@ -177,6 +182,91 @@ private struct UnavailableFileSync: FileSyncService {
         await store.receive(\.pageLoaded) {
             $0.loadedIndices.insert(3)
         }
+    }
+}
+
+@Test func progressionDirectionLoadsFromComic() async {
+    let comic = ComicItem(
+        id: UUID(), url: URL(fileURLWithPath: "/tmp/x.cbz"), format: .cbz, title: "X",
+        pageCount: 5, coverThumbnail: nil, dateAdded: .init(timeIntervalSince1970: 0),
+        fileSizeBytes: 0, readingMode: nil, urlBookmarkData: nil,
+        folderId: nil, pageProgressionDirection: .rightToLeft
+    )
+    let stubReader = StubReader(handle: ArchiveHandle(), pages: [Data([0])])
+    let store = await TestStore(initialState: ReaderFeature.State(comic: comic)) {
+        ReaderFeature()
+    } withDependencies: {
+        $0.archiveReaderRouter = StubRouter(reader: stubReader)
+        $0.progressRepository = InMemoryProgressRepo(initial: [])
+        $0.imageCache = ImageCache.inMemoryOnly()
+        $0.mainQueue = .immediate
+        $0.comicRepository = StubComicRepoForReader(initial: [comic])
+        $0.fileSyncService = UnavailableFileSync()
+        $0.userDefaults = InMemoryUserDefaults()
+    }
+    store.exhaustivity = .off(showSkippedAssertions: false)
+
+    await store.send(.task)
+    await store.receive(\.opened) {
+        $0.handle = stubReader.handle
+        $0.pageCount = 1
+        $0.pageProgressionDirection = .rightToLeft
+    }
+}
+
+@Test func progressionDirectionChangedPersists() async {
+    let comic = ComicItem(
+        id: UUID(), url: URL(fileURLWithPath: "/tmp/x.cbz"), format: .cbz, title: "X",
+        pageCount: 5, coverThumbnail: nil, dateAdded: .init(timeIntervalSince1970: 0),
+        fileSizeBytes: 0
+    )
+    let repo = StubComicRepoForReader(initial: [comic])
+    let store = await TestStore(initialState: ReaderFeature.State(comic: comic, pageCount: 5)) {
+        ReaderFeature()
+    } withDependencies: {
+        $0.archiveReaderRouter = StubRouter(reader: StubReader(handle: ArchiveHandle(), pages: []))
+        $0.progressRepository = InMemoryProgressRepo(initial: [])
+        $0.imageCache = ImageCache.inMemoryOnly()
+        $0.mainQueue = .immediate
+        $0.comicRepository = repo
+        $0.fileSyncService = UnavailableFileSync()
+        $0.userDefaults = InMemoryUserDefaults()
+    }
+    store.exhaustivity = .off(showSkippedAssertions: false)
+
+    await store.send(.progressionDirectionChanged(.rightToLeft)) {
+        $0.pageProgressionDirection = .rightToLeft
+    }
+    try? await Task.sleep(nanoseconds: 50_000_000)
+    let stored = await repo.all()
+    #expect(stored.first?.pageProgressionDirection == .rightToLeft)
+}
+
+@Test func toggleControlsSchedulesAutoHide() async {
+    let comic = ComicItem(
+        id: UUID(), url: URL(fileURLWithPath: "/tmp/x.cbz"), format: .cbz, title: "X",
+        pageCount: 5, coverThumbnail: nil, dateAdded: .init(timeIntervalSince1970: 0),
+        fileSizeBytes: 0
+    )
+    let store = await TestStore(initialState: ReaderFeature.State(comic: comic, pageCount: 5)) {
+        ReaderFeature()
+    } withDependencies: {
+        $0.archiveReaderRouter = StubRouter(reader: StubReader(handle: ArchiveHandle(), pages: []))
+        $0.progressRepository = InMemoryProgressRepo(initial: [])
+        $0.imageCache = ImageCache.inMemoryOnly()
+        $0.mainQueue = .immediate
+        $0.comicRepository = StubComicRepoForReader(initial: [comic])
+        $0.fileSyncService = UnavailableFileSync()
+        $0.userDefaults = InMemoryUserDefaults()
+    }
+    store.exhaustivity = .off(showSkippedAssertions: false)
+
+    await store.send(.toggleControls) {
+        $0.isControlsVisible = true
+    }
+    // mainQueue == .immediate, so autoHideControls fires synchronously
+    await store.receive(\.autoHideControls) {
+        $0.isControlsVisible = false
     }
 }
 

@@ -31,7 +31,7 @@ public struct ReaderView: View {
                             .foregroundStyle(.white)
                         Spacer()
                         Button {
-                            store.send(.bookmarksTapped(comicId: store.comic.id, pageIndex: store.pageIndex))
+                            store.send(.bookmarksTapped(comicId: store.comic.id))
                         } label: {
                             Image(systemName: "bookmark")
                                 .foregroundStyle(.white)

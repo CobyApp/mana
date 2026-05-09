@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import Domain
 import SharedUI
 
 public struct SinglePageRenderer: View, PageRenderer {
@@ -7,6 +8,9 @@ public struct SinglePageRenderer: View, PageRenderer {
     @Binding var current: Int
     let pageImage: (Int) async -> UIImage?
     let onPrefetchHint: (Int) -> Void
+    let progressionDirection: PageProgressionDirection
+    let tapZonesEnabled: Bool
+    let swipeEnabled: Bool
 
     @State private var image: UIImage?
     @State private var loadingIndex: Int?
@@ -15,12 +19,18 @@ public struct SinglePageRenderer: View, PageRenderer {
         totalPages: Int,
         current: Binding<Int>,
         pageImage: @escaping (Int) async -> UIImage?,
-        onPrefetchHint: @escaping (Int) -> Void
+        onPrefetchHint: @escaping (Int) -> Void,
+        progressionDirection: PageProgressionDirection = .leftToRight,
+        tapZonesEnabled: Bool = true,
+        swipeEnabled: Bool = true
     ) {
         self.totalPages = totalPages
         self._current = current
         self.pageImage = pageImage
         self.onPrefetchHint = onPrefetchHint
+        self.progressionDirection = progressionDirection
+        self.tapZonesEnabled = tapZonesEnabled
+        self.swipeEnabled = swipeEnabled
     }
 
     public var body: some View {
@@ -30,20 +40,42 @@ public struct SinglePageRenderer: View, PageRenderer {
             } else {
                 ProgressView()
             }
+            if tapZonesEnabled {
+                TapZoneOverlay(
+                    onLeftTap: { handleLeftTap() },
+                    onRightTap: { handleRightTap() }
+                )
+            }
         }
-        .gesture(
-            DragGesture(minimumDistance: 30, coordinateSpace: .local)
-                .onEnded { value in
-                    if value.translation.width < -50, current < totalPages - 1 {
-                        current += 1
-                    } else if value.translation.width > 50, current > 0 {
-                        current -= 1
-                    }
-                }
-        )
+        .gesture(swipeEnabled ? swipeGesture : nil)
         .task(id: current) {
             await load(current)
         }
+    }
+
+    private var swipeGesture: some Gesture {
+        DragGesture(minimumDistance: 30, coordinateSpace: .local)
+            .onEnded { value in
+                if value.translation.width < -50 { handleRightTap() }
+                else if value.translation.width > 50 { handleLeftTap() }
+            }
+    }
+
+    private func handleLeftTap() {
+        // LTR: left = previous; RTL: left = next
+        let delta = (progressionDirection == .leftToRight) ? -1 : +1
+        applyDelta(delta)
+    }
+
+    private func handleRightTap() {
+        let delta = (progressionDirection == .leftToRight) ? +1 : -1
+        applyDelta(delta)
+    }
+
+    private func applyDelta(_ delta: Int) {
+        let target = current + delta
+        guard target >= 0, target < totalPages else { return }
+        current = target
     }
 
     private func load(_ index: Int) async {

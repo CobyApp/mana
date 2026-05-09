@@ -1,10 +1,10 @@
 import Foundation
 import ComposableArchitecture
 import Domain
-import CloudSyncKit
 import ImageCacheKit
 import LibraryFeature
 import SettingsFeature
+import CloudSyncKit
 
 @Reducer
 public struct ReaderFeature {
@@ -17,9 +17,12 @@ public struct ReaderFeature {
         public var pageIndex: Int
         public var pageCount: Int
         public var mode: ReadingMode
+        public var pageProgressionDirection: PageProgressionDirection = .leftToRight
         public var isControlsVisible: Bool
         public var loadedIndices: Set<Int>
         public var securityScopedURL: URL?
+        public var controlsAutoHideSeconds: Double = 3.0
+        public var isSliderDragging: Bool = false
         @Presents public var alert: AlertState<Action.Alert>?
 
         public init(
@@ -51,9 +54,13 @@ public struct ReaderFeature {
         case pageLoaded(index: Int)
         case prefetchHint(Int)
         case toggleControls
+        case autoHideControls
+        case sliderDragStart
+        case sliderDragEnd
         case persistProgress
         case modeChanged(ReadingMode)
-        case bookmarksTapped(comicId: UUID, pageIndex: Int)
+        case progressionDirectionChanged(PageProgressionDirection)
+        case bookmarksTapped(comicId: UUID)
         case startedSecurityScope(URL)
         case onDisappear
         case alert(PresentationAction<Alert>)
@@ -79,20 +86,15 @@ public struct ReaderFeature {
                 let fileSync = self.fileSync
                 return .run { send in
                     do {
-                        // Resolve URL: prefer the comic's stored URL; if it's missing locally
-                        // and a bookmark exists, resolve via the bookmark.
                         var url = comic.url
                         if !FileManager.default.fileExists(atPath: url.path),
                            let bookmark = comic.urlBookmarkData {
                             let (resolved, _) = try BookmarkURLResolver.resolve(bookmarkData: bookmark)
                             url = resolved
                         }
-
-                        // If the URL is in the ubiquity container and not yet downloaded, fetch it.
                         if await fileSync.isAvailable {
                             try? await fileSync.ensureLocal(url: url)
                         }
-
                         let didStart = url.startAccessingSecurityScopedResource()
                         do {
                             let reader = router.reader(for: comic.format)
@@ -102,11 +104,8 @@ public struct ReaderFeature {
                             let lastPage = saved.map { min(max(0, $0.lastPageIndex), max(0, pageCount - 1)) } ?? 0
                             await send(.opened(handle: handle, pageCount: pageCount, lastPage: lastPage))
                             await send(.prefetchHint(lastPage))
-                            if didStart {
-                                await send(.startedSecurityScope(url))
-                            }
+                            if didStart { await send(.startedSecurityScope(url)) }
                         } catch {
-                            // Release the scope here — onDisappear won't fire because the handle was never opened.
                             if didStart { url.stopAccessingSecurityScopedResource() }
                             throw error
                         }
@@ -125,6 +124,14 @@ public struct ReaderFeature {
                           let mode = ReadingMode(rawString: raw) {
                     state.mode = mode
                 }
+                if let dir = state.comic.pageProgressionDirection {
+                    state.pageProgressionDirection = dir
+                } else if let raw = userDefaults.string(forKey: SettingsFeature.directionKey),
+                          let dir = PageProgressionDirection(rawValue: raw) {
+                    state.pageProgressionDirection = dir
+                }
+                let storedHide = userDefaults.double(forKey: SettingsFeature.autoHideKey)
+                state.controlsAutoHideSeconds = storedHide == 0 ? 3.0 : storedHide
                 return .none
 
             case let .openFailed(message):
@@ -160,9 +167,7 @@ public struct ReaderFeature {
                             let data = try await reader.pageData(handle, index: i)
                             await imageCache.store(data, for: key)
                             await send(.pageLoaded(index: i))
-                        } catch {
-                            // Swallow; pageLoaded will not fire for this index
-                        }
+                        } catch {}
                     }
                 }
 
@@ -172,7 +177,32 @@ public struct ReaderFeature {
 
             case .toggleControls:
                 state.isControlsVisible.toggle()
+                guard state.isControlsVisible, state.controlsAutoHideSeconds > 0 else { return .none }
+                let seconds = state.controlsAutoHideSeconds
+                let mainQueue = self.mainQueue
+                return .run { send in
+                    await send(.autoHideControls)
+                }
+                .debounce(id: AutoHideID(), for: .seconds(seconds), scheduler: mainQueue)
+
+            case .autoHideControls:
+                guard !state.isSliderDragging else { return .none }
+                state.isControlsVisible = false
                 return .none
+
+            case .sliderDragStart:
+                state.isSliderDragging = true
+                return .cancel(id: AutoHideID())
+
+            case .sliderDragEnd:
+                state.isSliderDragging = false
+                guard state.isControlsVisible, state.controlsAutoHideSeconds > 0 else { return .none }
+                let seconds = state.controlsAutoHideSeconds
+                let mainQueue = self.mainQueue
+                return .run { send in
+                    await send(.autoHideControls)
+                }
+                .debounce(id: AutoHideID(), for: .seconds(seconds), scheduler: mainQueue)
 
             case .persistProgress:
                 let p = ReadingProgress(
@@ -182,6 +212,7 @@ public struct ReaderFeature {
                     updatedAt: Date()
                 )
                 let progress = self.progress
+                let mainQueue = self.mainQueue
                 return .run { _ in
                     try? await progress.save(p)
                 }
@@ -190,25 +221,34 @@ public struct ReaderFeature {
             case let .modeChanged(mode):
                 state.mode = mode
                 let updated = ComicItem(
-                    id: state.comic.id,
-                    url: state.comic.url,
-                    format: state.comic.format,
-                    title: state.comic.title,
-                    pageCount: state.comic.pageCount,
-                    coverThumbnail: state.comic.coverThumbnail,
-                    dateAdded: state.comic.dateAdded,
+                    id: state.comic.id, url: state.comic.url, format: state.comic.format,
+                    title: state.comic.title, pageCount: state.comic.pageCount,
+                    coverThumbnail: state.comic.coverThumbnail, dateAdded: state.comic.dateAdded,
                     fileSizeBytes: state.comic.fileSizeBytes,
-                    readingMode: mode,
-                    urlBookmarkData: state.comic.urlBookmarkData
+                    readingMode: mode, urlBookmarkData: state.comic.urlBookmarkData,
+                    folderId: state.comic.folderId,
+                    pageProgressionDirection: state.comic.pageProgressionDirection
                 )
                 state.comic = updated
                 let comicRepo = self.comicRepo
-                return .run { _ in
-                    try? await comicRepo.upsert(updated)
-                }
+                return .run { _ in try? await comicRepo.upsert(updated) }
+
+            case let .progressionDirectionChanged(direction):
+                state.pageProgressionDirection = direction
+                let updated = ComicItem(
+                    id: state.comic.id, url: state.comic.url, format: state.comic.format,
+                    title: state.comic.title, pageCount: state.comic.pageCount,
+                    coverThumbnail: state.comic.coverThumbnail, dateAdded: state.comic.dateAdded,
+                    fileSizeBytes: state.comic.fileSizeBytes,
+                    readingMode: state.comic.readingMode, urlBookmarkData: state.comic.urlBookmarkData,
+                    folderId: state.comic.folderId,
+                    pageProgressionDirection: direction
+                )
+                state.comic = updated
+                let comicRepo = self.comicRepo
+                return .run { _ in try? await comicRepo.upsert(updated) }
 
             case .bookmarksTapped:
-                // Parent (AppFeature) handles navigation
                 return .none
 
             case let .startedSecurityScope(url):
@@ -227,9 +267,7 @@ public struct ReaderFeature {
                         let reader = router.reader(for: format)
                         await reader.closeArchive(handle)
                     }
-                    if let scopedURL {
-                        scopedURL.stopAccessingSecurityScopedResource()
-                    }
+                    if let scopedURL { scopedURL.stopAccessingSecurityScopedResource() }
                 }
 
             case .alert:
@@ -240,6 +278,7 @@ public struct ReaderFeature {
     }
 
     private struct PersistDebounce: Hashable {}
+    private struct AutoHideID: Hashable {}
 }
 
 // MARK: - Dependency Keys
@@ -250,7 +289,7 @@ private enum ArchiveReaderRouterKey: DependencyKey {
 
 private struct LiveArchiveReaderRouterPlaceholder: ArchiveReaderRouter {
     func reader(for format: ComicFormat) -> any ArchiveReader {
-        preconditionFailure("ArchiveReaderRouter not provided. Wire it in App composition root.")
+        preconditionFailure("ArchiveReaderRouter not provided.")
     }
 }
 
