@@ -87,10 +87,14 @@ public struct ReaderFeature {
                 return .run { send in
                     do {
                         var url = comic.url
-                        if !FileManager.default.fileExists(atPath: url.path),
-                           let bookmark = comic.urlBookmarkData {
-                            let (resolved, _) = try BookmarkURLResolver.resolve(bookmarkData: bookmark)
-                            url = resolved
+                        // Always prefer security-scoped bookmark when available — files picked
+                        // from the Files app live outside the sandbox and require the bookmark
+                        // for any access. file-existence check is unreliable here because the
+                        // path may be visible while access is denied.
+                        if let bookmark = comic.urlBookmarkData {
+                            if let resolved = try? BookmarkURLResolver.resolve(bookmarkData: bookmark) {
+                                url = resolved.url
+                            }
                         }
                         if await fileSync.isAvailable {
                             try? await fileSync.ensureLocal(url: url)
