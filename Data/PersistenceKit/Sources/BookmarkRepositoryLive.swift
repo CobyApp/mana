@@ -22,13 +22,23 @@ public actor BookmarkRepositoryLive: BookmarkRepository {
 
     public func add(_ bookmark: Bookmark) async throws {
         let context = ctx()
-        context.insert(BookmarkEntity(
-            id: bookmark.id,
-            comicId: bookmark.comicId,
-            pageIndex: bookmark.pageIndex,
-            note: bookmark.note,
-            createdAt: bookmark.createdAt
-        ))
+        let comicId = bookmark.comicId
+        let page = bookmark.pageIndex
+        let descriptor = FetchDescriptor<BookmarkEntity>(
+            predicate: #Predicate { $0.comicId == comicId && $0.pageIndex == page }
+        )
+        if let existing = try context.fetch(descriptor).first {
+            existing.note = bookmark.note
+            existing.createdAt = bookmark.createdAt
+        } else {
+            context.insert(BookmarkEntity(
+                id: bookmark.id,
+                comicId: bookmark.comicId,
+                pageIndex: bookmark.pageIndex,
+                note: bookmark.note,
+                createdAt: bookmark.createdAt
+            ))
+        }
         try context.save()
     }
 
