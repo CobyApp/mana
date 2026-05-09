@@ -44,7 +44,7 @@ public struct LibraryRow: View {
             Image(uiImage: img).resizable().aspectRatio(contentMode: .fill)
         } else {
             RoundedRectangle(cornerRadius: Tokens.Radius.card)
-                .fill(Color.gray.opacity(0.3))
+                .fill(Tokens.Colors.backgroundSecondary)
         }
     }
 }
