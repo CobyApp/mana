@@ -20,9 +20,13 @@ private struct UnavailableFileSync: FileSyncService {
 @Suite struct LibraryFeatureTests {
 
     private func sample(_ title: String) -> ComicItem {
-        ComicItem(
+        // Write a placeholder file so orphan-cleanup doesn't remove this fixture.
+        let url = FileManager.default.temporaryDirectory
+            .appending(path: "\(title)-\(UUID().uuidString).cbz")
+        try? Data().write(to: url)
+        return ComicItem(
             id: UUID(),
-            url: URL(fileURLWithPath: "/tmp/\(title).cbz"),
+            url: url,
             format: .cbz,
             title: title,
             pageCount: 0,

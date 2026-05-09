@@ -50,6 +50,19 @@ public struct SettingsView: View {
                     Text("settings.auto_hide.off", bundle: .module).tag(0.0 as Double)
                 } label: { Text("settings.auto_hide", bundle: .module) }
             } header: { Text("settings.gestures", bundle: .module) }
+
+            Section {
+                Button(role: .destructive) {
+                    store.send(.resetLibraryRequested)
+                } label: {
+                    Text("settings.reset_library", bundle: .module)
+                        .foregroundStyle(.red)
+                }
+            } header: {
+                Text("settings.danger_zone", bundle: .module)
+            } footer: {
+                Text("settings.reset_footer", bundle: .module)
+            }
         }
         .navigationTitle(Text("settings.title", bundle: .module))
         .task { await store.send(.task).finish() }
@@ -58,5 +71,6 @@ public struct SettingsView: View {
         } message: {
             Text("settings.restart_required", bundle: .module)
         }
+        .alert($store.scope(state: \.resetAlert, action: \.resetAlert))
     }
 }

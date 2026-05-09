@@ -144,7 +144,22 @@ public struct LibraryFeature {
                 let fileSync = self.fileSync
                 return .merge(
                     .run { send in
-                        let items = await repo.all()
+                        var items = await repo.all()
+                        let fm = FileManager.default
+                        var orphanIds: [UUID] = []
+                        for comic in items {
+                            let exists = fm.fileExists(atPath: comic.url.path)
+                            let isUbiquity = fm.isUbiquitousItem(at: comic.url)
+                            if !exists && !isUbiquity && comic.urlBookmarkData == nil {
+                                orphanIds.append(comic.id)
+                            }
+                        }
+                        if !orphanIds.isEmpty {
+                            for id in orphanIds {
+                                try? await repo.delete(id)
+                            }
+                            items = items.filter { !orphanIds.contains($0.id) }
+                        }
                         await send(.refreshed(items))
                     },
                     .run { send in

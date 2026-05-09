@@ -46,6 +46,13 @@ enum LiveDependencies {
             repo: comicRepo, router: router, cache: cache,
             thumbnails: thumbnails, fileSync: fileSync
         )
+        let libraryReset = LibraryResetServiceLive(
+            comicRepo: comicRepo,
+            folderRepo: folderRepo,
+            bookmarkRepo: bookmarkRepo,
+            ubiquityContainerURL: ubi.containerURL,
+            imageCache: cache
+        )
 
         prepareDependencies {
             $0.archiveReaderRouter = router
@@ -57,6 +64,7 @@ enum LiveDependencies {
             $0.folderRepository = folderRepo
             $0.userDefaults = LiveUserDefaultsClient()
             $0.fileSyncService = fileSync
+            $0.libraryResetService = libraryReset
         }
     }
 }

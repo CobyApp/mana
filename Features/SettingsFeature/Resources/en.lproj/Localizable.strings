@@ -18,3 +18,10 @@
 "language.en"              = "English";
 "language.ko"              = "한국어";
 "language.ja"              = "日本語";
+"settings.reset_library"   = "Reset Library";
+"settings.danger_zone"     = "Danger Zone";
+"settings.reset_footer"    = "Removes all imported comics, folders, bookmarks, and reading progress from this device. Files in iCloud Drive will also be deleted.";
+"settings.reset_title"     = "Reset Library?";
+"settings.reset_message"   = "This will permanently delete all your comics, folders, bookmarks, and reading progress. This cannot be undone.";
+"settings.reset_confirm"   = "Reset";
+"settings.cancel"          = "Cancel";

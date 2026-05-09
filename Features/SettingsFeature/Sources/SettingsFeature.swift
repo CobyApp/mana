@@ -12,6 +12,7 @@ public struct SettingsFeature {
         public var defaultPageProgressionDirection: PageProgressionDirection
         public var controlsAutoHideSeconds: Double
         public var appLanguage: AppLanguage
+        @Presents public var resetAlert: AlertState<Action.ResetAlert>?
 
         public init(
             defaultMode: ReadingMode = .single,
@@ -32,9 +33,17 @@ public struct SettingsFeature {
         case defaultDirectionChanged(PageProgressionDirection)
         case controlsAutoHideChanged(Double)
         case appLanguageChanged(AppLanguage)
+        case resetLibraryRequested
+        case resetAlert(PresentationAction<ResetAlert>)
+        case resetLibraryCompleted
+
+        public enum ResetAlert: Equatable, Sendable {
+            case confirm
+        }
     }
 
     @Dependency(\.userDefaults) var defaults
+    @Dependency(\.libraryResetService) var libraryResetService
 
     public var body: some ReducerOf<Self> {
         Reduce { state, action in
@@ -82,8 +91,37 @@ public struct SettingsFeature {
                     defaults.setStringArray([lang.rawValue], forKey: "AppleLanguages")
                 }
                 return .none
+
+            case .resetLibraryRequested:
+                state.resetAlert = AlertState {
+                    TextState("settings.reset_title", bundle: .module)
+                } actions: {
+                    ButtonState(role: .destructive, action: .confirm) {
+                        TextState("settings.reset_confirm", bundle: .module)
+                    }
+                    ButtonState(role: .cancel) {
+                        TextState("settings.cancel", bundle: .module)
+                    }
+                } message: {
+                    TextState("settings.reset_message", bundle: .module)
+                }
+                return .none
+
+            case .resetAlert(.presented(.confirm)):
+                let resetService = self.libraryResetService
+                return .run { send in
+                    try? await resetService.resetAll()
+                    await send(.resetLibraryCompleted)
+                }
+
+            case .resetAlert:
+                return .none
+
+            case .resetLibraryCompleted:
+                return .none
             }
         }
+        .ifLet(\.$resetAlert, action: \.resetAlert)
     }
 
     public static let modeKey = "mana.defaultReadingMode"
@@ -161,5 +199,20 @@ extension DependencyValues {
     public var userDefaults: any UserDefaultsClient {
         get { self[UserDefaultsKey.self] }
         set { self[UserDefaultsKey.self] = newValue }
+    }
+}
+
+private struct NoopLibraryResetService: LibraryResetService {
+    func resetAll() async throws {}
+}
+
+private enum LibraryResetServiceKey: DependencyKey {
+    static let liveValue: any LibraryResetService = NoopLibraryResetService()
+}
+
+extension DependencyValues {
+    public var libraryResetService: any LibraryResetService {
+        get { self[LibraryResetServiceKey.self] }
+        set { self[LibraryResetServiceKey.self] = newValue }
     }
 }
