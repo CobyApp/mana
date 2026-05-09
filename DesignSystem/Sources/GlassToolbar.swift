@@ -1,9 +1,8 @@
 import SwiftUI
 
-// NOTE: glassEffect(in:) was not found in iOS 26.4 SDK (iPhoneSimulator26.4.sdk).
-// iOS 26 exposes GlassButtonStyle and Glass types instead of a generic glassEffect view modifier.
-// Substituted with .background(.thinMaterial, in: .capsule) to preserve the capsule shape.
-// Full Liquid Glass polish targeting the correct API lands in Plan 4 / DesignSystem v2.
+// Liquid Glass API confirmed in iOS 26 SDK (iPhoneSimulator26.4.sdk / SwiftUICore):
+//   func glassEffect(_ glass: Glass = .regular, in shape: some Shape = DefaultGlassEffectShape()) -> some View
+// Using variant: .glassEffect(in: .capsule) — default .regular glass, explicit capsule shape.
 public struct GlassToolbar<Content: View>: View {
     private let content: Content
 
@@ -17,6 +16,6 @@ public struct GlassToolbar<Content: View>: View {
         }
         .padding(.horizontal, Tokens.Spacing.m)
         .padding(.vertical, Tokens.Spacing.s)
-        .background(.thinMaterial, in: .capsule)
+        .glassEffect(in: .capsule)
     }
 }
