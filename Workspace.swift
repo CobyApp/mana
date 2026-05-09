@@ -11,6 +11,7 @@ let workspace = Workspace(
         "Features/SettingsFeature",
         "Domain",
         "Data/ArchiveKit",
+        "Data/CloudSyncKit",
         "Data/ImageCacheKit",
         "Data/PersistenceKit",
         "Data/ThumbnailKit",
