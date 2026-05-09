@@ -16,13 +16,24 @@ public struct LibraryRow: View {
                 .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.card))
             VStack(alignment: .leading, spacing: Tokens.Spacing.xs) {
                 Text(comic.title).font(.headline)
-                Text(comic.format.rawValue.uppercased())
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    Text(comic.format.rawValue.uppercased())
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if !isLocallyAvailable {
+                        Image(systemName: "icloud.and.arrow.down")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
             Spacer()
         }
         .padding(.vertical, Tokens.Spacing.s)
+    }
+
+    private var isLocallyAvailable: Bool {
+        FileManager.default.fileExists(atPath: comic.url.path)
     }
 
     @ViewBuilder
