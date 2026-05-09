@@ -7,6 +7,14 @@ import PersistenceKit
 import ImageCacheKit
 import ThumbnailKit
 import LibraryFeature
+import CloudSyncKit
+
+private struct UnavailableFileSync: FileSyncService {
+    var isAvailable: Bool { get async { false } }
+    func ingest(localURL: URL) async throws -> URL { throw SyncError.iCloudUnavailable }
+    func ensureLocal(url: URL) async throws { throw SyncError.iCloudUnavailable }
+    func observeChanges() -> AsyncStream<FileSyncEvent> { AsyncStream { _ in } }
+}
 
 @Suite struct IntegrationFlowTests {
     private final class BundleAnchor {}
@@ -19,7 +27,10 @@ import LibraryFeature
         let cache = ImageCache.inMemoryOnly()
         let thumbDir = FileManager.default.temporaryDirectory.appending(path: "thumbs-\(UUID())")
         let thumbnails = ThumbnailProviderLive(cacheDir: thumbDir)
-        let importer = LibraryImporterLive(repo: comicRepo, router: router, cache: cache, thumbnails: thumbnails)
+        let importer = LibraryImporterLive(
+            repo: comicRepo, router: router, cache: cache, thumbnails: thumbnails,
+            fileSync: UnavailableFileSync()
+        )
 
         let fixture = try #require(Bundle(for: BundleAnchor.self).url(forResource: "sample", withExtension: "cbz"))
 
@@ -33,6 +44,8 @@ import LibraryFeature
         // so downsampling fails and the thumbnail stays nil. That's expected.
         #expect(comic.coverThumbnail == nil)
         #expect(comic.readingMode == nil)
+        // fileSync is unavailable, so importer fell back to storing a security-scoped bookmark.
+        #expect(comic.urlBookmarkData != nil)
 
         // Verify in repo
         let stored = await comicRepo.all()

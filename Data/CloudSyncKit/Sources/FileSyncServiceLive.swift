@@ -1,4 +1,5 @@
 import Foundation
+import ComposableArchitecture
 import Domain
 
 public actor FileSyncServiceLive: FileSyncService {
@@ -139,5 +140,31 @@ public actor FileSyncServiceLive: FileSyncService {
             counter += 1
         }
         return candidate
+    }
+}
+
+// MARK: - TCA Dependency Key
+
+private enum FileSyncServiceKey: DependencyKey {
+    static let liveValue: any FileSyncService = NoopFileSyncService()
+}
+
+private struct NoopFileSyncService: FileSyncService {
+    var isAvailable: Bool { get async { false } }
+    func ingest(localURL: URL) async throws -> URL {
+        throw SyncError.iCloudUnavailable
+    }
+    func ensureLocal(url: URL) async throws {
+        throw SyncError.iCloudUnavailable
+    }
+    func observeChanges() -> AsyncStream<FileSyncEvent> {
+        AsyncStream { _ in }
+    }
+}
+
+extension DependencyValues {
+    public var fileSyncService: any FileSyncService {
+        get { self[FileSyncServiceKey.self] }
+        set { self[FileSyncServiceKey.self] = newValue }
     }
 }

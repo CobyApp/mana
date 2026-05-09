@@ -25,6 +25,7 @@ let project = Project(
                 .project(target: "PersistenceKit", path: "../Data/PersistenceKit"),
                 .project(target: "ImageCacheKit", path: "../Data/ImageCacheKit"),
                 .project(target: "ThumbnailKit", path: "../Data/ThumbnailKit"),
+                .project(target: "CloudSyncKit", path: "../Data/CloudSyncKit"),
                 .project(target: "Domain", path: "../Domain"),
                 .external(name: "ComposableArchitecture")
             ],
@@ -48,6 +49,7 @@ let project = Project(
                 .project(target: "PersistenceKit", path: "../Data/PersistenceKit"),
                 .project(target: "ImageCacheKit", path: "../Data/ImageCacheKit"),
                 .project(target: "ThumbnailKit", path: "../Data/ThumbnailKit"),
+                .project(target: "CloudSyncKit", path: "../Data/CloudSyncKit"),
                 .project(target: "LibraryFeature", path: "../Features/LibraryFeature"),
                 .project(target: "BookmarksFeature", path: "../Features/BookmarksFeature"),
                 .project(target: "SettingsFeature", path: "../Features/SettingsFeature")

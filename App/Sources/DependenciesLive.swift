@@ -5,16 +5,28 @@ import ArchiveKit
 import PersistenceKit
 import ImageCacheKit
 import ThumbnailKit
+import CloudSyncKit
 import LibraryFeature
 import ReaderFeature
 import BookmarksFeature
 import SettingsFeature
 
 enum LiveDependencies {
+    static let containerIdentifier = "iCloud.com.example.mana"
+
     static func register() {
-        let stack = try! SwiftDataStack.onDisk(
-            url: URL.applicationSupportDirectory.appending(path: "mana.store")
-        )
+        let ubi = UbiquityContainer(identifier: containerIdentifier)
+
+        // Pick the SwiftData stack: CloudKit if available, on-disk otherwise.
+        let stack: SwiftDataStack
+        if ubi.isAvailable, let cloudStack = try? SwiftDataStack.cloudKit(containerIdentifier: containerIdentifier) {
+            stack = cloudStack
+        } else {
+            stack = try! SwiftDataStack.onDisk(
+                url: URL.applicationSupportDirectory.appending(path: "mana.store")
+            )
+        }
+
         let comicRepo = ComicRepositoryLive(stack: stack)
         let progressRepo = ProgressRepositoryLive(stack: stack)
         let bookmarkRepo = BookmarkRepositoryLive(stack: stack)
@@ -26,8 +38,16 @@ enum LiveDependencies {
         let thumbnails = ThumbnailProviderLive(
             cacheDir: URL.cachesDirectory.appending(path: "mana-thumbs")
         )
+        let fileSync = FileSyncServiceLive(
+            containerURL: ubi.containerURL,
+            isAvailable: ubi.isAvailable
+        )
         let importer = LibraryImporterLive(
-            repo: comicRepo, router: router, cache: cache, thumbnails: thumbnails
+            repo: comicRepo,
+            router: router,
+            cache: cache,
+            thumbnails: thumbnails,
+            fileSync: fileSync
         )
 
         prepareDependencies {
@@ -38,6 +58,7 @@ enum LiveDependencies {
             $0.libraryImporter = importer
             $0.bookmarkRepository = bookmarkRepo
             $0.userDefaults = LiveUserDefaultsClient()
+            $0.fileSyncService = fileSync
         }
     }
 }
