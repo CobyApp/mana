@@ -19,6 +19,7 @@ public struct ReaderFeature {
         public var mode: ReadingMode
         public var isControlsVisible: Bool
         public var loadedIndices: Set<Int>
+        public var securityScopedURL: URL?
         @Presents public var alert: AlertState<Action.Alert>?
 
         public init(
@@ -28,7 +29,8 @@ public struct ReaderFeature {
             pageCount: Int = 0,
             mode: ReadingMode = .single,
             isControlsVisible: Bool = false,
-            loadedIndices: Set<Int> = []
+            loadedIndices: Set<Int> = [],
+            securityScopedURL: URL? = nil
         ) {
             self.comic = comic
             self.handle = handle
@@ -37,6 +39,7 @@ public struct ReaderFeature {
             self.mode = mode
             self.isControlsVisible = isControlsVisible
             self.loadedIndices = loadedIndices
+            self.securityScopedURL = securityScopedURL
         }
     }
 
@@ -51,6 +54,7 @@ public struct ReaderFeature {
         case persistProgress
         case modeChanged(ReadingMode)
         case bookmarksTapped(comicId: UUID, pageIndex: Int)
+        case startedSecurityScope(URL)
         case onDisappear
         case alert(PresentationAction<Alert>)
 
@@ -86,9 +90,7 @@ public struct ReaderFeature {
                             try? await fileSync.ensureLocal(url: url)
                         }
 
-                        // Hold a security scope for the lifetime of this reader session.
-                        // (Plan 4 polish: stop scope on .onDisappear.)
-                        _ = url.startAccessingSecurityScopedResource()
+                        let didStart = url.startAccessingSecurityScopedResource()
 
                         let reader = router.reader(for: comic.format)
                         let handle = try await reader.openArchive(at: url)
@@ -97,6 +99,9 @@ public struct ReaderFeature {
                         let lastPage = saved.map { min(max(0, $0.lastPageIndex), max(0, pageCount - 1)) } ?? 0
                         await send(.opened(handle: handle, pageCount: pageCount, lastPage: lastPage))
                         await send(.prefetchHint(lastPage))
+                        if didStart {
+                            await send(.startedSecurityScope(url))
+                        }
                     } catch {
                         await send(.openFailed(error.localizedDescription))
                     }
@@ -195,13 +200,24 @@ public struct ReaderFeature {
                 // Parent (AppFeature) handles navigation
                 return .none
 
+            case let .startedSecurityScope(url):
+                state.securityScopedURL = url
+                return .none
+
             case .onDisappear:
-                guard let handle = state.handle else { return .none }
-                let format = state.comic.format
+                let scopedURL = state.securityScopedURL
+                state.securityScopedURL = nil
+                let handle = state.handle
                 state.handle = nil
+                let format = state.comic.format
                 return .run { _ in
-                    let reader = router.reader(for: format)
-                    await reader.closeArchive(handle)
+                    if let handle {
+                        let reader = router.reader(for: format)
+                        await reader.closeArchive(handle)
+                    }
+                    if let scopedURL {
+                        scopedURL.stopAccessingSecurityScopedResource()
+                    }
                 }
 
             case .alert:
