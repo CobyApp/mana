@@ -37,7 +37,11 @@ public struct FolderCard: View {
         .buttonStyle(.plain)
         .contextMenu {
             Button(role: .destructive, action: onDelete) {
-                Label("Delete", systemImage: "trash")
+                Label {
+                    Text("library.delete", bundle: .module)
+                } icon: {
+                    Image(systemName: "trash")
+                }
             }
         }
     }

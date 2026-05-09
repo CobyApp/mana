@@ -15,3 +15,12 @@
 "library.import_failed"     = "読み込み失敗";
 "library.importing"         = "読み込み中…";
 "library.folders"           = "フォルダ";
+"library.sort.recent"      = "最近追加";
+"library.sort.oldest"      = "古い順";
+"library.sort.title_asc"   = "タイトル昇順";
+"library.sort.title_desc"  = "タイトル降順";
+"library.sort.size_desc"   = "大きい順";
+"library.filter.all"       = "すべて";
+"library.filter.zip"       = "ZIP/CBZ";
+"library.filter.rar"       = "RAR/CBR";
+"library.filter.pdf"       = "PDF";

@@ -136,20 +136,20 @@ public struct ReaderView: View {
                 .tint(Tokens.Colors.accent)
 
                 Menu {
-                    Picker("Mode", selection: Binding(
+                    Picker(selection: Binding(
                         get: { store.mode },
                         set: { store.send(.modeChanged($0)) }
-                    )) {
+                    ), label: Text("reader.controls.mode", bundle: .module)) {
                         Text(LocalizedStringKey("mode.single")).tag(ReadingMode.single)
                         Text(LocalizedStringKey("mode.dual")).tag(ReadingMode.dual)
                         Text(LocalizedStringKey("mode.scroll.ltr")).tag(ReadingMode.scroll(direction: .ltr))
                         Text(LocalizedStringKey("mode.scroll.rtl")).tag(ReadingMode.scroll(direction: .rtl))
                         Text(LocalizedStringKey("mode.scroll.ttb")).tag(ReadingMode.scroll(direction: .ttb))
                     }
-                    Picker("Direction", selection: Binding(
+                    Picker(selection: Binding(
                         get: { store.pageProgressionDirection },
                         set: { store.send(.progressionDirectionChanged($0)) }
-                    )) {
+                    ), label: Text("reader.controls.direction", bundle: .module)) {
                         Text(LocalizedStringKey("direction.ltr")).tag(PageProgressionDirection.leftToRight)
                         Text(LocalizedStringKey("direction.rtl")).tag(PageProgressionDirection.rightToLeft)
                     }

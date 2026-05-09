@@ -325,18 +325,37 @@ public struct LibraryFeature {
 
 // Existing types kept (LibrarySortOrder, LibraryFilter, dependency keys)
 public enum LibrarySortOrder: String, CaseIterable, Sendable, Equatable {
-    case dateAddedDesc = "Recently added"
-    case dateAddedAsc = "Oldest first"
-    case titleAsc = "Title A→Z"
-    case titleDesc = "Title Z→A"
-    case fileSizeDesc = "Largest first"
+    case dateAddedDesc
+    case dateAddedAsc
+    case titleAsc
+    case titleDesc
+    case fileSizeDesc
+
+    public var localizationKey: String {
+        switch self {
+        case .dateAddedDesc: return "library.sort.recent"
+        case .dateAddedAsc:  return "library.sort.oldest"
+        case .titleAsc:      return "library.sort.title_asc"
+        case .titleDesc:     return "library.sort.title_desc"
+        case .fileSizeDesc:  return "library.sort.size_desc"
+        }
+    }
 }
 
 public enum LibraryFilter: String, CaseIterable, Sendable, Equatable {
-    case all = "All"
-    case zip = "ZIP/CBZ"
-    case rar = "RAR/CBR"
-    case pdf = "PDF"
+    case all
+    case zip
+    case rar
+    case pdf
+
+    public var localizationKey: String {
+        switch self {
+        case .all: return "library.filter.all"
+        case .zip: return "library.filter.zip"
+        case .rar: return "library.filter.rar"
+        case .pdf: return "library.filter.pdf"
+        }
+    }
 }
 
 private enum ComicRepositoryKey: DependencyKey {

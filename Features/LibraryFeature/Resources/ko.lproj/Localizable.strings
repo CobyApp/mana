@@ -15,3 +15,12 @@
 "library.import_failed"     = "가져오기 실패";
 "library.importing"         = "가져오는 중…";
 "library.folders"           = "폴더";
+"library.sort.recent"      = "최근 추가됨";
+"library.sort.oldest"      = "오래된 순";
+"library.sort.title_asc"   = "제목 ㄱ→ㅎ";
+"library.sort.title_desc"  = "제목 ㅎ→ㄱ";
+"library.sort.size_desc"   = "큰 파일 먼저";
+"library.filter.all"       = "전체";
+"library.filter.zip"       = "ZIP/CBZ";
+"library.filter.rar"       = "RAR/CBR";
+"library.filter.pdf"       = "PDF";

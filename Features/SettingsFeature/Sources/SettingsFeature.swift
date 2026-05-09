@@ -100,8 +100,11 @@ public struct SettingsFeature {
             case let .appLanguageChanged(lang):
                 state.appLanguage = lang
                 defaults.set(lang.rawValue, forKey: Self.languageKey)
-                let arrayString = (lang == .system) ? "[]" : "[\"\(lang.rawValue)\"]"
-                defaults.set(arrayString, forKey: "AppleLanguages")
+                if lang == .system {
+                    defaults.removeObject(forKey: "AppleLanguages")
+                } else {
+                    defaults.setStringArray([lang.rawValue], forKey: "AppleLanguages")
+                }
                 return .none
             }
         }
@@ -126,6 +129,8 @@ public protocol UserDefaultsClient: Sendable {
     func string(forKey key: String) -> String?
     func set(_ value: String, forKey key: String)
     func double(forKey key: String) -> Double
+    func removeObject(forKey key: String)
+    func setStringArray(_ value: [String], forKey key: String)
 }
 
 public struct LiveUserDefaultsClient: UserDefaultsClient {
@@ -138,6 +143,12 @@ public struct LiveUserDefaultsClient: UserDefaultsClient {
     }
     public func double(forKey key: String) -> Double {
         UserDefaults.standard.double(forKey: key)
+    }
+    public func removeObject(forKey key: String) {
+        UserDefaults.standard.removeObject(forKey: key)
+    }
+    public func setStringArray(_ value: [String], forKey key: String) {
+        UserDefaults.standard.set(value, forKey: key)
     }
 }
 
@@ -156,6 +167,14 @@ public final class InMemoryUserDefaults: UserDefaultsClient, @unchecked Sendable
     public func double(forKey key: String) -> Double {
         lock.lock(); defer { lock.unlock() }
         return values[key].flatMap(Double.init) ?? 0
+    }
+    public func removeObject(forKey key: String) {
+        lock.lock(); defer { lock.unlock() }
+        values.removeValue(forKey: key)
+    }
+    public func setStringArray(_ value: [String], forKey key: String) {
+        lock.lock(); defer { lock.unlock() }
+        values[key] = value.joined(separator: ",")
     }
 }
 

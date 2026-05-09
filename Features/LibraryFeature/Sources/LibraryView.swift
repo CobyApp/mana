@@ -38,7 +38,11 @@ public struct LibraryView: View {
                 } header: {
                     HStack {
                         Button { store.send(.backToRoot) } label: {
-                            Label("Library", systemImage: "chevron.left")
+                            Label {
+                                Text("library.title", bundle: .module)
+                            } icon: {
+                                Image(systemName: "chevron.left")
+                            }
                         }
                         Text("/").foregroundStyle(.secondary)
                         Text(folder.name).fontWeight(.semibold)
@@ -83,17 +87,21 @@ public struct LibraryView: View {
                     Button { showImporter = true } label: {
                         Label(LocalizedStringKey("library.import_dotdotdot"), systemImage: "doc.badge.plus")
                     }
-                    Picker("Sort", selection: Binding(
+                    Picker(selection: Binding(
                         get: { store.sort },
                         set: { store.send(.sortChanged($0)) }
-                    )) {
-                        ForEach(LibrarySortOrder.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                    ), label: Text("library.sort", bundle: .module)) {
+                        ForEach(LibrarySortOrder.allCases, id: \.self) {
+                            Text(LocalizedStringKey($0.localizationKey), bundle: .module).tag($0)
+                        }
                     }
-                    Picker("Filter", selection: Binding(
+                    Picker(selection: Binding(
                         get: { store.filter },
                         set: { store.send(.filterChanged($0)) }
-                    )) {
-                        ForEach(LibraryFilter.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                    ), label: Text("library.filter", bundle: .module)) {
+                        ForEach(LibraryFilter.allCases, id: \.self) {
+                            Text(LocalizedStringKey($0.localizationKey), bundle: .module).tag($0)
+                        }
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")

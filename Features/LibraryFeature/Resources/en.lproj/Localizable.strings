@@ -15,3 +15,12 @@
 "library.import_failed"     = "Import failed";
 "library.importing"         = "Importing…";
 "library.folders"           = "Folders";
+"library.sort.recent"      = "Recently Added";
+"library.sort.oldest"      = "Oldest First";
+"library.sort.title_asc"   = "Title A→Z";
+"library.sort.title_desc"  = "Title Z→A";
+"library.sort.size_desc"   = "Largest First";
+"library.filter.all"       = "All";
+"library.filter.zip"       = "ZIP/CBZ";
+"library.filter.rar"       = "RAR/CBR";
+"library.filter.pdf"       = "PDF";
