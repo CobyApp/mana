@@ -39,6 +39,8 @@ public actor ComicRepositoryLive: ComicRepository {
             existing.fileSizeBytes = item.fileSizeBytes
             existing.readingModeRaw = item.readingMode?.rawString
             existing.urlBookmarkData = item.urlBookmarkData
+            existing.folderId = item.folderId
+            existing.pageProgressionDirectionRaw = item.pageProgressionDirection?.rawValue
         } else {
             context.insert(ComicEntity.from(item))
         }

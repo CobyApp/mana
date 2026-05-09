@@ -14,6 +14,8 @@ public final class ComicEntity {
     public var fileSizeBytes: Int64 = 0
     public var readingModeRaw: String?
     public var urlBookmarkData: Data?
+    public var folderId: UUID?
+    public var pageProgressionDirectionRaw: String?
 
     public init(
         id: UUID,
@@ -25,7 +27,9 @@ public final class ComicEntity {
         dateAdded: Date,
         fileSizeBytes: Int64,
         readingModeRaw: String? = nil,
-        urlBookmarkData: Data? = nil
+        urlBookmarkData: Data? = nil,
+        folderId: UUID? = nil,
+        pageProgressionDirectionRaw: String? = nil
     ) {
         self.id = id
         self.urlString = urlString
@@ -37,10 +41,13 @@ public final class ComicEntity {
         self.fileSizeBytes = fileSizeBytes
         self.readingModeRaw = readingModeRaw
         self.urlBookmarkData = urlBookmarkData
+        self.folderId = folderId
+        self.pageProgressionDirectionRaw = pageProgressionDirectionRaw
     }
 
     public func toModel() -> ComicItem {
         let mode = readingModeRaw.flatMap { ReadingMode(rawString: $0) }
+        let direction = pageProgressionDirectionRaw.flatMap { PageProgressionDirection(rawValue: $0) }
         return ComicItem(
             id: id,
             url: URL(string: urlString) ?? URL(fileURLWithPath: urlString),
@@ -51,7 +58,9 @@ public final class ComicEntity {
             dateAdded: dateAdded,
             fileSizeBytes: fileSizeBytes,
             readingMode: mode,
-            urlBookmarkData: urlBookmarkData
+            urlBookmarkData: urlBookmarkData,
+            folderId: folderId,
+            pageProgressionDirection: direction
         )
     }
 
@@ -66,8 +75,31 @@ public final class ComicEntity {
             dateAdded: item.dateAdded,
             fileSizeBytes: item.fileSizeBytes,
             readingModeRaw: item.readingMode?.rawString,
-            urlBookmarkData: item.urlBookmarkData
+            urlBookmarkData: item.urlBookmarkData,
+            folderId: item.folderId,
+            pageProgressionDirectionRaw: item.pageProgressionDirection?.rawValue
         )
+    }
+}
+
+@Model
+public final class FolderEntity {
+    public var id: UUID = UUID()
+    public var name: String = ""
+    public var dateAdded: Date = Date(timeIntervalSince1970: 0)
+
+    public init(id: UUID, name: String, dateAdded: Date) {
+        self.id = id
+        self.name = name
+        self.dateAdded = dateAdded
+    }
+
+    public func toModel() -> Folder {
+        Folder(id: id, name: name, dateAdded: dateAdded)
+    }
+
+    public static func from(_ folder: Folder) -> FolderEntity {
+        FolderEntity(id: folder.id, name: folder.name, dateAdded: folder.dateAdded)
     }
 }
 
