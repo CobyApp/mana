@@ -1,9 +1,9 @@
 "library.title"             = "라이브러리";
 "library.empty"             = "아직 만화가 없습니다";
 "library.import"            = "가져오기";
-"library.import_dotdotdot"  = "가져오기…";
+"library.import_dotdotdot"  = "가져오기";
 "library.new_folder"        = "새 폴더";
-"library.move_to"           = "이동…";
+"library.move_to"           = "이동";
 "library.move_to_root"      = "루트로 이동";
 "library.delete"            = "삭제";
 "library.sort"              = "정렬";
@@ -13,7 +13,7 @@
 "library.folder_name"       = "폴더 이름";
 "library.folder_name_placeholder" = "예: 만화";
 "library.import_failed"     = "가져오기 실패";
-"library.importing"         = "가져오는 중…";
+"library.importing"         = "가져오는 중";
 "library.folders"           = "폴더";
 "library.sort.recent"      = "최근 추가됨";
 "library.sort.oldest"      = "오래된 순";
