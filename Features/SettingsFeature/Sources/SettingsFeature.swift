@@ -10,19 +10,16 @@ public struct SettingsFeature {
     public struct State: Equatable {
         public var defaultMode: ReadingMode
         public var defaultPageProgressionDirection: PageProgressionDirection
-        public var controlsAutoHideSeconds: Double
         public var appLanguage: AppLanguage
         @Presents public var resetAlert: AlertState<Action.ResetAlert>?
 
         public init(
             defaultMode: ReadingMode = .single,
             defaultPageProgressionDirection: PageProgressionDirection = .leftToRight,
-            controlsAutoHideSeconds: Double = 3.0,
             appLanguage: AppLanguage = .system
         ) {
             self.defaultMode = defaultMode
             self.defaultPageProgressionDirection = defaultPageProgressionDirection
-            self.controlsAutoHideSeconds = controlsAutoHideSeconds
             self.appLanguage = appLanguage
         }
     }
@@ -31,7 +28,6 @@ public struct SettingsFeature {
         case task
         case defaultModeChanged(ReadingMode)
         case defaultDirectionChanged(PageProgressionDirection)
-        case controlsAutoHideChanged(Double)
         case appLanguageChanged(AppLanguage)
         case resetLibraryRequested
         case resetAlert(PresentationAction<ResetAlert>)
@@ -57,10 +53,6 @@ public struct SettingsFeature {
                    let dir = PageProgressionDirection(rawValue: raw) {
                     state.defaultPageProgressionDirection = dir
                 }
-                if let raw = defaults.string(forKey: Self.autoHideKey),
-                   let val = Double(raw) {
-                    state.controlsAutoHideSeconds = val
-                }
                 if let raw = defaults.string(forKey: Self.languageKey),
                    let lang = AppLanguage(rawValue: raw) {
                     state.appLanguage = lang
@@ -75,11 +67,6 @@ public struct SettingsFeature {
             case let .defaultDirectionChanged(dir):
                 state.defaultPageProgressionDirection = dir
                 defaults.set(dir.rawValue, forKey: Self.directionKey)
-                return .none
-
-            case let .controlsAutoHideChanged(val):
-                state.controlsAutoHideSeconds = val
-                defaults.set(String(val), forKey: Self.autoHideKey)
                 return .none
 
             case let .appLanguageChanged(lang):
@@ -126,7 +113,6 @@ public struct SettingsFeature {
 
     public static let modeKey = "mana.defaultReadingMode"
     public static let directionKey = "mana.defaultPageProgressionDirection"
-    public static let autoHideKey = "mana.controlsAutoHideSeconds"
     public static let languageKey = "mana.appLanguage"
 }
 

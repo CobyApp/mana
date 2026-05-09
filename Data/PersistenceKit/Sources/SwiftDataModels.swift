@@ -122,23 +122,3 @@ public final class ReadingProgressEntity {
     }
 }
 
-@Model
-public final class BookmarkEntity {
-    public var id: UUID = UUID()
-    public var comicId: UUID = UUID()
-    public var pageIndex: Int = 0
-    public var note: String?
-    public var createdAt: Date = Date(timeIntervalSince1970: 0)
-
-    public init(id: UUID, comicId: UUID, pageIndex: Int, note: String?, createdAt: Date) {
-        self.id = id
-        self.comicId = comicId
-        self.pageIndex = pageIndex
-        self.note = note
-        self.createdAt = createdAt
-    }
-
-    public func toModel() -> Bookmark {
-        Bookmark(id: id, comicId: comicId, pageIndex: pageIndex, note: note, createdAt: createdAt)
-    }
-}

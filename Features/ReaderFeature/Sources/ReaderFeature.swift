@@ -21,8 +21,6 @@ public struct ReaderFeature {
         public var isControlsVisible: Bool
         public var loadedIndices: Set<Int>
         public var securityScopedURL: URL?
-        public var controlsAutoHideSeconds: Double = 5.0
-        public var isSliderDragging: Bool = false
         @Presents public var alert: AlertState<Action.Alert>?
 
         public init(
@@ -54,13 +52,9 @@ public struct ReaderFeature {
         case pageLoaded(index: Int)
         case prefetchHint(Int)
         case toggleControls
-        case autoHideControls
-        case sliderDragStart
-        case sliderDragEnd
         case persistProgress
         case modeChanged(ReadingMode)
         case progressionDirectionChanged(PageProgressionDirection)
-        case bookmarksTapped(comicId: UUID)
         case startedSecurityScope(URL)
         case onDisappear
         case alert(PresentationAction<Alert>)
@@ -134,8 +128,6 @@ public struct ReaderFeature {
                           let dir = PageProgressionDirection(rawValue: raw) {
                     state.pageProgressionDirection = dir
                 }
-                let storedHide = userDefaults.double(forKey: SettingsFeature.autoHideKey)
-                state.controlsAutoHideSeconds = storedHide == 0 ? 5.0 : storedHide
                 return .none
 
             case let .openFailed(message):
@@ -181,32 +173,7 @@ public struct ReaderFeature {
 
             case .toggleControls:
                 state.isControlsVisible.toggle()
-                guard state.isControlsVisible, state.controlsAutoHideSeconds > 0 else { return .none }
-                let seconds = state.controlsAutoHideSeconds
-                let mainQueue = self.mainQueue
-                return .run { send in
-                    await send(.autoHideControls)
-                }
-                .debounce(id: AutoHideID(), for: .seconds(seconds), scheduler: mainQueue)
-
-            case .autoHideControls:
-                guard !state.isSliderDragging else { return .none }
-                state.isControlsVisible = false
                 return .none
-
-            case .sliderDragStart:
-                state.isSliderDragging = true
-                return .cancel(id: AutoHideID())
-
-            case .sliderDragEnd:
-                state.isSliderDragging = false
-                guard state.isControlsVisible, state.controlsAutoHideSeconds > 0 else { return .none }
-                let seconds = state.controlsAutoHideSeconds
-                let mainQueue = self.mainQueue
-                return .run { send in
-                    await send(.autoHideControls)
-                }
-                .debounce(id: AutoHideID(), for: .seconds(seconds), scheduler: mainQueue)
 
             case .persistProgress:
                 let p = ReadingProgress(
@@ -252,9 +219,6 @@ public struct ReaderFeature {
                 let comicRepo = self.comicRepo
                 return .run { _ in try? await comicRepo.upsert(updated) }
 
-            case .bookmarksTapped:
-                return .none
-
             case let .startedSecurityScope(url):
                 state.securityScopedURL = url
                 return .none
@@ -282,7 +246,6 @@ public struct ReaderFeature {
     }
 
     private struct PersistDebounce: Hashable {}
-    private struct AutoHideID: Hashable {}
 }
 
 // MARK: - Dependency Keys

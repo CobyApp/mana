@@ -3,7 +3,6 @@ import ComposableArchitecture
 import Domain
 import LibraryFeature
 import ReaderFeature
-import BookmarksFeature
 import SettingsFeature
 
 @Reducer
@@ -13,7 +12,6 @@ public struct AppFeature {
     @Reducer
     public enum Path {
         case reader(ReaderFeature)
-        case bookmarks(BookmarksFeature)
         case settings(SettingsFeature)
     }
 
@@ -49,25 +47,6 @@ public struct AppFeature {
 
             case .library(.settingsTapped):
                 state.path.append(.settings(SettingsFeature.State()))
-                return .none
-
-            case let .path(.element(id: id, action: .reader(.bookmarksTapped(comicId)))):
-                // Get current page from the reader state
-                var pageIndex = 0
-                if case let .reader(readerState) = state.path[id: id] {
-                    pageIndex = readerState.pageIndex
-                }
-                state.path.append(.bookmarks(BookmarksFeature.State(comicId: comicId, currentPageIndex: pageIndex)))
-                return .none
-
-            case let .path(.element(id: _, action: .bookmarks(.tapped(bookmark)))):
-                state.path.removeLast()
-                if let lastId = state.path.ids.last,
-                   case var .reader(readerState) = state.path[id: lastId],
-                   readerState.comic.id == bookmark.comicId {
-                    readerState.pageIndex = bookmark.pageIndex
-                    state.path[id: lastId] = .reader(readerState)
-                }
                 return .none
 
             case .library, .path:

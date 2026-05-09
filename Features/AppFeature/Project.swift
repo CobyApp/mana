@@ -8,7 +8,6 @@ let project = Module(
         .project(target: "Domain", path: "../../Domain"),
         .project(target: "LibraryFeature", path: "../LibraryFeature"),
         .project(target: "ReaderFeature", path: "../ReaderFeature"),
-        .project(target: "BookmarksFeature", path: "../BookmarksFeature"),
         .project(target: "SettingsFeature", path: "../SettingsFeature")
     ],
     externalDependencies: ["ComposableArchitecture"]

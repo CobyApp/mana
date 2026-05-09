@@ -242,33 +242,6 @@ private struct StubRouter: ArchiveReaderRouter {
     #expect(stored.first?.pageProgressionDirection == .rightToLeft)
 }
 
-@Test func toggleControlsSchedulesAutoHide() async {
-    let comic = ComicItem(
-        id: UUID(), url: URL(fileURLWithPath: "/tmp/x.cbz"), format: .cbz, title: "X",
-        pageCount: 5, coverThumbnail: nil, dateAdded: .init(timeIntervalSince1970: 0),
-        fileSizeBytes: 0
-    )
-    let store = await TestStore(initialState: ReaderFeature.State(comic: comic, pageCount: 5)) {
-        ReaderFeature()
-    } withDependencies: {
-        $0.archiveReaderRouter = StubRouter(reader: StubReader(handle: ArchiveHandle(), pages: []))
-        $0.progressRepository = InMemoryProgressRepo(initial: [])
-        $0.imageCache = ImageCache.inMemoryOnly()
-        $0.mainQueue = .immediate
-        $0.comicRepository = StubComicRepoForReader(initial: [comic])
-        $0.fileSyncService = UnavailableFileSync()
-        $0.userDefaults = InMemoryUserDefaults()
-    }
-    store.exhaustivity = .off(showSkippedAssertions: false)
-
-    await store.send(.toggleControls) {
-        $0.isControlsVisible = true
-    }
-    // mainQueue == .immediate, so autoHideControls fires synchronously
-    await store.receive(\.autoHideControls) {
-        $0.isControlsVisible = false
-    }
-}
 
 actor InMemoryProgressRepo: ProgressRepository {
     private var store: [UUID: ReadingProgress]

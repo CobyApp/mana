@@ -54,20 +54,6 @@ import Domain
         #expect(defaults.string(forKey: SettingsFeature.directionKey) == "rightToLeft")
     }
 
-    @Test func controlsAutoHideChangedPersists() async {
-        let defaults = InMemoryUserDefaults()
-        let store = await TestStore(initialState: SettingsFeature.State()) {
-            SettingsFeature()
-        } withDependencies: {
-            $0.userDefaults = defaults
-        }
-        await store.send(.controlsAutoHideChanged(5.0)) {
-            $0.controlsAutoHideSeconds = 5.0
-        }
-        // Stored as a string for the same getter API used elsewhere
-        #expect(defaults.string(forKey: SettingsFeature.autoHideKey) == "5.0")
-    }
-
     @Test func appLanguageChangedSetsAppleLanguages() async {
         let defaults = InMemoryUserDefaults()
         let store = await TestStore(initialState: SettingsFeature.State()) {

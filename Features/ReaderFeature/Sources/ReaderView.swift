@@ -124,11 +124,8 @@ public struct ReaderView: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
             Spacer()
-            Button { store.send(.bookmarksTapped(comicId: store.comic.id)) } label: {
-                Image(systemName: "bookmark")
-                    .font(.title3.weight(.semibold))
-                    .frame(width: 36, height: 36)
-            }
+            // Invisible spacer matching the back button's width to keep title centered
+            Color.clear.frame(width: 36, height: 36)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -152,10 +149,7 @@ public struct ReaderView: View {
                             set: { store.send(.pageChanged(Int($0.rounded()))) }
                         ),
                         in: 0...Double(store.pageCount - 1),
-                        step: 1,
-                        onEditingChanged: { editing in
-                            store.send(editing ? .sliderDragStart : .sliderDragEnd)
-                        }
+                        step: 1
                     )
                     .tint(Tokens.Colors.accent)
                 } else {

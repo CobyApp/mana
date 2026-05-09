@@ -6,20 +6,17 @@ import ImageCacheKit
 public struct LibraryResetServiceLive: LibraryResetService {
     let comicRepo: any ComicRepository
     let folderRepo: any FolderRepository
-    let bookmarkRepo: any BookmarkRepository
     let ubiquityContainerURL: URL?
     let imageCache: ImageCache
 
     public init(
         comicRepo: any ComicRepository,
         folderRepo: any FolderRepository,
-        bookmarkRepo: any BookmarkRepository,
         ubiquityContainerURL: URL?,
         imageCache: ImageCache
     ) {
         self.comicRepo = comicRepo
         self.folderRepo = folderRepo
-        self.bookmarkRepo = bookmarkRepo
         self.ubiquityContainerURL = ubiquityContainerURL
         self.imageCache = imageCache
     }
@@ -31,11 +28,6 @@ public struct LibraryResetServiceLive: LibraryResetService {
         for comic in allComics {
             // Delete file (removeItem works for both local and iCloud files on iOS)
             try? fm.removeItem(at: comic.url)
-            // Delete bookmarks for this comic
-            let bms = await bookmarkRepo.bookmarks(comicId: comic.id)
-            for bm in bms {
-                try? await bookmarkRepo.remove(id: bm.id)
-            }
             // Delete record
             try? await comicRepo.delete(comic.id)
         }

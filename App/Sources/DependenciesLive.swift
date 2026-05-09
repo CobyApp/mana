@@ -8,7 +8,6 @@ import ThumbnailKit
 import CloudSyncKit
 import LibraryFeature
 import ReaderFeature
-import BookmarksFeature
 import SettingsFeature
 
 enum LiveDependencies {
@@ -28,7 +27,6 @@ enum LiveDependencies {
 
         let comicRepo = ComicRepositoryLive(stack: stack)
         let progressRepo = ProgressRepositoryLive(stack: stack)
-        let bookmarkRepo = BookmarkRepositoryLive(stack: stack)
         let folderRepo = FolderRepositoryLive(stack: stack)
         let router = DefaultArchiveReaderRouter()
         let cache = ImageCache(
@@ -49,7 +47,6 @@ enum LiveDependencies {
         let libraryReset = LibraryResetServiceLive(
             comicRepo: comicRepo,
             folderRepo: folderRepo,
-            bookmarkRepo: bookmarkRepo,
             ubiquityContainerURL: ubi.containerURL,
             imageCache: cache
         )
@@ -60,7 +57,6 @@ enum LiveDependencies {
             $0.imageCache = cache
             $0.comicRepository = comicRepo
             $0.libraryImporter = importer
-            $0.bookmarkRepository = bookmarkRepo
             $0.folderRepository = folderRepo
             $0.userDefaults = LiveUserDefaultsClient()
             $0.fileSyncService = fileSync

@@ -2,7 +2,6 @@ import SwiftUI
 import ComposableArchitecture
 import LibraryFeature
 import ReaderFeature
-import BookmarksFeature
 import SettingsFeature
 
 public struct AppView: View {
@@ -19,8 +18,6 @@ public struct AppView: View {
             switch store.case {
             case let .reader(readerStore):
                 ReaderView(store: readerStore)
-            case let .bookmarks(bmStore):
-                BookmarksView(store: bmStore)
             case let .settings(settingsStore):
                 SettingsView(store: settingsStore)
             }

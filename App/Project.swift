@@ -34,7 +34,6 @@ let project = Project(
                 .project(target: "AppFeature", path: "../Features/AppFeature"),
                 .project(target: "LibraryFeature", path: "../Features/LibraryFeature"),
                 .project(target: "ReaderFeature", path: "../Features/ReaderFeature"),
-                .project(target: "BookmarksFeature", path: "../Features/BookmarksFeature"),
                 .project(target: "SettingsFeature", path: "../Features/SettingsFeature"),
                 .project(target: "ArchiveKit", path: "../Data/ArchiveKit"),
                 .project(target: "PersistenceKit", path: "../Data/PersistenceKit"),
@@ -63,7 +62,6 @@ let project = Project(
                 .project(target: "ThumbnailKit", path: "../Data/ThumbnailKit"),
                 .project(target: "CloudSyncKit", path: "../Data/CloudSyncKit"),
                 .project(target: "LibraryFeature", path: "../Features/LibraryFeature"),
-                .project(target: "BookmarksFeature", path: "../Features/BookmarksFeature"),
                 .project(target: "SettingsFeature", path: "../Features/SettingsFeature")
             ],
             settings: .settings(base: [
