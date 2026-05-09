@@ -4,7 +4,6 @@ import Domain
 import ImageCacheKit
 import DesignSystem
 import SharedUI
-import SettingsFeature
 import UIKit
 
 public struct ReaderView: View {
@@ -61,8 +60,6 @@ public struct ReaderView: View {
         )
         let hint: (Int) -> Void = { idx in store.send(.prefetchHint(idx)) }
         let direction = store.pageProgressionDirection
-        let tapZones = tapZonesEnabledFromDefaults
-        let swipe = swipeEnabledFromDefaults
         let centerTap: () -> Void = { store.send(.toggleControls) }
 
         switch store.mode {
@@ -73,8 +70,8 @@ public struct ReaderView: View {
                 pageImage: provider,
                 onPrefetchHint: hint,
                 progressionDirection: direction,
-                tapZonesEnabled: tapZones,
-                swipeEnabled: swipe,
+                tapZonesEnabled: true,
+                swipeEnabled: true,
                 onCenterTap: centerTap
             )
         case .dual:
@@ -84,17 +81,9 @@ public struct ReaderView: View {
                 pageImage: provider,
                 onPrefetchHint: hint,
                 progressionDirection: direction,
-                tapZonesEnabled: tapZones,
-                swipeEnabled: swipe,
+                tapZonesEnabled: true,
+                swipeEnabled: true,
                 onCenterTap: centerTap
-            )
-        case .scroll(let scrollDirection):
-            ScrollPageRenderer(
-                totalPages: store.pageCount,
-                current: binding,
-                pageImage: provider,
-                onPrefetchHint: hint,
-                direction: scrollDirection
             )
         }
     }
@@ -180,9 +169,6 @@ public struct ReaderView: View {
                     ), label: Text("reader.controls.mode", bundle: .module)) {
                         Text("mode.single", bundle: .module).tag(ReadingMode.single)
                         Text("mode.dual", bundle: .module).tag(ReadingMode.dual)
-                        Text("mode.scroll.ltr", bundle: .module).tag(ReadingMode.scroll(direction: .ltr))
-                        Text("mode.scroll.rtl", bundle: .module).tag(ReadingMode.scroll(direction: .rtl))
-                        Text("mode.scroll.ttb", bundle: .module).tag(ReadingMode.scroll(direction: .ttb))
                     }
                     Picker(selection: Binding(
                         get: { store.pageProgressionDirection },
@@ -204,15 +190,4 @@ public struct ReaderView: View {
         .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
     }
 
-    private var tapZonesEnabledFromDefaults: Bool {
-        @Dependency(\.userDefaults) var defaults
-        let stored = defaults.string(forKey: SettingsFeature.tapZonesKey)
-        return stored != "false"   // default ON
-    }
-
-    private var swipeEnabledFromDefaults: Bool {
-        @Dependency(\.userDefaults) var defaults
-        let stored = defaults.string(forKey: SettingsFeature.swipeKey)
-        return stored != "false"   // default ON
-    }
 }

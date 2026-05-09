@@ -109,16 +109,16 @@ private struct StubRouter: ArchiveReaderRouter {
             coverThumbnail: comic.coverThumbnail,
             dateAdded: comic.dateAdded,
             fileSizeBytes: comic.fileSizeBytes,
-            readingMode: .scroll(direction: .rtl)
+            readingMode: .dual
         )
-        await store.send(.modeChanged(.scroll(direction: .rtl))) {
-            $0.mode = .scroll(direction: .rtl)
+        await store.send(.modeChanged(.dual)) {
+            $0.mode = .dual
             $0.comic = expectedComic
         }
         // Allow effect to flush
         try? await Task.sleep(nanoseconds: 50_000_000)
         let stored = await repo.all()
-        #expect(stored.first?.readingMode == .scroll(direction: .rtl))
+        #expect(stored.first?.readingMode == .dual)
     }
 
     @Test func modeChangedPreservesBookmarkData() async {

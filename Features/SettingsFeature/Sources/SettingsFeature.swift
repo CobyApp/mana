@@ -11,23 +11,17 @@ public struct SettingsFeature {
         public var defaultMode: ReadingMode
         public var defaultPageProgressionDirection: PageProgressionDirection
         public var controlsAutoHideSeconds: Double
-        public var tapZonesEnabled: Bool
-        public var swipeEnabled: Bool
         public var appLanguage: AppLanguage
 
         public init(
             defaultMode: ReadingMode = .single,
             defaultPageProgressionDirection: PageProgressionDirection = .leftToRight,
             controlsAutoHideSeconds: Double = 3.0,
-            tapZonesEnabled: Bool = true,
-            swipeEnabled: Bool = true,
             appLanguage: AppLanguage = .system
         ) {
             self.defaultMode = defaultMode
             self.defaultPageProgressionDirection = defaultPageProgressionDirection
             self.controlsAutoHideSeconds = controlsAutoHideSeconds
-            self.tapZonesEnabled = tapZonesEnabled
-            self.swipeEnabled = swipeEnabled
             self.appLanguage = appLanguage
         }
     }
@@ -37,8 +31,6 @@ public struct SettingsFeature {
         case defaultModeChanged(ReadingMode)
         case defaultDirectionChanged(PageProgressionDirection)
         case controlsAutoHideChanged(Double)
-        case tapZonesToggled(Bool)
-        case swipeToggled(Bool)
         case appLanguageChanged(AppLanguage)
     }
 
@@ -59,12 +51,6 @@ public struct SettingsFeature {
                 if let raw = defaults.string(forKey: Self.autoHideKey),
                    let val = Double(raw) {
                     state.controlsAutoHideSeconds = val
-                }
-                if let raw = defaults.string(forKey: Self.tapZonesKey) {
-                    state.tapZonesEnabled = raw != "false"
-                }
-                if let raw = defaults.string(forKey: Self.swipeKey) {
-                    state.swipeEnabled = raw != "false"
                 }
                 if let raw = defaults.string(forKey: Self.languageKey),
                    let lang = AppLanguage(rawValue: raw) {
@@ -87,16 +73,6 @@ public struct SettingsFeature {
                 defaults.set(String(val), forKey: Self.autoHideKey)
                 return .none
 
-            case let .tapZonesToggled(enabled):
-                state.tapZonesEnabled = enabled
-                defaults.set(enabled ? "true" : "false", forKey: Self.tapZonesKey)
-                return .none
-
-            case let .swipeToggled(enabled):
-                state.swipeEnabled = enabled
-                defaults.set(enabled ? "true" : "false", forKey: Self.swipeKey)
-                return .none
-
             case let .appLanguageChanged(lang):
                 state.appLanguage = lang
                 defaults.set(lang.rawValue, forKey: Self.languageKey)
@@ -113,8 +89,6 @@ public struct SettingsFeature {
     public static let modeKey = "mana.defaultReadingMode"
     public static let directionKey = "mana.defaultPageProgressionDirection"
     public static let autoHideKey = "mana.controlsAutoHideSeconds"
-    public static let tapZonesKey = "mana.tapZonesEnabled"
-    public static let swipeKey = "mana.swipeEnabled"
     public static let languageKey = "mana.appLanguage"
 }
 

@@ -17,9 +17,6 @@ public struct SettingsView: View {
                 )) {
                     Text("mode.single", bundle: .module).tag(ReadingMode.single)
                     Text("mode.dual", bundle: .module).tag(ReadingMode.dual)
-                    Text("mode.scroll.ltr", bundle: .module).tag(ReadingMode.scroll(direction: .ltr))
-                    Text("mode.scroll.rtl", bundle: .module).tag(ReadingMode.scroll(direction: .rtl))
-                    Text("mode.scroll.ttb", bundle: .module).tag(ReadingMode.scroll(direction: .ttb))
                 } label: { Text("settings.default_mode", bundle: .module) }
                 Picker(selection: Binding(
                     get: { store.defaultPageProgressionDirection },
@@ -43,14 +40,6 @@ public struct SettingsView: View {
             } header: { Text("settings.general", bundle: .module) }
 
             Section {
-                Toggle(isOn: Binding(
-                    get: { store.tapZonesEnabled },
-                    set: { store.send(.tapZonesToggled($0)) }
-                )) { Text("settings.tap_zones", bundle: .module) }
-                Toggle(isOn: Binding(
-                    get: { store.swipeEnabled },
-                    set: { store.send(.swipeToggled($0)) }
-                )) { Text("settings.swipe", bundle: .module) }
                 Picker(selection: Binding(
                     get: { store.controlsAutoHideSeconds },
                     set: { store.send(.controlsAutoHideChanged($0)) }

@@ -3,6 +3,12 @@ import ComposableArchitecture
 import Domain
 import CloudSyncKit
 
+public enum SyncStatus: Equatable, Sendable {
+    case unavailable
+    case idle
+    case active
+}
+
 public protocol LibraryImporter: Sendable {
     func importFiles(_ urls: [URL], folderId: UUID?) async throws -> [ComicItem]
 }
@@ -29,6 +35,7 @@ public struct LibraryFeature {
         public var isImporting: Bool = false
         public var sort: LibrarySortOrder = .dateAddedDesc
         public var filter: LibraryFilter = .all
+        public var syncStatus: SyncStatus = .idle
         public var newFolderSheet: NewFolderSheet.State?
         @Presents public var alert: AlertState<Action.Alert>?
         @Presents public var folderDeleteAlert: AlertState<Action.FolderDeleteAlert>?
@@ -109,6 +116,8 @@ public struct LibraryFeature {
         case comicMoveToFolderRequested(comicId: UUID, folderId: UUID?)
         case comicMoved(ComicItem)
         case fileSyncEvent(FileSyncEvent)
+        case syncStatusUpdated(SyncStatus)
+        case markSyncIdle
         case alert(PresentationAction<Alert>)
 
         public enum Alert: Equatable {}
@@ -124,6 +133,7 @@ public struct LibraryFeature {
     @Dependency(\.fileSyncService) var fileSync
     @Dependency(\.uuid) var uuid
     @Dependency(\.date.now) var now
+    @Dependency(\.continuousClock) var clock
 
     public var body: some ReducerOf<Self> {
         Reduce { state, action in
@@ -145,6 +155,10 @@ public struct LibraryFeature {
                         for await event in fileSync.observeChanges() {
                             await send(.fileSyncEvent(event))
                         }
+                    },
+                    .run { send in
+                        let available = await fileSync.isAvailable
+                        await send(.syncStatusUpdated(available ? .idle : .unavailable))
                     }
                 )
 
@@ -354,11 +368,31 @@ public struct LibraryFeature {
                 return .none
 
             case .fileSyncEvent:
+                state.syncStatus = .active
                 let repo = self.repo
-                return .run { send in
-                    let items = await repo.all()
-                    await send(.refreshed(items))
+                let clock = self.clock
+                return .merge(
+                    .run { send in
+                        let items = await repo.all()
+                        await send(.refreshed(items))
+                    },
+                    .run { send in
+                        try? await clock.sleep(for: .seconds(1.5))
+                        await send(.markSyncIdle)
+                    }
+                    .cancellable(id: SyncIdleDebounce(), cancelInFlight: true)
+                )
+
+            case let .syncStatusUpdated(status):
+                if state.syncStatus == .unavailable && status != .unavailable { return .none }
+                state.syncStatus = status
+                return .none
+
+            case .markSyncIdle:
+                if state.syncStatus == .active {
+                    state.syncStatus = .idle
                 }
+                return .none
 
             case .alert:
                 return .none
@@ -367,6 +401,8 @@ public struct LibraryFeature {
         .ifLet(\.$alert, action: \.alert)
         .ifLet(\.$folderDeleteAlert, action: \.folderDeleteAlert)
     }
+
+    private struct SyncIdleDebounce: Hashable {}
 }
 
 // Existing types kept (LibrarySortOrder, LibraryFilter, dependency keys)

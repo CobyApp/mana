@@ -23,21 +23,21 @@ import Domain
         } withDependencies: {
             $0.userDefaults = InMemoryUserDefaults()
         }
-        await store.send(.defaultModeChanged(.scroll(direction: .rtl))) {
-            $0.defaultMode = .scroll(direction: .rtl)
+        await store.send(.defaultModeChanged(.dual)) {
+            $0.defaultMode = .dual
         }
     }
 
     @Test func taskLoadsPersistedMode() async {
         let defaults = InMemoryUserDefaults()
-        defaults.set("scroll-ttb", forKey: SettingsFeature.modeKey)
+        defaults.set("dual", forKey: SettingsFeature.modeKey)
         let store = await TestStore(initialState: SettingsFeature.State()) {
             SettingsFeature()
         } withDependencies: {
             $0.userDefaults = defaults
         }
         await store.send(.task) {
-            $0.defaultMode = .scroll(direction: .ttb)
+            $0.defaultMode = .dual
         }
     }
 
@@ -52,32 +52,6 @@ import Domain
             $0.defaultPageProgressionDirection = .rightToLeft
         }
         #expect(defaults.string(forKey: SettingsFeature.directionKey) == "rightToLeft")
-    }
-
-    @Test func tapZonesToggledPersists() async {
-        let defaults = InMemoryUserDefaults()
-        let store = await TestStore(initialState: SettingsFeature.State()) {
-            SettingsFeature()
-        } withDependencies: {
-            $0.userDefaults = defaults
-        }
-        await store.send(.tapZonesToggled(false)) {
-            $0.tapZonesEnabled = false
-        }
-        #expect(defaults.string(forKey: SettingsFeature.tapZonesKey) == "false")
-    }
-
-    @Test func swipeToggledPersists() async {
-        let defaults = InMemoryUserDefaults()
-        let store = await TestStore(initialState: SettingsFeature.State()) {
-            SettingsFeature()
-        } withDependencies: {
-            $0.userDefaults = defaults
-        }
-        await store.send(.swipeToggled(false)) {
-            $0.swipeEnabled = false
-        }
-        #expect(defaults.string(forKey: SettingsFeature.swipeKey) == "false")
     }
 
     @Test func controlsAutoHideChangedPersists() async {

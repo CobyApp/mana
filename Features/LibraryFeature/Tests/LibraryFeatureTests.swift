@@ -63,13 +63,41 @@ private struct UnavailableFileSync: FileSyncService {
             $0.libraryImporter = StubImporter()
             $0.fileSyncService = UnavailableFileSync()
             $0.folderRepository = StubFolderRepo()
+            $0.continuousClock = ImmediateClock()
         }
         store.exhaustivity = .off(showSkippedAssertions: false)
 
         let url = URL(fileURLWithPath: "/tmp/x.cbz")
-        await store.send(.fileSyncEvent(.added(url)))
+        await store.send(.fileSyncEvent(.added(url))) {
+            $0.syncStatus = .active
+        }
         await store.receive(\.refreshed) {
             $0.comics = IdentifiedArray(uniqueElements: initial)
+        }
+    }
+
+    @Test func fileSyncEventSetsActiveAndDebouncesBack() async {
+        let initial = [sample("A")]
+        let repo = StubComicRepo(initial: initial)
+
+        let store = await TestStore(initialState: LibraryFeature.State()) {
+            LibraryFeature()
+        } withDependencies: {
+            $0.comicRepository = repo
+            $0.libraryImporter = StubImporter()
+            $0.fileSyncService = UnavailableFileSync()
+            $0.folderRepository = StubFolderRepo()
+            $0.continuousClock = ImmediateClock()
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        let url = URL(fileURLWithPath: "/tmp/x.cbz")
+        await store.send(.fileSyncEvent(.added(url))) {
+            $0.syncStatus = .active
+        }
+        // ImmediateClock makes clock.sleep(for:) return immediately so markSyncIdle fires
+        await store.receive(\.markSyncIdle) {
+            $0.syncStatus = .idle
         }
     }
 

@@ -61,6 +61,10 @@ public struct LibraryView: View {
             ToolbarItem(placement: .navigation) {
                 Button { store.send(.settingsTapped) } label: { Image(systemName: "gearshape") }
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                SyncIndicator(status: store.syncStatus)
+                    .font(.body)
+            }
             ToolbarItem(placement: .primaryAction) {
                 Menu {
                     Button { store.send(.newFolderRequested) } label: {

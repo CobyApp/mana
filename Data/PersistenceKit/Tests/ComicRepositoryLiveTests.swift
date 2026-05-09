@@ -65,11 +65,11 @@ import Domain
             coverThumbnail: nil,
             dateAdded: .init(timeIntervalSince1970: 0),
             fileSizeBytes: 1,
-            readingMode: .scroll(direction: .rtl)
+            readingMode: .dual
         )
         try await repo.upsert(item)
         let loaded = await repo.all()
-        #expect(loaded.first?.readingMode == .scroll(direction: .rtl))
+        #expect(loaded.first?.readingMode == .dual)
     }
 
     @Test func updatesReadingModeOnSecondUpsert() async throws {

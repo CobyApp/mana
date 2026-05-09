@@ -27,3 +27,6 @@
 "library.delete_folder_title"   = "Delete Folder";
 "library.delete_folder_message" = "Delete \"%@\" and %lld comic(s) inside?";
 "library.delete_folder_confirm" = "Delete";
+"library.sync.unavailable"     = "iCloud sync unavailable";
+"library.sync.idle"            = "Synced with iCloud";
+"library.sync.active"          = "Syncing with iCloud";
