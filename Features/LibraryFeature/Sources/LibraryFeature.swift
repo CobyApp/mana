@@ -107,6 +107,7 @@ public struct LibraryFeature {
         case folderDeleted(UUID)
         case comicMoveToFolderRequested(comicId: UUID, folderId: UUID?)
         case comicMoved(ComicItem)
+        case deleteComicRequested(UUID)
         case alert(PresentationAction<Alert>)
 
         public enum Alert: Equatable {}
@@ -360,6 +361,15 @@ public struct LibraryFeature {
 
             case .comicMoved:
                 return .none
+
+            case let .deleteComicRequested(id):
+                guard let comic = state.comics[id: id] else { return .none }
+                state.comics.remove(id: id)
+                let repo = self.repo
+                return .run { _ in
+                    Self.deleteComicFile(at: comic.url)
+                    try? await repo.delete(id)
+                }
 
             case .alert:
                 return .none

@@ -8,53 +8,64 @@ public struct LibraryView: View {
     @Bindable public var store: StoreOf<LibraryFeature>
     @State private var showImporter = false
 
+    private let columns = [
+        GridItem(.adaptive(minimum: 140), spacing: 16, alignment: .top)
+    ]
+
     public init(store: StoreOf<LibraryFeature>) {
         self.store = store
     }
 
     public var body: some View {
-        List {
-            if store.currentFolderId == nil, !store.displayedFolders.isEmpty {
-                foldersSection
-            }
+        ScrollView {
+            VStack(alignment: .leading, spacing: Tokens.Spacing.l) {
+                if store.currentFolderId == nil, !store.displayedFolders.isEmpty {
+                    foldersSection
+                }
 
-            if let folder = store.currentFolder {
-                Section {
-                    EmptyView()
-                } header: {
-                    HStack {
-                        Button { store.send(.backToRoot) } label: {
-                            Label {
-                                Text("library.title", bundle: .module)
-                            } icon: {
-                                Image(systemName: "chevron.left")
-                            }
-                        }
-                        Text("/").foregroundStyle(.secondary)
-                        Text(folder.name).fontWeight(.semibold)
-                    }
-                    .dropDestination(for: ComicDragPayload.self) { payloads, _ in
-                        for payload in payloads {
-                            store.send(.comicMoveToFolderRequested(comicId: payload.comicId, folderId: nil))
-                        }
-                        return !payloads.isEmpty
-                    }
+                if let folder = store.currentFolder {
+                    breadcrumb(folder: folder)
                 }
-            }
 
-            ForEach(store.displayedComics) { comic in
-                Button {
-                    store.send(.comicTapped(comic))
-                } label: {
-                    LibraryRow(comic: comic)
-                }
-                .buttonStyle(.plain)
-                .draggable(ComicDragPayload(comicId: comic.id))
-                .contextMenu {
-                    moveMenu(for: comic)
+                if !store.displayedComics.isEmpty {
+                    comicsGrid
                 }
             }
-            .onDelete { indexSet in store.send(.delete(indexSet)) }
+            .padding(Tokens.Spacing.m)
+        }
+        .overlay {
+            if store.isImporting {
+                ProgressView { Text("library.importing", bundle: .module) }
+                    .padding(Tokens.Spacing.l)
+                    .background(.regularMaterial, in: .rect(cornerRadius: 12))
+            } else if isLibraryEmpty {
+                ContentUnavailableView {
+                    Label {
+                        Text("library.empty.title", bundle: .module)
+                    } icon: {
+                        Image(systemName: "books.vertical")
+                    }
+                } description: {
+                    Text("library.empty.description", bundle: .module)
+                } actions: {
+                    Button {
+                        showImporter = true
+                    } label: {
+                        Text("library.import_dotdotdot", bundle: .module)
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            } else if isFolderEmpty {
+                ContentUnavailableView {
+                    Label {
+                        Text("library.folder_empty.title", bundle: .module)
+                    } icon: {
+                        Image(systemName: "tray")
+                    }
+                } description: {
+                    Text("library.folder_empty.description", bundle: .module)
+                }
+            }
         }
         .navigationTitle(store.currentFolder?.name ?? String(localized: "library.title", bundle: .module))
         .toolbar {
@@ -63,12 +74,8 @@ public struct LibraryView: View {
             }
             ToolbarItem(placement: .primaryAction) {
                 Menu {
-                    Button { store.send(.newFolderRequested) } label: {
-                        newFolderLabel
-                    }
-                    Button { showImporter = true } label: {
-                        importLabel
-                    }
+                    Button { store.send(.newFolderRequested) } label: { newFolderLabel }
+                    Button { showImporter = true } label: { importLabel }
                     Picker(selection: Binding(
                         get: { store.sort },
                         set: { store.send(.sortChanged($0)) }
@@ -112,38 +119,6 @@ public struct LibraryView: View {
         .task { await store.send(.task).finish() }
         .alert($store.scope(state: \.alert, action: \.alert))
         .alert($store.scope(state: \.folderDeleteAlert, action: \.folderDeleteAlert))
-        .overlay {
-            if store.isImporting {
-                ProgressView { Text("library.importing", bundle: .module) }
-            } else if isLibraryEmpty {
-                ContentUnavailableView {
-                    Label {
-                        Text("library.empty.title", bundle: .module)
-                    } icon: {
-                        Image(systemName: "books.vertical")
-                    }
-                } description: {
-                    Text("library.empty.description", bundle: .module)
-                } actions: {
-                    Button {
-                        showImporter = true
-                    } label: {
-                        Text("library.import_dotdotdot", bundle: .module)
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-            } else if isFolderEmpty {
-                ContentUnavailableView {
-                    Label {
-                        Text("library.folder_empty.title", bundle: .module)
-                    } icon: {
-                        Image(systemName: "tray")
-                    }
-                } description: {
-                    Text("library.folder_empty.description", bundle: .module)
-                }
-            }
-        }
         .sheet(
             isPresented: Binding(
                 get: { store.newFolderSheet != nil },
@@ -163,18 +138,23 @@ public struct LibraryView: View {
         }
     }
 
-    private var newFolderLabel: some View {
-        Label(title: { Text("library.new_folder", bundle: .module) }, icon: { Image(systemName: "folder.badge.plus") })
+    private var isLibraryEmpty: Bool {
+        store.currentFolderId == nil
+            && store.displayedFolders.isEmpty
+            && store.displayedComics.isEmpty
     }
 
-    private var importLabel: some View {
-        Label(title: { Text("library.import_dotdotdot", bundle: .module) }, icon: { Image(systemName: "doc.badge.plus") })
+    private var isFolderEmpty: Bool {
+        store.currentFolderId != nil && store.displayedComics.isEmpty
     }
 
     @ViewBuilder
     private var foldersSection: some View {
         let comics = store.comics
-        Section {
+        VStack(alignment: .leading, spacing: Tokens.Spacing.s) {
+            Text("library.folders", bundle: .module)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: Tokens.Spacing.m) {
                     ForEach(store.displayedFolders) { folder in
@@ -189,9 +169,67 @@ public struct LibraryView: View {
                         )
                     }
                 }
-                .padding(.vertical, Tokens.Spacing.s)
+                .padding(.vertical, Tokens.Spacing.xs)
             }
-        } header: { Text("library.folders", bundle: .module) }
+        }
+    }
+
+    @ViewBuilder
+    private func breadcrumb(folder: Folder) -> some View {
+        HStack(spacing: Tokens.Spacing.xs) {
+            Button { store.send(.backToRoot) } label: {
+                Label {
+                    Text("library.title", bundle: .module)
+                } icon: {
+                    Image(systemName: "chevron.left")
+                }
+                .labelStyle(.titleAndIcon)
+            }
+            Text("/").foregroundStyle(.secondary)
+            Text(folder.name).fontWeight(.semibold)
+            Spacer()
+        }
+        .dropDestination(for: ComicDragPayload.self) { payloads, _ in
+            for payload in payloads {
+                store.send(.comicMoveToFolderRequested(comicId: payload.comicId, folderId: nil))
+            }
+            return !payloads.isEmpty
+        }
+    }
+
+    @ViewBuilder
+    private var comicsGrid: some View {
+        LazyVGrid(columns: columns, spacing: Tokens.Spacing.l) {
+            ForEach(store.displayedComics) { comic in
+                Button {
+                    store.send(.comicTapped(comic))
+                } label: {
+                    LibraryCell(comic: comic)
+                }
+                .buttonStyle(.plain)
+                .draggable(ComicDragPayload(comicId: comic.id))
+                .contextMenu {
+                    moveMenu(for: comic)
+                    Button(role: .destructive) {
+                        store.send(.deleteComicRequested(comic.id))
+                    } label: {
+                        Label {
+                            Text("library.delete", bundle: .module)
+                        } icon: {
+                            Image(systemName: "trash")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var newFolderLabel: some View {
+        Label(title: { Text("library.new_folder", bundle: .module) }, icon: { Image(systemName: "folder.badge.plus") })
+    }
+
+    private var importLabel: some View {
+        Label(title: { Text("library.import_dotdotdot", bundle: .module) }, icon: { Image(systemName: "doc.badge.plus") })
     }
 
     @ViewBuilder
@@ -208,15 +246,5 @@ public struct LibraryView: View {
         } label: {
             Label(title: { Text("library.move_to", bundle: .module) }, icon: { Image(systemName: "folder") })
         }
-    }
-
-    private var isLibraryEmpty: Bool {
-        store.currentFolderId == nil
-            && store.displayedFolders.isEmpty
-            && store.displayedComics.isEmpty
-    }
-
-    private var isFolderEmpty: Bool {
-        store.currentFolderId != nil && store.displayedComics.isEmpty
     }
 }
