@@ -31,6 +31,7 @@ public struct LibraryFeature {
         public var filter: LibraryFilter = .all
         public var newFolderSheet: NewFolderSheet.State?
         @Presents public var alert: AlertState<Action.Alert>?
+        @Presents public var folderDeleteAlert: AlertState<Action.FolderDeleteAlert>?
 
         public init(
             comics: IdentifiedArrayOf<ComicItem> = [],
@@ -101,7 +102,9 @@ public struct LibraryFeature {
         case newFolderNameChanged(String)
         case newFolderSubmitted
         case folderCreated(Folder)
+        case folderDeleteConfirmationRequested(UUID)
         case folderDeleteRequested(UUID)
+        case folderDeleteAlert(PresentationAction<FolderDeleteAlert>)
         case folderDeleted(UUID)
         case comicMoveToFolderRequested(comicId: UUID, folderId: UUID?)
         case comicMoved(ComicItem)
@@ -109,6 +112,10 @@ public struct LibraryFeature {
         case alert(PresentationAction<Alert>)
 
         public enum Alert: Equatable {}
+
+        public enum FolderDeleteAlert: Equatable, Sendable {
+            case confirm(folderId: UUID)
+        }
     }
 
     @Dependency(\.comicRepository) var repo
@@ -251,6 +258,44 @@ public struct LibraryFeature {
             case .folderCreated:
                 return .none
 
+            case let .folderDeleteConfirmationRequested(folderId):
+                guard let folder = state.folders[id: folderId] else { return .none }
+                let count = state.comics.filter { $0.folderId == folderId }.count
+                state.folderDeleteAlert = AlertState {
+                    TextState("library.delete_folder_title", bundle: .module)
+                } actions: {
+                    ButtonState(role: .destructive, action: .confirm(folderId: folderId)) {
+                        TextState("library.delete_folder_confirm", bundle: .module)
+                    }
+                    ButtonState(role: .cancel) {
+                        TextState("library.cancel", bundle: .module)
+                    }
+                } message: {
+                    TextState(verbatim: String(
+                        format: String(localized: "library.delete_folder_message", bundle: .module),
+                        folder.name, count
+                    ))
+                }
+                return .none
+
+            case let .folderDeleteAlert(.presented(.confirm(folderId))):
+                let comicIdsToDelete = state.comics.filter { $0.folderId == folderId }.map(\.id)
+                for id in comicIdsToDelete { state.comics.remove(id: id) }
+                state.folders.remove(id: folderId)
+                if state.currentFolderId == folderId { state.currentFolderId = nil }
+                let repo = self.repo
+                let folderRepo = self.folderRepo
+                return .run { send in
+                    for id in comicIdsToDelete {
+                        try? await repo.delete(id)
+                    }
+                    try? await folderRepo.delete(folderId)
+                    await send(.folderDeleted(folderId))
+                }
+
+            case .folderDeleteAlert:
+                return .none
+
             case let .folderDeleteRequested(id):
                 state.folders.remove(id: id)
                 // Comics that were in this folder fall back to root.
@@ -266,13 +311,13 @@ public struct LibraryFeature {
                     _ = comic
                 }
                 if state.currentFolderId == id { state.currentFolderId = nil }
-                let folderRepo = self.folderRepo
-                let repo = self.repo
+                let folderRepo2 = self.folderRepo
+                let repo2 = self.repo
                 let affectedIds = state.comics.filter { $0.folderId == nil }.map(\.id)
                 return .run { send in
-                    try? await folderRepo.delete(id)
+                    try? await folderRepo2.delete(id)
                     // Persist the folder-clear on the orphaned comics.
-                    let all = await repo.all()
+                    let all = await repo2.all()
                     for var item in all where affectedIds.contains(item.id) && item.folderId != nil {
                         item = ComicItem(
                             id: item.id, url: item.url, format: item.format, title: item.title,
@@ -281,7 +326,7 @@ public struct LibraryFeature {
                             readingMode: item.readingMode, urlBookmarkData: item.urlBookmarkData,
                             folderId: nil, pageProgressionDirection: item.pageProgressionDirection
                         )
-                        try? await repo.upsert(item)
+                        try? await repo2.upsert(item)
                     }
                     await send(.folderDeleted(id))
                 }
@@ -320,6 +365,7 @@ public struct LibraryFeature {
             }
         }
         .ifLet(\.$alert, action: \.alert)
+        .ifLet(\.$folderDeleteAlert, action: \.folderDeleteAlert)
     }
 }
 

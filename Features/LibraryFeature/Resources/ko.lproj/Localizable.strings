@@ -24,3 +24,6 @@
 "library.filter.zip"       = "ZIP/CBZ";
 "library.filter.rar"       = "RAR/CBR";
 "library.filter.pdf"       = "PDF";
+"library.delete_folder_title"   = "폴더 삭제";
+"library.delete_folder_message" = "\"%@\" 폴더와 안에 있는 만화 %lld개를 삭제하시겠습니까?";
+"library.delete_folder_confirm" = "삭제";

@@ -43,8 +43,10 @@ public struct LibraryImporterLive: LibraryImporter {
                 canonicalURL = try await fileSync.ingest(localURL: url)
                 bookmark = nil
             } else {
-                canonicalURL = url
-                bookmark = try? BookmarkURLResolver.bookmarkData(for: url)
+                // Local fallback: copy into app's Documents/Mana Library so we own the file
+                // even if the original picker URL goes stale.
+                canonicalURL = try copyToLocalLibrary(source: url)
+                bookmark = nil  // we own the file at canonicalURL; no bookmark needed
             }
 
             let reader = router.reader(for: format)
@@ -79,5 +81,23 @@ public struct LibraryImporterLive: LibraryImporter {
             results.append(item)
         }
         return results
+    }
+
+    private func copyToLocalLibrary(source: URL) throws -> URL {
+        let fm = FileManager.default
+        let libraryDir = URL.documentsDirectory.appending(path: "Mana Library")
+        try? fm.createDirectory(at: libraryDir, withIntermediateDirectories: true)
+
+        var dest = libraryDir.appending(path: source.lastPathComponent)
+        var counter = 2
+        while fm.fileExists(atPath: dest.path) {
+            let stem = (source.lastPathComponent as NSString).deletingPathExtension
+            let ext = (source.lastPathComponent as NSString).pathExtension
+            let newName = ext.isEmpty ? "\(stem) \(counter)" : "\(stem) \(counter).\(ext)"
+            dest = libraryDir.appending(path: newName)
+            counter += 1
+        }
+        try fm.copyItem(at: source, to: dest)
+        return dest
     }
 }

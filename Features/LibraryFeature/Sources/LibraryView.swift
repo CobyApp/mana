@@ -111,6 +111,7 @@ public struct LibraryView: View {
         }
         .task { await store.send(.task).finish() }
         .alert($store.scope(state: \.alert, action: \.alert))
+        .alert($store.scope(state: \.folderDeleteAlert, action: \.folderDeleteAlert))
         .overlay {
             if store.isImporting { ProgressView { Text("library.importing", bundle: .module) } }
         }
@@ -152,7 +153,7 @@ public struct LibraryView: View {
                             folder: folder,
                             comicsInFolder: comics.filter { $0.folderId == folder.id },
                             onTap: { store.send(.folderTapped(folder)) },
-                            onDelete: { store.send(.folderDeleteRequested(folder.id)) },
+                            onDelete: { store.send(.folderDeleteConfirmationRequested(folder.id)) },
                             onDropComic: { comicId in
                                 store.send(.comicMoveToFolderRequested(comicId: comicId, folderId: folder.id))
                             }

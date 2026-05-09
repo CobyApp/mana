@@ -45,8 +45,8 @@ private struct UnavailableFileSync: FileSyncService {
         #expect(comic.coverThumbnail == nil)
         #expect(comic.readingMode == nil)
         #expect(comic.folderId == nil)
-        // fileSync is unavailable, so importer fell back to storing a security-scoped bookmark.
-        #expect(comic.urlBookmarkData != nil)
+        // fileSync is unavailable, so importer copied the file to Documents/Mana Library — no bookmark needed.
+        #expect(comic.urlBookmarkData == nil)
 
         // Verify in repo
         let stored = await comicRepo.all()

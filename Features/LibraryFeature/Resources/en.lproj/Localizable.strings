@@ -24,3 +24,6 @@
 "library.filter.zip"       = "ZIP/CBZ";
 "library.filter.rar"       = "RAR/CBR";
 "library.filter.pdf"       = "PDF";
+"library.delete_folder_title"   = "Delete Folder";
+"library.delete_folder_message" = "Delete \"%@\" and %lld comic(s) inside?";
+"library.delete_folder_confirm" = "Delete";
