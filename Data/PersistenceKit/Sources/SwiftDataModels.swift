@@ -13,6 +13,7 @@ public final class ComicEntity {
     public var dateAdded: Date
     public var fileSizeBytes: Int64
     public var readingModeRaw: String?
+    public var urlBookmarkData: Data?
 
     public init(
         id: UUID,
@@ -23,7 +24,8 @@ public final class ComicEntity {
         coverThumbnail: Data?,
         dateAdded: Date,
         fileSizeBytes: Int64,
-        readingModeRaw: String? = nil
+        readingModeRaw: String? = nil,
+        urlBookmarkData: Data? = nil
     ) {
         self.id = id
         self.urlString = urlString
@@ -34,6 +36,7 @@ public final class ComicEntity {
         self.dateAdded = dateAdded
         self.fileSizeBytes = fileSizeBytes
         self.readingModeRaw = readingModeRaw
+        self.urlBookmarkData = urlBookmarkData
     }
 
     public func toModel() -> ComicItem {
@@ -47,7 +50,8 @@ public final class ComicEntity {
             coverThumbnail: coverThumbnail,
             dateAdded: dateAdded,
             fileSizeBytes: fileSizeBytes,
-            readingMode: mode
+            readingMode: mode,
+            urlBookmarkData: urlBookmarkData
         )
     }
 
@@ -61,7 +65,8 @@ public final class ComicEntity {
             coverThumbnail: item.coverThumbnail,
             dateAdded: item.dateAdded,
             fileSizeBytes: item.fileSizeBytes,
-            readingModeRaw: item.readingMode?.rawString
+            readingModeRaw: item.readingMode?.rawString,
+            urlBookmarkData: item.urlBookmarkData
         )
     }
 }

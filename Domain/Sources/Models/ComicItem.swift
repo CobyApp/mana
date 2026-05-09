@@ -10,6 +10,7 @@ public struct ComicItem: Identifiable, Equatable, Sendable, Hashable {
     public let dateAdded: Date
     public let fileSizeBytes: Int64
     public let readingMode: ReadingMode?
+    public let urlBookmarkData: Data?
 
     public init(
         id: UUID,
@@ -20,7 +21,8 @@ public struct ComicItem: Identifiable, Equatable, Sendable, Hashable {
         coverThumbnail: Data?,
         dateAdded: Date,
         fileSizeBytes: Int64,
-        readingMode: ReadingMode? = nil
+        readingMode: ReadingMode? = nil,
+        urlBookmarkData: Data? = nil
     ) {
         self.id = id
         self.url = url
@@ -31,5 +33,6 @@ public struct ComicItem: Identifiable, Equatable, Sendable, Hashable {
         self.dateAdded = dateAdded
         self.fileSizeBytes = fileSizeBytes
         self.readingMode = readingMode
+        self.urlBookmarkData = urlBookmarkData
     }
 }
