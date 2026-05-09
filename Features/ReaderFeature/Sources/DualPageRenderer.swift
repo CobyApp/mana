@@ -11,6 +11,7 @@ public struct DualPageRenderer: View, PageRenderer {
     let progressionDirection: PageProgressionDirection
     let tapZonesEnabled: Bool
     let swipeEnabled: Bool
+    let onCenterTap: () -> Void
 
     @State private var leftImage: UIImage?
     @State private var rightImage: UIImage?
@@ -22,7 +23,8 @@ public struct DualPageRenderer: View, PageRenderer {
         onPrefetchHint: @escaping (Int) -> Void,
         progressionDirection: PageProgressionDirection = .leftToRight,
         tapZonesEnabled: Bool = true,
-        swipeEnabled: Bool = true
+        swipeEnabled: Bool = true,
+        onCenterTap: @escaping () -> Void = {}
     ) {
         self.totalPages = totalPages
         self._current = current
@@ -31,6 +33,7 @@ public struct DualPageRenderer: View, PageRenderer {
         self.progressionDirection = progressionDirection
         self.tapZonesEnabled = tapZonesEnabled
         self.swipeEnabled = swipeEnabled
+        self.onCenterTap = onCenterTap
     }
 
     public var body: some View {
@@ -42,6 +45,7 @@ public struct DualPageRenderer: View, PageRenderer {
             if tapZonesEnabled {
                 TapZoneOverlay(
                     onLeftTap: { applyDelta((progressionDirection == .leftToRight) ? -2 : +2) },
+                    onCenterTap: { onCenterTap() },
                     onRightTap: { applyDelta((progressionDirection == .leftToRight) ? +2 : -2) }
                 )
             }

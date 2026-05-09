@@ -9,6 +9,7 @@
 "settings.auto_hide"       = "컨트롤 자동 숨김";
 "settings.auto_hide.3"     = "3초";
 "settings.auto_hide.5"     = "5초";
+"settings.auto_hide.10"    = "10초";
 "settings.auto_hide.off"   = "끄기";
 "settings.restart_required" = "언어 변경을 적용하려면 Mana를 다시 시작하세요.";
 "settings.restart_title"   = "Mana 다시 시작";

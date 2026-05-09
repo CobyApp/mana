@@ -19,7 +19,8 @@ public struct ScrollPageRenderer: View, PageRenderer {
         onPrefetchHint: @escaping (Int) -> Void,
         progressionDirection: PageProgressionDirection = .leftToRight,
         tapZonesEnabled: Bool = true,
-        swipeEnabled: Bool = true
+        swipeEnabled: Bool = true,
+        onCenterTap: @escaping () -> Void = {}
     ) {
         self.totalPages = totalPages
         self._current = current
@@ -30,6 +31,7 @@ public struct ScrollPageRenderer: View, PageRenderer {
         _ = progressionDirection
         _ = tapZonesEnabled
         _ = swipeEnabled
+        _ = onCenterTap
     }
 
     public init(

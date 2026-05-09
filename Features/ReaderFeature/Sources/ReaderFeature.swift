@@ -21,7 +21,7 @@ public struct ReaderFeature {
         public var isControlsVisible: Bool
         public var loadedIndices: Set<Int>
         public var securityScopedURL: URL?
-        public var controlsAutoHideSeconds: Double = 3.0
+        public var controlsAutoHideSeconds: Double = 5.0
         public var isSliderDragging: Bool = false
         @Presents public var alert: AlertState<Action.Alert>?
 
@@ -135,7 +135,7 @@ public struct ReaderFeature {
                     state.pageProgressionDirection = dir
                 }
                 let storedHide = userDefaults.double(forKey: SettingsFeature.autoHideKey)
-                state.controlsAutoHideSeconds = storedHide == 0 ? 3.0 : storedHide
+                state.controlsAutoHideSeconds = storedHide == 0 ? 5.0 : storedHide
                 return .none
 
             case let .openFailed(message):

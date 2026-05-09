@@ -57,6 +57,7 @@ public struct SettingsView: View {
                 )) {
                     Text("settings.auto_hide.3", bundle: .module).tag(3.0 as Double)
                     Text("settings.auto_hide.5", bundle: .module).tag(5.0 as Double)
+                    Text("settings.auto_hide.10", bundle: .module).tag(10.0 as Double)
                     Text("settings.auto_hide.off", bundle: .module).tag(0.0 as Double)
                 } label: { Text("settings.auto_hide", bundle: .module) }
             } header: { Text("settings.gestures", bundle: .module) }

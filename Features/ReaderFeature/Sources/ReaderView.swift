@@ -5,6 +5,7 @@ import ImageCacheKit
 import DesignSystem
 import SharedUI
 import SettingsFeature
+import UIKit
 
 public struct ReaderView: View {
     @Bindable public var store: StoreOf<ReaderFeature>
@@ -28,10 +29,9 @@ public struct ReaderView: View {
 
             if store.isControlsVisible {
                 controlsOverlay
-                    .transition(.opacity)
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: store.isControlsVisible)
+        .animation(.spring(duration: 0.35, bounce: 0.15), value: store.isControlsVisible)
         .toolbar(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(true)
         .statusBarHidden(true)
@@ -39,6 +39,7 @@ public struct ReaderView: View {
         .background(SwipeBackBlocker())
         .task { await store.send(.task).finish() }
         .onLongPressGesture(minimumDuration: 0.4) {
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
             store.send(.toggleControls)
         }
         .onDisappear { store.send(.onDisappear) }
@@ -60,6 +61,9 @@ public struct ReaderView: View {
         )
         let hint: (Int) -> Void = { idx in store.send(.prefetchHint(idx)) }
         let direction = store.pageProgressionDirection
+        let tapZones = tapZonesEnabledFromDefaults
+        let swipe = swipeEnabledFromDefaults
+        let centerTap: () -> Void = { store.send(.toggleControls) }
 
         switch store.mode {
         case .single:
@@ -69,8 +73,9 @@ public struct ReaderView: View {
                 pageImage: provider,
                 onPrefetchHint: hint,
                 progressionDirection: direction,
-                tapZonesEnabled: tapZonesEnabledFromDefaults,
-                swipeEnabled: swipeEnabledFromDefaults
+                tapZonesEnabled: tapZones,
+                swipeEnabled: swipe,
+                onCenterTap: centerTap
             )
         case .dual:
             DualPageRenderer(
@@ -79,8 +84,9 @@ public struct ReaderView: View {
                 pageImage: provider,
                 onPrefetchHint: hint,
                 progressionDirection: direction,
-                tapZonesEnabled: tapZonesEnabledFromDefaults,
-                swipeEnabled: swipeEnabledFromDefaults
+                tapZonesEnabled: tapZones,
+                swipeEnabled: swipe,
+                onCenterTap: centerTap
             )
         case .scroll(let scrollDirection):
             ScrollPageRenderer(
@@ -95,33 +101,61 @@ public struct ReaderView: View {
 
     @ViewBuilder
     private var controlsOverlay: some View {
-        VStack {
-            // TOP overlay
-            HStack(spacing: Tokens.Spacing.m) {
-                Button { dismiss() } label: {
-                    Image(systemName: "chevron.left").font(.title3)
-                }
+        GlassEffectContainer(spacing: 24) {
+            VStack {
+                topBar
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .top).combined(with: .opacity),
+                        removal: .opacity
+                    ))
                 Spacer()
-                VStack(spacing: 0) {
-                    Text(store.comic.title).font(.headline).lineLimit(1)
-                    Text("\(store.pageIndex + 1) / \(store.pageCount)")
-                        .font(.caption2).foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button { store.send(.bookmarksTapped(comicId: store.comic.id)) } label: {
-                    Image(systemName: "bookmark").font(.title3)
-                }
+                bottomBar
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .bottom).combined(with: .opacity),
+                        removal: .opacity
+                    ))
             }
-            .padding(.horizontal, Tokens.Spacing.l)
-            .padding(.vertical, Tokens.Spacing.m)
-            .background(.ultraThinMaterial)
-            .glassEffect(in: .rect(cornerRadius: Tokens.Radius.card))
-            .padding(Tokens.Spacing.m)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+        }
+        .foregroundStyle(.white)
+    }
 
+    @ViewBuilder
+    private var topBar: some View {
+        HStack(spacing: 12) {
+            Button { dismiss() } label: {
+                Image(systemName: "chevron.left")
+                    .font(.title3.weight(.semibold))
+                    .frame(width: 36, height: 36)
+            }
             Spacer()
+            Text(store.comic.title)
+                .font(.headline)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Spacer()
+            Button { store.send(.bookmarksTapped(comicId: store.comic.id)) } label: {
+                Image(systemName: "bookmark")
+                    .font(.title3.weight(.semibold))
+                    .frame(width: 36, height: 36)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .glassEffect(.regular, in: .rect(cornerRadius: 24))
+        .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
+    }
 
-            // BOTTOM overlay
-            HStack(spacing: Tokens.Spacing.m) {
+    @ViewBuilder
+    private var bottomBar: some View {
+        VStack(spacing: 8) {
+            // Centered page indicator
+            Text("\(store.pageIndex + 1) / \(store.pageCount)")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.white.opacity(0.85))
+
+            HStack(spacing: 12) {
                 if store.pageCount > 1 {
                     Slider(
                         value: Binding(
@@ -136,7 +170,6 @@ public struct ReaderView: View {
                     )
                     .tint(Tokens.Colors.accent)
                 } else {
-                    // Slider would crash with degenerate range (0...0) when pageCount <= 1.
                     Spacer()
                 }
 
@@ -159,16 +192,16 @@ public struct ReaderView: View {
                         Text("direction.rtl", bundle: .module).tag(PageProgressionDirection.rightToLeft)
                     }
                 } label: {
-                    Image(systemName: "rectangle.split.2x1").font(.title3)
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.title3.weight(.semibold))
+                        .frame(width: 36, height: 36)
                 }
             }
-            .padding(.horizontal, Tokens.Spacing.l)
-            .padding(.vertical, Tokens.Spacing.m)
-            .background(.ultraThinMaterial)
-            .glassEffect(in: .rect(cornerRadius: Tokens.Radius.card))
-            .padding(Tokens.Spacing.m)
         }
-        .foregroundStyle(.white)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .glassEffect(.regular, in: .rect(cornerRadius: 24))
+        .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
     }
 
     private var tapZonesEnabledFromDefaults: Bool {

@@ -9,6 +9,7 @@
 "settings.auto_hide"       = "コントロールの自動非表示";
 "settings.auto_hide.3"     = "3秒";
 "settings.auto_hide.5"     = "5秒";
+"settings.auto_hide.10"    = "10秒";
 "settings.auto_hide.off"   = "オフ";
 "settings.restart_required" = "言語変更を反映するためMana を再起動してください。";
 "settings.restart_title"   = "Mana を再起動";

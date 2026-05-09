@@ -9,6 +9,7 @@
 "settings.auto_hide"       = "Auto-hide Controls";
 "settings.auto_hide.3"     = "3 seconds";
 "settings.auto_hide.5"     = "5 seconds";
+"settings.auto_hide.10"    = "10 seconds";
 "settings.auto_hide.off"   = "Off";
 "settings.restart_required" = "Restart Mana to apply this change.";
 "settings.restart_title"   = "Restart Mana";

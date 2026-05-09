@@ -10,6 +10,7 @@ public protocol PageRenderer: View {
         onPrefetchHint: @escaping (Int) -> Void,
         progressionDirection: PageProgressionDirection,
         tapZonesEnabled: Bool,
-        swipeEnabled: Bool
+        swipeEnabled: Bool,
+        onCenterTap: @escaping () -> Void
     )
 }

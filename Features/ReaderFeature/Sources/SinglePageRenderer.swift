@@ -11,6 +11,7 @@ public struct SinglePageRenderer: View, PageRenderer {
     let progressionDirection: PageProgressionDirection
     let tapZonesEnabled: Bool
     let swipeEnabled: Bool
+    let onCenterTap: () -> Void
 
     @State private var image: UIImage?
     @State private var loadingIndex: Int?
@@ -22,7 +23,8 @@ public struct SinglePageRenderer: View, PageRenderer {
         onPrefetchHint: @escaping (Int) -> Void,
         progressionDirection: PageProgressionDirection = .leftToRight,
         tapZonesEnabled: Bool = true,
-        swipeEnabled: Bool = true
+        swipeEnabled: Bool = true,
+        onCenterTap: @escaping () -> Void = {}
     ) {
         self.totalPages = totalPages
         self._current = current
@@ -31,6 +33,7 @@ public struct SinglePageRenderer: View, PageRenderer {
         self.progressionDirection = progressionDirection
         self.tapZonesEnabled = tapZonesEnabled
         self.swipeEnabled = swipeEnabled
+        self.onCenterTap = onCenterTap
     }
 
     public var body: some View {
@@ -43,6 +46,7 @@ public struct SinglePageRenderer: View, PageRenderer {
             if tapZonesEnabled {
                 TapZoneOverlay(
                     onLeftTap: { handleLeftTap() },
+                    onCenterTap: { onCenterTap() },
                     onRightTap: { handleRightTap() }
                 )
             }
