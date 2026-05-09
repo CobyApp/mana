@@ -136,9 +136,9 @@ public struct ReaderFeature {
 
             case let .openFailed(message):
                 state.alert = AlertState {
-                    TextState("reader.error.cannot_open")
+                    TextState("reader.error.cannot_open", bundle: .module)
                 } message: {
-                    TextState(message)
+                    TextState(verbatim: message)
                 }
                 return .none
 

@@ -188,9 +188,9 @@ public struct LibraryFeature {
             case let .importFailed(message):
                 state.isImporting = false
                 state.alert = AlertState {
-                    TextState("library.import_failed")
+                    TextState("library.import_failed", bundle: .module)
                 } message: {
-                    TextState(message)
+                    TextState(verbatim: message)
                 }
                 return .none
 
