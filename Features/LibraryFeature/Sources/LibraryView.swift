@@ -1,6 +1,7 @@
 import SwiftUI
 import ComposableArchitecture
 import Domain
+import DesignSystem
 import UniformTypeIdentifiers
 
 public struct LibraryView: View {
@@ -13,6 +14,38 @@ public struct LibraryView: View {
 
     public var body: some View {
         List {
+            if store.currentFolderId == nil, !store.displayedFolders.isEmpty {
+                Section("Folders") {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        LazyHStack(spacing: Tokens.Spacing.m) {
+                            ForEach(store.displayedFolders) { folder in
+                                FolderCard(
+                                    folder: folder,
+                                    comicsInFolder: store.comics.filter { $0.folderId == folder.id },
+                                    onTap: { store.send(.folderTapped(folder)) },
+                                    onDelete: { store.send(.folderDeleteRequested(folder.id)) }
+                                )
+                            }
+                        }
+                        .padding(.vertical, Tokens.Spacing.s)
+                    }
+                }
+            }
+
+            if let folder = store.currentFolder {
+                Section {
+                    EmptyView()
+                } header: {
+                    HStack {
+                        Button { store.send(.backToRoot) } label: {
+                            Label("Library", systemImage: "chevron.left")
+                        }
+                        Text("/").foregroundStyle(.secondary)
+                        Text(folder.name).fontWeight(.semibold)
+                    }
+                }
+            }
+
             ForEach(store.displayedComics) { comic in
                 Button {
                     store.send(.comicTapped(comic))
@@ -20,52 +53,51 @@ public struct LibraryView: View {
                     LibraryRow(comic: comic)
                 }
                 .buttonStyle(.plain)
+                .contextMenu {
+                    Menu {
+                        Button("Move to Library Root") {
+                            store.send(.comicMoveToFolderRequested(comicId: comic.id, folderId: nil))
+                        }
+                        ForEach(store.folders.elements) { folder in
+                            Button(folder.name) {
+                                store.send(.comicMoveToFolderRequested(comicId: comic.id, folderId: folder.id))
+                            }
+                        }
+                    } label: {
+                        Label("Move to…", systemImage: "folder")
+                    }
+                }
             }
-            .onDelete { indexSet in
-                // Map displayed index back to original index in `comics`.
-                let ids = indexSet.map { store.displayedComics[$0].id }
-                let originalIndices = ids.compactMap { id in store.comics.firstIndex(where: { $0.id == id }) }
-                store.send(.delete(IndexSet(originalIndices)))
-            }
+            .onDelete { indexSet in store.send(.delete(indexSet)) }
         }
-        .navigationTitle("Library")
+        .navigationTitle(store.currentFolder?.name ?? "Library")
         .toolbar {
             ToolbarItem(placement: .navigation) {
-                Button {
-                    store.send(.settingsTapped)
-                } label: {
-                    Image(systemName: "gearshape")
-                }
+                Button { store.send(.settingsTapped) } label: { Image(systemName: "gearshape") }
             }
             ToolbarItem(placement: .primaryAction) {
                 Menu {
+                    Button { store.send(.newFolderRequested) } label: {
+                        Label("New Folder", systemImage: "folder.badge.plus")
+                    }
+                    Button { showImporter = true } label: {
+                        Label("Import…", systemImage: "doc.badge.plus")
+                    }
                     Picker("Sort", selection: Binding(
                         get: { store.sort },
                         set: { store.send(.sortChanged($0)) }
                     )) {
-                        ForEach(LibrarySortOrder.allCases, id: \.self) { s in
-                            Text(s.rawValue).tag(s)
-                        }
+                        ForEach(LibrarySortOrder.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                     }
                     Picker("Filter", selection: Binding(
                         get: { store.filter },
                         set: { store.send(.filterChanged($0)) }
                     )) {
-                        ForEach(LibraryFilter.allCases, id: \.self) { f in
-                            Text(f.rawValue).tag(f)
-                        }
+                        ForEach(LibraryFilter.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                     }
                 } label: {
-                    Image(systemName: "line.3.horizontal.decrease.circle")
+                    Image(systemName: "ellipsis.circle")
                 }
-            }
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showImporter = true
-                } label: {
-                    Image(systemName: "plus")
-                }
-                .disabled(store.isImporting)
             }
         }
         .fileImporter(
@@ -73,7 +105,6 @@ public struct LibraryView: View {
             allowedContentTypes: [
                 UTType(filenameExtension: "cbz") ?? .archive,
                 UTType(filenameExtension: "cbr") ?? .archive,
-                UTType(filenameExtension: "rar") ?? .archive,
                 .zip,
                 .pdf
             ],
@@ -84,10 +115,31 @@ public struct LibraryView: View {
             case .failure: break
             }
         }
+        .dropDestination(for: URL.self) { urls, _ in
+            store.send(.droppedURLs(urls))
+            return true
+        }
         .task { await store.send(.task).finish() }
         .alert($store.scope(state: \.alert, action: \.alert))
         .overlay {
             if store.isImporting { ProgressView("Importing…") }
+        }
+        .sheet(
+            isPresented: Binding(
+                get: { store.newFolderSheet != nil },
+                set: { if !$0 { store.send(.newFolderSheetDismissed) } }
+            )
+        ) {
+            if let sheet = store.newFolderSheet {
+                NewFolderSheetView(
+                    name: Binding(
+                        get: { sheet.name },
+                        set: { store.send(.newFolderNameChanged($0)) }
+                    ),
+                    onSubmit: { store.send(.newFolderSubmitted) },
+                    onCancel: { store.send(.newFolderSheetDismissed) }
+                )
+            }
         }
     }
 }
