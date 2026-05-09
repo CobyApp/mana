@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import Domain
+import SharedUI
 
 public struct DualPageRenderer: View, PageRenderer {
     let totalPages: Int
@@ -13,8 +14,9 @@ public struct DualPageRenderer: View, PageRenderer {
     let onCenterTap: () -> Void
     let pageOffset: Bool
 
-    @State private var leftImage: UIImage?
-    @State private var rightImage: UIImage?
+    /// The two pages composited side-by-side into a single image, so they render flush
+    /// (no gap) and the whole spread is zoomable as one unit via `ZoomableImageView`.
+    @State private var spreadImage: UIImage?
 
     public init(
         totalPages: Int,
@@ -39,14 +41,7 @@ public struct DualPageRenderer: View, PageRenderer {
     }
 
     /// Returns (leftPageIndex, rightPageIndex) — visual pair.
-    /// nil means blank pane.
-    ///
-    /// Offset mode:
-    ///   current == 0: cover alone → LTR: (nil, 0)  RTL: (0, nil)
-    ///   current >= 1 (odd): show (current, current+1)
-    ///
-    /// Normal mode:
-    ///   current always even: show (current, current+1)
+    /// nil means blank slot in the composite.
     private func logicalPair() -> (Int?, Int?) {
         if pageOffset {
             if current == 0 {
@@ -65,22 +60,11 @@ public struct DualPageRenderer: View, PageRenderer {
     }
 
     public var body: some View {
-        let pair = logicalPair()
-        let hasLeft = pair.0 != nil
-        let hasRight = pair.1 != nil
-
-        return ZStack {
-            HStack(spacing: 0) {
-                pane(
-                    image: leftImage,
-                    alignmentInPane: progressionDirection == .leftToRight ? .trailing : .leading
-                )
-                .opacity(hasLeft ? 1 : 0)
-                pane(
-                    image: rightImage,
-                    alignmentInPane: progressionDirection == .leftToRight ? .leading : .trailing
-                )
-                .opacity(hasRight ? 1 : 0)
+        ZStack {
+            if let spreadImage {
+                ZoomableImageView(image: spreadImage)
+            } else {
+                ProgressView().tint(.white)
             }
             if tapZonesEnabled {
                 TapZoneOverlay(
@@ -111,7 +95,6 @@ public struct DualPageRenderer: View, PageRenderer {
 
     private func goNext() {
         if pageOffset {
-            // 0 → 1, then 1 → 3, 3 → 5, ...
             let next = current == 0 ? 1 : current + 2
             if next < totalPages { current = next }
         } else {
@@ -139,19 +122,6 @@ public struct DualPageRenderer: View, PageRenderer {
             }
     }
 
-    @ViewBuilder
-    private func pane(image: UIImage?, alignmentInPane: Alignment) -> some View {
-        if let image {
-            Image(uiImage: image)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignmentInPane)
-        } else {
-            Color.clear
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-    }
-
     private func loadPair() async {
         let pair = logicalPair()
         let leftIdx = pair.0
@@ -165,8 +135,7 @@ public struct DualPageRenderer: View, PageRenderer {
         if let l = leftIdx { leftImg = await wait(for: l) } else { leftImg = nil }
         if let r = rightIdx { rightImg = await wait(for: r) } else { rightImg = nil }
 
-        leftImage = leftImg
-        rightImage = rightImg
+        spreadImage = Self.compose(left: leftImg, right: rightImg)
     }
 
     private func wait(for index: Int) async -> UIImage? {
@@ -175,6 +144,39 @@ public struct DualPageRenderer: View, PageRenderer {
             try? await Task.sleep(nanoseconds: 50_000_000)
         }
         return nil
+    }
+
+    /// Composes two pages into a single side-by-side image. Pages render flush —
+    /// the right edge of the left page touches the left edge of the right page.
+    /// A nil slot becomes a transparent half (used for cover-alone in offset mode).
+    private static func compose(left: UIImage?, right: UIImage?) -> UIImage? {
+        guard left != nil || right != nil else { return nil }
+
+        // Use the taller image's height as the canvas height, and use the matching
+        // page's natural width for the missing side so cover-alone shows at full
+        // half-width without weird scaling.
+        let lw = left?.size.width ?? right?.size.width ?? 1
+        let lh = left?.size.height ?? right?.size.height ?? 1
+        let rw = right?.size.width ?? left?.size.width ?? 1
+        let rh = right?.size.height ?? left?.size.height ?? 1
+
+        let height = max(lh, rh)
+        let width = lw + rw
+
+        let format = UIGraphicsImageRendererFormat.default()
+        format.opaque = false
+        format.scale = 1
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: width, height: height), format: format)
+        return renderer.image { ctx in
+            if let left {
+                let yOffset = (height - left.size.height) / 2
+                left.draw(at: CGPoint(x: 0, y: yOffset))
+            }
+            if let right {
+                let yOffset = (height - right.size.height) / 2
+                right.draw(at: CGPoint(x: lw, y: yOffset))
+            }
+        }
     }
 
     /// Stable identifier for `.task(id:)` so it re-runs when current OR offset changes.
