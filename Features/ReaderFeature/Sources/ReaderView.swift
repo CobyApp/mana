@@ -122,18 +122,23 @@ public struct ReaderView: View {
 
             // BOTTOM overlay
             HStack(spacing: Tokens.Spacing.m) {
-                Slider(
-                    value: Binding(
-                        get: { Double(store.pageIndex) },
-                        set: { store.send(.pageChanged(Int($0.rounded()))) }
-                    ),
-                    in: 0...Double(max(0, store.pageCount - 1)),
-                    step: 1,
-                    onEditingChanged: { editing in
-                        store.send(editing ? .sliderDragStart : .sliderDragEnd)
-                    }
-                )
-                .tint(Tokens.Colors.accent)
+                if store.pageCount > 1 {
+                    Slider(
+                        value: Binding(
+                            get: { Double(store.pageIndex) },
+                            set: { store.send(.pageChanged(Int($0.rounded()))) }
+                        ),
+                        in: 0...Double(store.pageCount - 1),
+                        step: 1,
+                        onEditingChanged: { editing in
+                            store.send(editing ? .sliderDragStart : .sliderDragEnd)
+                        }
+                    )
+                    .tint(Tokens.Colors.accent)
+                } else {
+                    // Slider would crash with degenerate range (0...0) when pageCount <= 1.
+                    Spacer()
+                }
 
                 Menu {
                     Picker(selection: Binding(
