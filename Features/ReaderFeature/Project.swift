@@ -6,6 +6,7 @@ let project = Module(
     kind: .feature,
     dependencies: [
         .project(target: "Domain", path: "../../Domain"),
+        .project(target: "CloudSyncKit", path: "../../Data/CloudSyncKit"),
         .project(target: "ImageCacheKit", path: "../../Data/ImageCacheKit"),
         .project(target: "DesignSystem", path: "../../DesignSystem"),
         .project(target: "SharedUI", path: "../../SharedUI"),

@@ -3,8 +3,16 @@ import Foundation
 import ComposableArchitecture
 @testable import ReaderFeature
 import Domain
+import CloudSyncKit
 import ImageCacheKit
 import LibraryFeature
+
+private struct UnavailableFileSync: FileSyncService {
+    var isAvailable: Bool { get async { false } }
+    func ingest(localURL: URL) async throws -> URL { throw SyncError.iCloudUnavailable }
+    func ensureLocal(url: URL) async throws { throw SyncError.iCloudUnavailable }
+    func observeChanges() -> AsyncStream<FileSyncEvent> { AsyncStream { _ in } }
+}
 
 @Suite @MainActor struct ReaderFeatureTests {
 
@@ -55,6 +63,7 @@ import LibraryFeature
             $0.progressRepository = progressRepo
             $0.imageCache = ImageCache.inMemoryOnly()
             $0.mainQueue = .immediate
+            $0.fileSyncService = UnavailableFileSync()
         }
         store.exhaustivity = .off(showSkippedAssertions: false)
 
@@ -84,6 +93,7 @@ import LibraryFeature
             $0.imageCache = ImageCache.inMemoryOnly()
             $0.mainQueue = .immediate
             $0.comicRepository = repo
+            $0.fileSyncService = UnavailableFileSync()
         }
         store.exhaustivity = .off(showSkippedAssertions: false)
 
@@ -123,6 +133,7 @@ import LibraryFeature
             $0.progressRepository = InMemoryProgressRepo(initial: [])
             $0.imageCache = ImageCache.inMemoryOnly()
             $0.mainQueue = .immediate
+            $0.fileSyncService = UnavailableFileSync()
         }
         store.exhaustivity = .off(showSkippedAssertions: false)
 

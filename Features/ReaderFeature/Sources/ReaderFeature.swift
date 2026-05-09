@@ -1,6 +1,7 @@
 import Foundation
 import ComposableArchitecture
 import Domain
+import CloudSyncKit
 import ImageCacheKit
 import LibraryFeature
 import SettingsFeature
@@ -62,6 +63,7 @@ public struct ReaderFeature {
     @Dependency(\.mainQueue) var mainQueue
     @Dependency(\.comicRepository) var comicRepo
     @Dependency(\.userDefaults) var userDefaults
+    @Dependency(\.fileSyncService) var fileSync
 
     public var body: some ReducerOf<Self> {
         Reduce { state, action in
@@ -70,8 +72,26 @@ public struct ReaderFeature {
                 let comic = state.comic
                 return .run { send in
                     do {
+                        // Resolve URL: prefer the comic's stored URL; if it's missing locally
+                        // and a bookmark exists, resolve via the bookmark.
+                        var url = comic.url
+                        if !FileManager.default.fileExists(atPath: url.path),
+                           let bookmark = comic.urlBookmarkData {
+                            let (resolved, _) = try BookmarkURLResolver.resolve(bookmarkData: bookmark)
+                            url = resolved
+                        }
+
+                        // If the URL is in the ubiquity container and not yet downloaded, fetch it.
+                        if await fileSync.isAvailable {
+                            try? await fileSync.ensureLocal(url: url)
+                        }
+
+                        // Hold a security scope for the lifetime of this reader session.
+                        // (Plan 4 polish: stop scope on .onDisappear.)
+                        _ = url.startAccessingSecurityScopedResource()
+
                         let reader = router.reader(for: comic.format)
-                        let handle = try await reader.openArchive(at: comic.url)
+                        let handle = try await reader.openArchive(at: url)
                         let pageCount = await reader.pageCount(handle)
                         let saved = await progress.load(comicId: comic.id)
                         let lastPage = saved.map { min(max(0, $0.lastPageIndex), max(0, pageCount - 1)) } ?? 0
