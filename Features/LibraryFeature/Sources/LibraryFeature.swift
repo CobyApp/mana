@@ -223,11 +223,14 @@ public struct LibraryFeature {
 
             case let .delete(indexSet):
                 let displayed = state.displayedComics
-                let ids = indexSet.map { displayed[$0].id }
-                for id in ids { state.comics.remove(id: id) }
+                let toDelete = indexSet.map { displayed[$0] }
+                for comic in toDelete { state.comics.remove(id: comic.id) }
                 let repo = self.repo
                 return .run { _ in
-                    for id in ids { try? await repo.delete(id) }
+                    for comic in toDelete {
+                        Self.deleteComicFile(at: comic.url)
+                        try? await repo.delete(comic.id)
+                    }
                 }
 
             case let .sortChanged(s):
@@ -293,15 +296,16 @@ public struct LibraryFeature {
                 return .none
 
             case let .folderDeleteAlert(.presented(.confirm(folderId))):
-                let comicIdsToDelete = state.comics.filter { $0.folderId == folderId }.map(\.id)
-                for id in comicIdsToDelete { state.comics.remove(id: id) }
+                let comicsToDelete = state.comics.filter { $0.folderId == folderId }
+                for comic in comicsToDelete { state.comics.remove(id: comic.id) }
                 state.folders.remove(id: folderId)
                 if state.currentFolderId == folderId { state.currentFolderId = nil }
                 let repo = self.repo
                 let folderRepo = self.folderRepo
                 return .run { send in
-                    for id in comicIdsToDelete {
-                        try? await repo.delete(id)
+                    for comic in comicsToDelete {
+                        Self.deleteComicFile(at: comic.url)
+                        try? await repo.delete(comic.id)
                     }
                     try? await folderRepo.delete(folderId)
                     await send(.folderDeleted(folderId))
@@ -403,6 +407,11 @@ public struct LibraryFeature {
     }
 
     private struct SyncIdleDebounce: Hashable {}
+
+    private static func deleteComicFile(at url: URL) {
+        // FileManager.removeItem handles both local and ubiquity (iCloud) items.
+        try? FileManager.default.removeItem(at: url)
+    }
 }
 
 // Existing types kept (LibrarySortOrder, LibraryFilter, dependency keys)
