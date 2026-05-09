@@ -118,7 +118,6 @@ public struct SettingsFeature {
 
 public enum AppLanguage: String, Sendable, Equatable, CaseIterable {
     case system
-    case en
     case ko
     case ja
 }

@@ -14,8 +14,8 @@ let project = Project(
     name: "App",
     organizationName: "com.coby",
     options: .options(
-        defaultKnownRegions: ["en", "ja", "ko", "Base"],
-        developmentRegion: "en"
+        defaultKnownRegions: ["ko", "ja", "Base"],
+        developmentRegion: "ko"
     ),
     targets: [
         .target(

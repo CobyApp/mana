@@ -113,7 +113,36 @@ public struct LibraryView: View {
         .alert($store.scope(state: \.alert, action: \.alert))
         .alert($store.scope(state: \.folderDeleteAlert, action: \.folderDeleteAlert))
         .overlay {
-            if store.isImporting { ProgressView { Text("library.importing", bundle: .module) } }
+            if store.isImporting {
+                ProgressView { Text("library.importing", bundle: .module) }
+            } else if isLibraryEmpty {
+                ContentUnavailableView {
+                    Label {
+                        Text("library.empty.title", bundle: .module)
+                    } icon: {
+                        Image(systemName: "books.vertical")
+                    }
+                } description: {
+                    Text("library.empty.description", bundle: .module)
+                } actions: {
+                    Button {
+                        showImporter = true
+                    } label: {
+                        Text("library.import_dotdotdot", bundle: .module)
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            } else if isFolderEmpty {
+                ContentUnavailableView {
+                    Label {
+                        Text("library.folder_empty.title", bundle: .module)
+                    } icon: {
+                        Image(systemName: "tray")
+                    }
+                } description: {
+                    Text("library.folder_empty.description", bundle: .module)
+                }
+            }
         }
         .sheet(
             isPresented: Binding(
@@ -179,5 +208,15 @@ public struct LibraryView: View {
         } label: {
             Label(title: { Text("library.move_to", bundle: .module) }, icon: { Image(systemName: "folder") })
         }
+    }
+
+    private var isLibraryEmpty: Bool {
+        store.currentFolderId == nil
+            && store.displayedFolders.isEmpty
+            && store.displayedComics.isEmpty
+    }
+
+    private var isFolderEmpty: Bool {
+        store.currentFolderId != nil && store.displayedComics.isEmpty
     }
 }

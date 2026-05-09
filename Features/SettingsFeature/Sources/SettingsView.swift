@@ -33,7 +33,6 @@ public struct SettingsView: View {
                     }
                 )) {
                     Text("language.system", bundle: .module).tag(AppLanguage.system)
-                    Text("language.en", bundle: .module).tag(AppLanguage.en)
                     Text("language.ko", bundle: .module).tag(AppLanguage.ko)
                     Text("language.ja", bundle: .module).tag(AppLanguage.ja)
                 } label: { Text("settings.app_language", bundle: .module) }

@@ -30,3 +30,7 @@
 "library.sync.unavailable"     = "iCloud同期は利用不可";
 "library.sync.idle"            = "iCloudと同期済み";
 "library.sync.active"          = "iCloudと同期中";
+"library.empty.title"           = "ライブラリは空です";
+"library.empty.description"     = "コミックファイルを読み込んで始めましょう";
+"library.folder_empty.title"    = "フォルダは空です";
+"library.folder_empty.description" = "このフォルダにコミックを追加しましょう";

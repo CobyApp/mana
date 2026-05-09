@@ -30,3 +30,7 @@
 "library.sync.unavailable"     = "iCloud 동기화 사용 불가";
 "library.sync.idle"            = "iCloud와 동기화됨";
 "library.sync.active"          = "iCloud와 동기화 중";
+"library.empty.title"           = "라이브러리가 비어 있습니다";
+"library.empty.description"     = "만화 파일을 가져와서 시작해보세요";
+"library.folder_empty.title"    = "폴더가 비어 있습니다";
+"library.folder_empty.description" = "이 폴더에 만화를 추가해보세요";
