@@ -5,25 +5,15 @@ import ArchiveKit
 import PersistenceKit
 import ImageCacheKit
 import ThumbnailKit
-import CloudSyncKit
 import LibraryFeature
 import ReaderFeature
 import SettingsFeature
 
 enum LiveDependencies {
-    static let containerIdentifier = "iCloud.com.coby.mana"
-
     static func register() {
-        let ubi = UbiquityContainer(identifier: containerIdentifier)
-
-        let stack: SwiftDataStack
-        if ubi.isAvailable, let cloudStack = try? SwiftDataStack.cloudKit(containerIdentifier: containerIdentifier) {
-            stack = cloudStack
-        } else {
-            stack = try! SwiftDataStack.onDisk(
-                url: URL.applicationSupportDirectory.appending(path: "mana.store")
-            )
-        }
+        let stack = try! SwiftDataStack.onDisk(
+            url: URL.applicationSupportDirectory.appending(path: "mana.store")
+        )
 
         let comicRepo = ComicRepositoryLive(stack: stack)
         let progressRepo = ProgressRepositoryLive(stack: stack)
@@ -36,15 +26,13 @@ enum LiveDependencies {
         let thumbnails = ThumbnailProviderLive(
             cacheDir: URL.cachesDirectory.appending(path: "mana-thumbs")
         )
-        let fileSync = FileSyncServiceLive(ubi: ubi)
         let importer = LibraryImporterLive(
-            repo: comicRepo, router: router, cache: cache,
-            thumbnails: thumbnails, fileSync: fileSync
+            repo: comicRepo, router: router, cache: cache, thumbnails: thumbnails
         )
         let libraryReset = LibraryResetServiceLive(
             comicRepo: comicRepo,
             folderRepo: folderRepo,
-            ubiquityContainerURL: ubi.containerURL,
+            progressRepo: progressRepo,
             imageCache: cache
         )
 
@@ -56,7 +44,6 @@ enum LiveDependencies {
             $0.libraryImporter = importer
             $0.folderRepository = folderRepo
             $0.userDefaults = LiveUserDefaultsClient()
-            $0.fileSyncService = fileSync
             $0.libraryResetService = libraryReset
         }
     }

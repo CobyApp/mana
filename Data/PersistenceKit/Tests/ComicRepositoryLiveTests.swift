@@ -88,28 +88,6 @@ import Domain
         #expect(loaded.first?.readingMode == .dual)
     }
 
-    @Test func roundTripsBookmarkData() async throws {
-        let stack = try makeStack()
-        let repo = ComicRepositoryLive(stack: stack)
-        let id = UUID()
-        let bookmark = Data([0x42, 0x43, 0x44])
-        let item = ComicItem(
-            id: id,
-            url: URL(fileURLWithPath: "/tmp/q.cbz"),
-            format: .cbz,
-            title: "Q",
-            pageCount: 5,
-            coverThumbnail: nil,
-            dateAdded: .init(timeIntervalSince1970: 0),
-            fileSizeBytes: 1,
-            readingMode: nil,
-            urlBookmarkData: bookmark
-        )
-        try await repo.upsert(item)
-        let loaded = await repo.all()
-        #expect(loaded.first?.urlBookmarkData == bookmark)
-    }
-
     @Test func roundTripsFolderIdAndDirection() async throws {
         let stack = try makeStack()
         let repo = ComicRepositoryLive(stack: stack)
@@ -124,7 +102,6 @@ import Domain
             dateAdded: .init(timeIntervalSince1970: 0),
             fileSizeBytes: 0,
             readingMode: nil,
-            urlBookmarkData: nil,
             folderId: folderId,
             pageProgressionDirection: .rightToLeft
         )

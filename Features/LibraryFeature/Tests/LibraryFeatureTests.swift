@@ -3,18 +3,6 @@ import Foundation
 import ComposableArchitecture
 @testable import LibraryFeature
 import Domain
-import CloudSyncKit
-
-private struct UnavailableFileSync: FileSyncService {
-    var isAvailable: Bool { get async { false } }
-    func ingest(localURL: URL) async throws -> URL { throw SyncError.iCloudUnavailable }
-    func ensureLocal(url: URL) async throws { throw SyncError.iCloudUnavailable }
-    func observeChanges() -> AsyncStream<FileSyncEvent> {
-        AsyncStream { continuation in
-            continuation.finish()
-        }
-    }
-}
 
 @MainActor
 @Suite struct LibraryFeatureTests {
@@ -45,7 +33,6 @@ private struct UnavailableFileSync: FileSyncService {
         } withDependencies: {
             $0.comicRepository = repo
             $0.libraryImporter = StubImporter()
-            $0.fileSyncService = UnavailableFileSync()
             $0.folderRepository = StubFolderRepo()
         }
         store.exhaustivity = .off(showSkippedAssertions: false)
@@ -53,57 +40,6 @@ private struct UnavailableFileSync: FileSyncService {
         await store.send(.task)
         await store.receive(\.refreshed) {
             $0.comics = IdentifiedArray(uniqueElements: initial)
-        }
-    }
-
-    @Test func fileSyncEventTriggersRefresh() async {
-        let initial = [sample("A")]
-        let repo = StubComicRepo(initial: initial)
-
-        let store = await TestStore(initialState: LibraryFeature.State()) {
-            LibraryFeature()
-        } withDependencies: {
-            $0.comicRepository = repo
-            $0.libraryImporter = StubImporter()
-            $0.fileSyncService = UnavailableFileSync()
-            $0.folderRepository = StubFolderRepo()
-            $0.continuousClock = ImmediateClock()
-        }
-        store.exhaustivity = .off(showSkippedAssertions: false)
-
-        let url = URL(fileURLWithPath: "/tmp/x.cbz")
-        await store.send(.fileSyncEvent(.added(url))) {
-            $0.syncStatus = .active
-        }
-        await store.receive(\.refreshed) {
-            $0.comics = IdentifiedArray(uniqueElements: initial)
-        }
-    }
-
-    @Test func fileSyncEventSetsActiveAndDebouncesBack() async {
-        let initial = [sample("A")]
-        let repo = StubComicRepo(initial: initial)
-
-        let store = await TestStore(initialState: LibraryFeature.State()) {
-            LibraryFeature()
-        } withDependencies: {
-            $0.comicRepository = repo
-            $0.libraryImporter = StubImporter()
-            $0.fileSyncService = UnavailableFileSync()
-            $0.folderRepository = StubFolderRepo()
-            $0.continuousClock = ImmediateClock()
-        }
-        store.exhaustivity = .off(showSkippedAssertions: false)
-
-        let url = URL(fileURLWithPath: "/tmp/x.cbz")
-        await store.send(.fileSyncEvent(.added(url))) {
-            $0.syncStatus = .active
-        }
-        // ImmediateClock makes clock.sleep(for:) return immediately so markSyncIdle fires.
-        // markSyncIdle now re-evaluates availability; UnavailableFileSync returns false → .unavailable.
-        await store.receive(\.markSyncIdle)
-        await store.receive(\.syncStatusUpdated) {
-            $0.syncStatus = .unavailable
         }
     }
 
@@ -117,7 +53,6 @@ private struct UnavailableFileSync: FileSyncService {
         } withDependencies: {
             $0.comicRepository = repo
             $0.libraryImporter = importer
-            $0.fileSyncService = UnavailableFileSync()
             $0.folderRepository = StubFolderRepo()
         }
 
@@ -156,7 +91,6 @@ private struct UnavailableFileSync: FileSyncService {
         } withDependencies: {
             $0.comicRepository = StubComicRepo(initial: [])
             $0.libraryImporter = StubImporter()
-            $0.fileSyncService = UnavailableFileSync()
             $0.folderRepository = StubFolderRepo()
         }
         await store.send(.sortChanged(.titleAsc)) {
@@ -217,7 +151,6 @@ struct StubImporter: LibraryImporter, @unchecked Sendable {
     } withDependencies: {
         $0.comicRepository = StubComicRepo(initial: [])
         $0.libraryImporter = StubImporter()
-        $0.fileSyncService = UnavailableFileSync()
         $0.folderRepository = folderRepo
         $0.uuid = .constant(fixedUUID)
         $0.date.now = fixedDate
@@ -242,7 +175,6 @@ struct StubImporter: LibraryImporter, @unchecked Sendable {
     } withDependencies: {
         $0.comicRepository = StubComicRepo(initial: [])
         $0.libraryImporter = StubImporter()
-        $0.fileSyncService = UnavailableFileSync()
         $0.folderRepository = StubFolderRepo()
     }
     await store.send(.folderTapped(folder)) {

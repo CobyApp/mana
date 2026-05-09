@@ -4,7 +4,6 @@ import Domain
 import ImageCacheKit
 import LibraryFeature
 import SettingsFeature
-import CloudSyncKit
 
 @Reducer
 public struct ReaderFeature {
@@ -68,7 +67,6 @@ public struct ReaderFeature {
     @Dependency(\.mainQueue) var mainQueue
     @Dependency(\.comicRepository) var comicRepo
     @Dependency(\.userDefaults) var userDefaults
-    @Dependency(\.fileSyncService) var fileSync
 
     public var body: some ReducerOf<Self> {
         Reduce { state, action in
@@ -77,22 +75,9 @@ public struct ReaderFeature {
                 let comic = state.comic
                 let router = self.router
                 let progress = self.progress
-                let fileSync = self.fileSync
                 return .run { send in
                     do {
-                        var url = comic.url
-                        // Always prefer security-scoped bookmark when available — files picked
-                        // from the Files app live outside the sandbox and require the bookmark
-                        // for any access. file-existence check is unreliable here because the
-                        // path may be visible while access is denied.
-                        if let bookmark = comic.urlBookmarkData {
-                            if let resolved = try? BookmarkURLResolver.resolve(bookmarkData: bookmark) {
-                                url = resolved.url
-                            }
-                        }
-                        if await fileSync.isAvailable {
-                            try? await fileSync.ensureLocal(url: url)
-                        }
+                        let url = comic.url
                         let didStart = url.startAccessingSecurityScopedResource()
                         do {
                             let reader = router.reader(for: comic.format)
@@ -207,7 +192,7 @@ public struct ReaderFeature {
                     title: state.comic.title, pageCount: state.comic.pageCount,
                     coverThumbnail: state.comic.coverThumbnail, dateAdded: state.comic.dateAdded,
                     fileSizeBytes: state.comic.fileSizeBytes,
-                    readingMode: mode, urlBookmarkData: state.comic.urlBookmarkData,
+                    readingMode: mode,
                     folderId: state.comic.folderId,
                     pageProgressionDirection: state.comic.pageProgressionDirection
                 )
@@ -222,7 +207,7 @@ public struct ReaderFeature {
                     title: state.comic.title, pageCount: state.comic.pageCount,
                     coverThumbnail: state.comic.coverThumbnail, dateAdded: state.comic.dateAdded,
                     fileSizeBytes: state.comic.fileSizeBytes,
-                    readingMode: state.comic.readingMode, urlBookmarkData: state.comic.urlBookmarkData,
+                    readingMode: state.comic.readingMode,
                     folderId: state.comic.folderId,
                     pageProgressionDirection: direction
                 )

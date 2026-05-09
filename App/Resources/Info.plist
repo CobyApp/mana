@@ -33,28 +33,5 @@
   <true/>
   <key>LSSupportsOpeningDocumentsInPlace</key>
   <true/>
-  <key>NSUbiquitousContainers</key>
-  <dict>
-    <key>iCloud.com.coby.mana</key>
-    <dict>
-      <key>NSUbiquitousContainerIsDocumentScopePublic</key>
-      <true/>
-      <key>NSUbiquitousContainerSupportedFolderLevels</key>
-      <string>Any</string>
-      <key>NSUbiquitousContainerName</key>
-      <string>Mana</string>
-    </dict>
-  </dict>
-  <key>UIBackgroundModes</key>
-  <array>
-    <string>remote-notification</string>
-    <string>processing</string>
-  </array>
-  <key>BGTaskSchedulerPermittedIdentifiers</key>
-  <array>
-    <string>com.apple.coredata.cloudkit.activity</string>
-    <string>com.apple.coredata.cloudkit.activity.export</string>
-    <string>com.apple.coredata.cloudkit.activity.import</string>
-  </array>
 </dict>
 </plist>

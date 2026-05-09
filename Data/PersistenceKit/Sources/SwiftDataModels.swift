@@ -13,7 +13,6 @@ public final class ComicEntity {
     public var dateAdded: Date = Date(timeIntervalSince1970: 0)
     public var fileSizeBytes: Int64 = 0
     public var readingModeRaw: String?
-    public var urlBookmarkData: Data?
     public var folderId: UUID?
     public var pageProgressionDirectionRaw: String?
 
@@ -27,7 +26,6 @@ public final class ComicEntity {
         dateAdded: Date,
         fileSizeBytes: Int64,
         readingModeRaw: String? = nil,
-        urlBookmarkData: Data? = nil,
         folderId: UUID? = nil,
         pageProgressionDirectionRaw: String? = nil
     ) {
@@ -40,7 +38,6 @@ public final class ComicEntity {
         self.dateAdded = dateAdded
         self.fileSizeBytes = fileSizeBytes
         self.readingModeRaw = readingModeRaw
-        self.urlBookmarkData = urlBookmarkData
         self.folderId = folderId
         self.pageProgressionDirectionRaw = pageProgressionDirectionRaw
     }
@@ -58,7 +55,6 @@ public final class ComicEntity {
             dateAdded: dateAdded,
             fileSizeBytes: fileSizeBytes,
             readingMode: mode,
-            urlBookmarkData: urlBookmarkData,
             folderId: folderId,
             pageProgressionDirection: direction
         )
@@ -75,7 +71,6 @@ public final class ComicEntity {
             dateAdded: item.dateAdded,
             fileSizeBytes: item.fileSizeBytes,
             readingModeRaw: item.readingMode?.rawString,
-            urlBookmarkData: item.urlBookmarkData,
             folderId: item.folderId,
             pageProgressionDirectionRaw: item.pageProgressionDirection?.rawValue
         )

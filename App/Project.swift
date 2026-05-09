@@ -27,9 +27,8 @@ let project = Project(
             infoPlist: .file(path: "Resources/Info.plist"),
             sources: ["Sources/**"],
             resources: [
-                .glob(pattern: "Resources/**", excluding: ["Resources/Info.plist", "Resources/Mana.entitlements"])
+                .glob(pattern: "Resources/**", excluding: ["Resources/Info.plist"])
             ],
-            entitlements: .file(path: "Resources/Mana.entitlements"),
             dependencies: [
                 .project(target: "AppFeature", path: "../Features/AppFeature"),
                 .project(target: "LibraryFeature", path: "../Features/LibraryFeature"),
@@ -39,7 +38,6 @@ let project = Project(
                 .project(target: "PersistenceKit", path: "../Data/PersistenceKit"),
                 .project(target: "ImageCacheKit", path: "../Data/ImageCacheKit"),
                 .project(target: "ThumbnailKit", path: "../Data/ThumbnailKit"),
-                .project(target: "CloudSyncKit", path: "../Data/CloudSyncKit"),
                 .project(target: "Domain", path: "../Domain"),
                 .external(name: "ComposableArchitecture")
             ],
@@ -60,7 +58,6 @@ let project = Project(
                 .project(target: "PersistenceKit", path: "../Data/PersistenceKit"),
                 .project(target: "ImageCacheKit", path: "../Data/ImageCacheKit"),
                 .project(target: "ThumbnailKit", path: "../Data/ThumbnailKit"),
-                .project(target: "CloudSyncKit", path: "../Data/CloudSyncKit"),
                 .project(target: "LibraryFeature", path: "../Features/LibraryFeature"),
                 .project(target: "SettingsFeature", path: "../Features/SettingsFeature")
             ],

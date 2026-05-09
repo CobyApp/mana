@@ -3,7 +3,6 @@ import Domain
 import ArchiveKit
 import ImageCacheKit
 import ThumbnailKit
-import CloudSyncKit
 import LibraryFeature
 
 public struct LibraryImporterLive: LibraryImporter {
@@ -11,20 +10,17 @@ public struct LibraryImporterLive: LibraryImporter {
     let router: any ArchiveReaderRouter
     let cache: ImageCache
     let thumbnails: ThumbnailProviderLive
-    let fileSync: any FileSyncService
 
     public init(
         repo: any ComicRepository,
         router: any ArchiveReaderRouter,
         cache: ImageCache,
-        thumbnails: ThumbnailProviderLive,
-        fileSync: any FileSyncService
+        thumbnails: ThumbnailProviderLive
     ) {
         self.repo = repo
         self.router = router
         self.cache = cache
         self.thumbnails = thumbnails
-        self.fileSync = fileSync
     }
 
     public func importFiles(_ urls: [URL], folderId: UUID?) async throws -> [ComicItem] {
@@ -37,17 +33,7 @@ public struct LibraryImporterLive: LibraryImporter {
                 throw ArchiveError.unsupportedFormat(url.pathExtension)
             }
 
-            let canonicalURL: URL
-            let bookmark: Data?
-            if await fileSync.isAvailable {
-                canonicalURL = try await fileSync.ingest(localURL: url)
-                bookmark = nil
-            } else {
-                // Local fallback: copy into app's Documents/Mana Library so we own the file
-                // even if the original picker URL goes stale.
-                canonicalURL = try copyToLocalLibrary(source: url)
-                bookmark = nil  // we own the file at canonicalURL; no bookmark needed
-            }
+            let canonicalURL = try copyToLocalLibrary(source: url)
 
             let reader = router.reader(for: format)
             let handle = try await reader.openArchive(at: canonicalURL)
@@ -73,7 +59,6 @@ public struct LibraryImporterLive: LibraryImporter {
                 dateAdded: Date(),
                 fileSizeBytes: size,
                 readingMode: nil,
-                urlBookmarkData: bookmark,
                 folderId: folderId,
                 pageProgressionDirection: nil
             )

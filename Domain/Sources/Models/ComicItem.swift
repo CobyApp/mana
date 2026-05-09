@@ -10,7 +10,6 @@ public struct ComicItem: Identifiable, Equatable, Sendable, Hashable {
     public let dateAdded: Date
     public let fileSizeBytes: Int64
     public let readingMode: ReadingMode?
-    public let urlBookmarkData: Data?
     public let folderId: UUID?
     public let pageProgressionDirection: PageProgressionDirection?
 
@@ -24,7 +23,6 @@ public struct ComicItem: Identifiable, Equatable, Sendable, Hashable {
         dateAdded: Date,
         fileSizeBytes: Int64,
         readingMode: ReadingMode? = nil,
-        urlBookmarkData: Data? = nil,
         folderId: UUID? = nil,
         pageProgressionDirection: PageProgressionDirection? = nil
     ) {
@@ -37,7 +35,6 @@ public struct ComicItem: Identifiable, Equatable, Sendable, Hashable {
         self.dateAdded = dateAdded
         self.fileSizeBytes = fileSizeBytes
         self.readingMode = readingMode
-        self.urlBookmarkData = urlBookmarkData
         self.folderId = folderId
         self.pageProgressionDirection = pageProgressionDirection
     }

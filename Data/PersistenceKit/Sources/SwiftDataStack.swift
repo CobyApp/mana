@@ -26,12 +26,5 @@ public final class SwiftDataStack: @unchecked Sendable {
         return SwiftDataStack(container: container)
     }
 
-    public static func cloudKit(containerIdentifier: String) throws -> SwiftDataStack {
-        let config = ModelConfiguration(cloudKitDatabase: .private(containerIdentifier))
-        let container = try ModelContainer(
-            for: ComicEntity.self, ReadingProgressEntity.self, FolderEntity.self,
-            configurations: config
-        )
-        return SwiftDataStack(container: container)
-    }
+
 }

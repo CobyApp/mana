@@ -3,17 +3,9 @@ import Foundation
 import ComposableArchitecture
 @testable import ReaderFeature
 import Domain
-import CloudSyncKit
 import ImageCacheKit
 import LibraryFeature
 import SettingsFeature
-
-private struct UnavailableFileSync: FileSyncService {
-    var isAvailable: Bool { get async { false } }
-    func ingest(localURL: URL) async throws -> URL { throw SyncError.iCloudUnavailable }
-    func ensureLocal(url: URL) async throws { throw SyncError.iCloudUnavailable }
-    func observeChanges() -> AsyncStream<FileSyncEvent> { AsyncStream { _ in } }
-}
 
 private func sampleComic() -> ComicItem {
     ComicItem(
@@ -64,7 +56,6 @@ private struct StubRouter: ArchiveReaderRouter {
             $0.progressRepository = progressRepo
             $0.imageCache = ImageCache.inMemoryOnly()
             $0.mainQueue = .immediate
-            $0.fileSyncService = UnavailableFileSync()
             $0.userDefaults = InMemoryUserDefaults()
         }
         store.exhaustivity = .off(showSkippedAssertions: false)
@@ -95,7 +86,6 @@ private struct StubRouter: ArchiveReaderRouter {
             $0.imageCache = ImageCache.inMemoryOnly()
             $0.mainQueue = .immediate
             $0.comicRepository = repo
-            $0.fileSyncService = UnavailableFileSync()
             $0.userDefaults = InMemoryUserDefaults()
         }
         store.exhaustivity = .off(showSkippedAssertions: false)
@@ -121,41 +111,6 @@ private struct StubRouter: ArchiveReaderRouter {
         #expect(stored.first?.readingMode == .dual)
     }
 
-    @Test func modeChangedPreservesBookmarkData() async {
-        let bookmark = Data([1, 2, 3])
-        let comic = ComicItem(
-            id: UUID(),
-            url: URL(fileURLWithPath: "/tmp/x.cbz"),
-            format: .cbz,
-            title: "X",
-            pageCount: 5,
-            coverThumbnail: nil,
-            dateAdded: Date(timeIntervalSince1970: 0),
-            fileSizeBytes: 0,
-            readingMode: nil,
-            urlBookmarkData: bookmark
-        )
-        let repo = StubComicRepoForReader(initial: [comic])
-        let store = await TestStore(initialState: ReaderFeature.State(comic: comic, pageCount: 5)) {
-            ReaderFeature()
-        } withDependencies: {
-            let stubReader = StubReader(handle: ArchiveHandle(), pages: [])
-            $0.archiveReaderRouter = StubRouter(reader: stubReader)
-            $0.progressRepository = InMemoryProgressRepo(initial: [])
-            $0.imageCache = ImageCache.inMemoryOnly()
-            $0.mainQueue = .immediate
-            $0.comicRepository = repo
-            $0.fileSyncService = UnavailableFileSync()
-            $0.userDefaults = InMemoryUserDefaults()
-        }
-        store.exhaustivity = .off(showSkippedAssertions: false)
-
-        await store.send(.modeChanged(.dual))
-        try? await Task.sleep(nanoseconds: 50_000_000)
-        let stored = await repo.all()
-        #expect(stored.first?.urlBookmarkData == bookmark)
-    }
-
     @Test func pageChangedUpdatesIndex() async {
         let pages = (0..<5).map { Data([UInt8($0)]) }
         let stubHandle = ArchiveHandle()
@@ -171,7 +126,6 @@ private struct StubRouter: ArchiveReaderRouter {
             $0.progressRepository = InMemoryProgressRepo(initial: [])
             $0.imageCache = ImageCache.inMemoryOnly()
             $0.mainQueue = .immediate
-            $0.fileSyncService = UnavailableFileSync()
             $0.userDefaults = InMemoryUserDefaults()
         }
         store.exhaustivity = .off(showSkippedAssertions: false)
@@ -189,7 +143,7 @@ private struct StubRouter: ArchiveReaderRouter {
     let comic = ComicItem(
         id: UUID(), url: URL(fileURLWithPath: "/tmp/x.cbz"), format: .cbz, title: "X",
         pageCount: 5, coverThumbnail: nil, dateAdded: .init(timeIntervalSince1970: 0),
-        fileSizeBytes: 0, readingMode: nil, urlBookmarkData: nil,
+        fileSizeBytes: 0, readingMode: nil,
         folderId: nil, pageProgressionDirection: .rightToLeft
     )
     let stubReader = StubReader(handle: ArchiveHandle(), pages: [Data([0])])
@@ -201,7 +155,6 @@ private struct StubRouter: ArchiveReaderRouter {
         $0.imageCache = ImageCache.inMemoryOnly()
         $0.mainQueue = .immediate
         $0.comicRepository = StubComicRepoForReader(initial: [comic])
-        $0.fileSyncService = UnavailableFileSync()
         $0.userDefaults = InMemoryUserDefaults()
     }
     store.exhaustivity = .off(showSkippedAssertions: false)
@@ -229,7 +182,6 @@ private struct StubRouter: ArchiveReaderRouter {
         $0.imageCache = ImageCache.inMemoryOnly()
         $0.mainQueue = .immediate
         $0.comicRepository = repo
-        $0.fileSyncService = UnavailableFileSync()
         $0.userDefaults = InMemoryUserDefaults()
     }
     store.exhaustivity = .off(showSkippedAssertions: false)

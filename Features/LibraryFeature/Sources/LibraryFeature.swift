@@ -1,13 +1,6 @@
 import Foundation
 import ComposableArchitecture
 import Domain
-import CloudSyncKit
-
-public enum SyncStatus: Equatable, Sendable {
-    case unavailable
-    case idle
-    case active
-}
 
 public protocol LibraryImporter: Sendable {
     func importFiles(_ urls: [URL], folderId: UUID?) async throws -> [ComicItem]
@@ -35,7 +28,6 @@ public struct LibraryFeature {
         public var isImporting: Bool = false
         public var sort: LibrarySortOrder = .dateAddedDesc
         public var filter: LibraryFilter = .all
-        public var syncStatus: SyncStatus = .idle
         public var newFolderSheet: NewFolderSheet.State?
         @Presents public var alert: AlertState<Action.Alert>?
         @Presents public var folderDeleteAlert: AlertState<Action.FolderDeleteAlert>?
@@ -115,9 +107,6 @@ public struct LibraryFeature {
         case folderDeleted(UUID)
         case comicMoveToFolderRequested(comicId: UUID, folderId: UUID?)
         case comicMoved(ComicItem)
-        case fileSyncEvent(FileSyncEvent)
-        case syncStatusUpdated(SyncStatus)
-        case markSyncIdle
         case alert(PresentationAction<Alert>)
 
         public enum Alert: Equatable {}
@@ -130,10 +119,8 @@ public struct LibraryFeature {
     @Dependency(\.comicRepository) var repo
     @Dependency(\.folderRepository) var folderRepo
     @Dependency(\.libraryImporter) var importer
-    @Dependency(\.fileSyncService) var fileSync
     @Dependency(\.uuid) var uuid
     @Dependency(\.date.now) var now
-    @Dependency(\.continuousClock) var clock
 
     public var body: some ReducerOf<Self> {
         Reduce { state, action in
@@ -141,16 +128,13 @@ public struct LibraryFeature {
             case .task:
                 let repo = self.repo
                 let folderRepo = self.folderRepo
-                let fileSync = self.fileSync
                 return .merge(
                     .run { send in
                         var items = await repo.all()
                         let fm = FileManager.default
                         var orphanIds: [UUID] = []
                         for comic in items {
-                            let exists = fm.fileExists(atPath: comic.url.path)
-                            let isUbiquity = fm.isUbiquitousItem(at: comic.url)
-                            if !exists && !isUbiquity && comic.urlBookmarkData == nil {
+                            if !fm.fileExists(atPath: comic.url.path) {
                                 orphanIds.append(comic.id)
                             }
                         }
@@ -165,24 +149,6 @@ public struct LibraryFeature {
                     .run { send in
                         let folders = await folderRepo.all()
                         await send(.foldersRefreshed(folders))
-                    },
-                    .run { send in
-                        for await event in fileSync.observeChanges() {
-                            await send(.fileSyncEvent(event))
-                        }
-                    },
-                    .run { send in
-                        let available = await fileSync.isAvailable
-                        await send(.syncStatusUpdated(available ? .idle : .unavailable))
-                        // Retry once after 2s to handle first-launch race where iOS hasn't
-                        // finished registering the ubiquity container yet.
-                        if !available {
-                            try? await Task.sleep(for: .seconds(2))
-                            let available2 = await fileSync.isAvailable
-                            if available2 {
-                                await send(.syncStatusUpdated(.idle))
-                            }
-                        }
                     }
                 )
 
@@ -346,7 +312,7 @@ public struct LibraryFeature {
                         id: comic.id, url: comic.url, format: comic.format, title: comic.title,
                         pageCount: comic.pageCount, coverThumbnail: comic.coverThumbnail,
                         dateAdded: comic.dateAdded, fileSizeBytes: comic.fileSizeBytes,
-                        readingMode: comic.readingMode, urlBookmarkData: comic.urlBookmarkData,
+                        readingMode: comic.readingMode,
                         folderId: nil, pageProgressionDirection: comic.pageProgressionDirection
                     )
                     state.comics.updateOrAppend(updated)
@@ -365,7 +331,7 @@ public struct LibraryFeature {
                             id: item.id, url: item.url, format: item.format, title: item.title,
                             pageCount: item.pageCount, coverThumbnail: item.coverThumbnail,
                             dateAdded: item.dateAdded, fileSizeBytes: item.fileSizeBytes,
-                            readingMode: item.readingMode, urlBookmarkData: item.urlBookmarkData,
+                            readingMode: item.readingMode,
                             folderId: nil, pageProgressionDirection: item.pageProgressionDirection
                         )
                         try? await repo2.upsert(item)
@@ -382,7 +348,7 @@ public struct LibraryFeature {
                     id: existing.id, url: existing.url, format: existing.format, title: existing.title,
                     pageCount: existing.pageCount, coverThumbnail: existing.coverThumbnail,
                     dateAdded: existing.dateAdded, fileSizeBytes: existing.fileSizeBytes,
-                    readingMode: existing.readingMode, urlBookmarkData: existing.urlBookmarkData,
+                    readingMode: existing.readingMode,
                     folderId: folderId, pageProgressionDirection: existing.pageProgressionDirection
                 )
                 state.comics.updateOrAppend(updated)
@@ -395,34 +361,6 @@ public struct LibraryFeature {
             case .comicMoved:
                 return .none
 
-            case .fileSyncEvent:
-                state.syncStatus = .active
-                let repo = self.repo
-                let clock = self.clock
-                return .merge(
-                    .run { send in
-                        let items = await repo.all()
-                        await send(.refreshed(items))
-                    },
-                    .run { send in
-                        try? await clock.sleep(for: .seconds(1.5))
-                        await send(.markSyncIdle)
-                    }
-                    .cancellable(id: SyncIdleDebounce(), cancelInFlight: true)
-                )
-
-            case let .syncStatusUpdated(status):
-                state.syncStatus = status
-                return .none
-
-            case .markSyncIdle:
-                // Re-evaluate availability so the indicator updates if iCloud comes online later.
-                let fileSync = self.fileSync
-                return .run { send in
-                    let available = await fileSync.isAvailable
-                    await send(.syncStatusUpdated(available ? .idle : .unavailable))
-                }
-
             case .alert:
                 return .none
             }
@@ -431,10 +369,7 @@ public struct LibraryFeature {
         .ifLet(\.$folderDeleteAlert, action: \.folderDeleteAlert)
     }
 
-    private struct SyncIdleDebounce: Hashable {}
-
     private static func deleteComicFile(at url: URL) {
-        // FileManager.removeItem handles both local and ubiquity (iCloud) items.
         try? FileManager.default.removeItem(at: url)
     }
 }

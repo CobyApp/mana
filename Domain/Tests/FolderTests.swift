@@ -25,7 +25,6 @@ import Foundation
         dateAdded: .init(timeIntervalSince1970: 0),
         fileSizeBytes: 0,
         readingMode: nil,
-        urlBookmarkData: nil,
         folderId: folderId,
         pageProgressionDirection: .rightToLeft
     )

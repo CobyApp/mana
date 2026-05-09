@@ -4,7 +4,6 @@ import DesignSystem
 
 public struct LibraryRow: View {
     let comic: ComicItem
-    @State private var isLocallyAvailable: Bool = false
 
     public init(comic: ComicItem) {
         self.comic = comic
@@ -17,25 +16,13 @@ public struct LibraryRow: View {
                 .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.card))
             VStack(alignment: .leading, spacing: Tokens.Spacing.xs) {
                 Text(comic.title).font(.headline)
-                HStack(spacing: 4) {
-                    Text(comic.format.rawValue.uppercased())
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    if !isLocallyAvailable {
-                        Image(systemName: "icloud.and.arrow.down")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                Text(comic.format.rawValue.uppercased())
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             Spacer()
         }
         .padding(.vertical, Tokens.Spacing.s)
-        .task(id: comic.url) {
-            // Re-check availability whenever the row appears or url changes.
-            // Plan 4 polish: subscribe to FileSyncService events for live updates.
-            isLocallyAvailable = FileManager.default.fileExists(atPath: comic.url.path)
-        }
     }
 
     @ViewBuilder

@@ -7,14 +7,6 @@ import PersistenceKit
 import ImageCacheKit
 import ThumbnailKit
 import LibraryFeature
-import CloudSyncKit
-
-private struct UnavailableFileSync: FileSyncService {
-    var isAvailable: Bool { get async { false } }
-    func ingest(localURL: URL) async throws -> URL { throw SyncError.iCloudUnavailable }
-    func ensureLocal(url: URL) async throws { throw SyncError.iCloudUnavailable }
-    func observeChanges() -> AsyncStream<FileSyncEvent> { AsyncStream { _ in } }
-}
 
 @Suite struct IntegrationFlowTests {
     private final class BundleAnchor {}
@@ -28,8 +20,7 @@ private struct UnavailableFileSync: FileSyncService {
         let thumbDir = FileManager.default.temporaryDirectory.appending(path: "thumbs-\(UUID())")
         let thumbnails = ThumbnailProviderLive(cacheDir: thumbDir)
         let importer = LibraryImporterLive(
-            repo: comicRepo, router: router, cache: cache, thumbnails: thumbnails,
-            fileSync: UnavailableFileSync()
+            repo: comicRepo, router: router, cache: cache, thumbnails: thumbnails
         )
 
         let fixture = try #require(Bundle(for: BundleAnchor.self).url(forResource: "sample", withExtension: "cbz"))
@@ -45,8 +36,6 @@ private struct UnavailableFileSync: FileSyncService {
         #expect(comic.coverThumbnail == nil)
         #expect(comic.readingMode == nil)
         #expect(comic.folderId == nil)
-        // fileSync is unavailable, so importer copied the file to Documents/Mana Library — no bookmark needed.
-        #expect(comic.urlBookmarkData == nil)
 
         // Verify in repo
         let stored = await comicRepo.all()
