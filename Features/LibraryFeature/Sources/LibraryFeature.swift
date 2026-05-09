@@ -20,6 +20,13 @@ public struct LibraryFeature {
         }
     }
 
+    public struct RenameFolderSheet: Equatable, Sendable {
+        public struct State: Equatable, Sendable {
+            public let folderId: UUID
+            public var name: String
+        }
+    }
+
     @ObservableState
     public struct State: Equatable {
         public var comics: IdentifiedArrayOf<ComicItem> = []
@@ -29,6 +36,7 @@ public struct LibraryFeature {
         public var sort: LibrarySortOrder = .dateAddedDesc
         public var filter: LibraryFilter = .all
         public var newFolderSheet: NewFolderSheet.State?
+        public var renameFolderSheet: RenameFolderSheet.State?
         @Presents public var alert: AlertState<Action.Alert>?
         @Presents public var folderDeleteAlert: AlertState<Action.FolderDeleteAlert>?
 
@@ -105,6 +113,11 @@ public struct LibraryFeature {
         case folderDeleteRequested(UUID)
         case folderDeleteAlert(PresentationAction<FolderDeleteAlert>)
         case folderDeleted(UUID)
+        case renameFolderRequested(UUID)
+        case renameFolderSheetDismissed
+        case renameFolderNameChanged(String)
+        case renameFolderSubmitted
+        case folderRenamed(Folder)
         case comicMoveToFolderRequested(comicId: UUID, folderId: UUID?)
         case comicMoved(ComicItem)
         case deleteComicRequested(UUID)
@@ -370,6 +383,36 @@ public struct LibraryFeature {
                     Self.deleteComicFile(at: comic.url)
                     try? await repo.delete(id)
                 }
+
+            case let .renameFolderRequested(folderId):
+                guard let folder = state.folders[id: folderId] else { return .none }
+                state.renameFolderSheet = RenameFolderSheet.State(folderId: folderId, name: folder.name)
+                return .none
+
+            case .renameFolderSheetDismissed:
+                state.renameFolderSheet = nil
+                return .none
+
+            case let .renameFolderNameChanged(text):
+                state.renameFolderSheet?.name = text
+                return .none
+
+            case .renameFolderSubmitted:
+                guard let sheet = state.renameFolderSheet,
+                      !sheet.name.isEmpty,
+                      let existing = state.folders[id: sheet.folderId]
+                else { return .none }
+                let renamed = Folder(id: existing.id, name: sheet.name, dateAdded: existing.dateAdded)
+                state.folders.updateOrAppend(renamed)
+                state.renameFolderSheet = nil
+                let folderRepo = self.folderRepo
+                return .run { send in
+                    try? await folderRepo.upsert(renamed)
+                    await send(.folderRenamed(renamed))
+                }
+
+            case .folderRenamed:
+                return .none
 
             case .alert:
                 return .none

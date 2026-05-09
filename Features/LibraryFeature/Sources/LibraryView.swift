@@ -26,74 +26,117 @@ public struct LibraryView: View {
                 }
             }
             .navigationTitle(store.currentFolder?.name ?? String(localized: "library.title", bundle: .module))
-        .toolbar {
-            ToolbarItem(placement: .navigation) {
-                Button { store.send(.settingsTapped) } label: { Image(systemName: "gearshape") }
-            }
-            ToolbarItem(placement: .primaryAction) {
-                Menu {
-                    Button { store.send(.newFolderRequested) } label: { newFolderLabel }
-                    Button { showImporter = true } label: { importLabel }
-                    Picker(selection: Binding(
-                        get: { store.sort },
-                        set: { store.send(.sortChanged($0)) }
-                    ), label: Text("library.sort", bundle: .module)) {
-                        ForEach(LibrarySortOrder.allCases, id: \.self) {
-                            Text(LocalizedStringKey($0.localizationKey), bundle: .module).tag($0)
+            .toolbar {
+                ToolbarItem(placement: .navigation) {
+                    if store.currentFolderId != nil {
+                        Button { store.send(.backToRoot) } label: {
+                            Image(systemName: "chevron.left")
+                        }
+                    } else {
+                        Button { store.send(.settingsTapped) } label: {
+                            Image(systemName: "gearshape")
                         }
                     }
-                    Picker(selection: Binding(
-                        get: { store.filter },
-                        set: { store.send(.filterChanged($0)) }
-                    ), label: Text("library.filter", bundle: .module)) {
-                        ForEach(LibraryFilter.allCases, id: \.self) {
-                            Text(LocalizedStringKey($0.localizationKey), bundle: .module).tag($0)
+                }
+
+                if let folderId = store.currentFolderId {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button { store.send(.renameFolderRequested(folderId)) } label: {
+                            Image(systemName: "pencil")
                         }
                     }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
+                    ToolbarItem(placement: .primaryAction) {
+                        Button(role: .destructive) {
+                            store.send(.folderDeleteConfirmationRequested(folderId))
+                        } label: {
+                            Image(systemName: "trash")
+                        }
+                    }
+                } else {
+                    ToolbarItem(placement: .primaryAction) {
+                        Menu {
+                            Button { store.send(.newFolderRequested) } label: { newFolderLabel }
+                            Button { showImporter = true } label: { importLabel }
+                            Picker(selection: Binding(
+                                get: { store.sort },
+                                set: { store.send(.sortChanged($0)) }
+                            ), label: Text("library.sort", bundle: .module)) {
+                                ForEach(LibrarySortOrder.allCases, id: \.self) {
+                                    Text(LocalizedStringKey($0.localizationKey), bundle: .module).tag($0)
+                                }
+                            }
+                            Picker(selection: Binding(
+                                get: { store.filter },
+                                set: { store.send(.filterChanged($0)) }
+                            ), label: Text("library.filter", bundle: .module)) {
+                                ForEach(LibraryFilter.allCases, id: \.self) {
+                                    Text(LocalizedStringKey($0.localizationKey), bundle: .module).tag($0)
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                        }
+                    }
                 }
             }
-        }
-        .fileImporter(
-            isPresented: $showImporter,
-            allowedContentTypes: [
-                UTType(filenameExtension: "cbz") ?? .archive,
-                UTType(filenameExtension: "cbr") ?? .archive,
-                .zip,
-                .pdf
-            ],
-            allowsMultipleSelection: true
-        ) { result in
-            switch result {
-            case .success(let urls): store.send(.importPicked(urls))
-            case .failure: break
+            .fileImporter(
+                isPresented: $showImporter,
+                allowedContentTypes: [
+                    UTType(filenameExtension: "cbz") ?? .archive,
+                    UTType(filenameExtension: "cbr") ?? .archive,
+                    .zip,
+                    .pdf
+                ],
+                allowsMultipleSelection: true
+            ) { result in
+                switch result {
+                case .success(let urls): store.send(.importPicked(urls))
+                case .failure: break
+                }
             }
-        }
-        .dropDestination(for: URL.self) { urls, _ in
-            store.send(.droppedURLs(urls))
-            return true
-        }
-        .task { await store.send(.task).finish() }
-        .alert($store.scope(state: \.alert, action: \.alert))
-        .alert($store.scope(state: \.folderDeleteAlert, action: \.folderDeleteAlert))
-        .sheet(
-            isPresented: Binding(
-                get: { store.newFolderSheet != nil },
-                set: { if !$0 { store.send(.newFolderSheetDismissed) } }
-            )
-        ) {
-            if let sheet = store.newFolderSheet {
-                NewFolderSheetView(
-                    name: Binding(
-                        get: { sheet.name },
-                        set: { store.send(.newFolderNameChanged($0)) }
-                    ),
-                    onSubmit: { store.send(.newFolderSubmitted) },
-                    onCancel: { store.send(.newFolderSheetDismissed) }
+            .dropDestination(for: URL.self) { urls, _ in
+                store.send(.droppedURLs(urls))
+                return true
+            }
+            .task { await store.send(.task).finish() }
+            .alert($store.scope(state: \.alert, action: \.alert))
+            .alert($store.scope(state: \.folderDeleteAlert, action: \.folderDeleteAlert))
+            .sheet(
+                isPresented: Binding(
+                    get: { store.newFolderSheet != nil },
+                    set: { if !$0 { store.send(.newFolderSheetDismissed) } }
                 )
+            ) {
+                if let sheet = store.newFolderSheet {
+                    NewFolderSheetView(
+                        name: Binding(
+                            get: { sheet.name },
+                            set: { store.send(.newFolderNameChanged($0)) }
+                        ),
+                        onSubmit: { store.send(.newFolderSubmitted) },
+                        onCancel: { store.send(.newFolderSheetDismissed) }
+                    )
+                }
             }
-        }
+            .sheet(
+                isPresented: Binding(
+                    get: { store.renameFolderSheet != nil },
+                    set: { if !$0 { store.send(.renameFolderSheetDismissed) } }
+                )
+            ) {
+                if let sheet = store.renameFolderSheet {
+                    NewFolderSheetView(
+                        name: Binding(
+                            get: { sheet.name },
+                            set: { store.send(.renameFolderNameChanged($0)) }
+                        ),
+                        titleKey: "library.rename_folder",
+                        submitKey: "library.save",
+                        onSubmit: { store.send(.renameFolderSubmitted) },
+                        onCancel: { store.send(.renameFolderSheetDismissed) }
+                    )
+                }
+            }
     }
 
     private var isLibraryEmpty: Bool {
@@ -126,109 +169,55 @@ public struct LibraryView: View {
                 .buttonStyle(.borderedProminent)
             }
         } else if isFolderEmpty {
-            VStack(spacing: 0) {
-                breadcrumb(folder: store.currentFolder!)
-                    .padding(Tokens.Spacing.m)
-                ContentUnavailableView {
-                    Label {
-                        Text("library.folder_empty.title", bundle: .module)
-                    } icon: {
-                        Image(systemName: "tray")
-                    }
-                } description: {
-                    Text("library.folder_empty.description", bundle: .module)
+            ContentUnavailableView {
+                Label {
+                    Text("library.folder_empty.title", bundle: .module)
+                } icon: {
+                    Image(systemName: "tray")
                 }
+            } description: {
+                Text("library.folder_empty.description", bundle: .module)
             }
         } else {
             ScrollView {
-                VStack(alignment: .leading, spacing: Tokens.Spacing.l) {
-                    if store.currentFolderId == nil, !store.displayedFolders.isEmpty {
-                        foldersSection
+                LazyVGrid(columns: columns, spacing: Tokens.Spacing.l) {
+                    if store.currentFolderId == nil {
+                        ForEach(store.displayedFolders) { folder in
+                            FolderCard(
+                                folder: folder,
+                                comicsInFolder: store.comics.filter { $0.folderId == folder.id },
+                                onTap: { store.send(.folderTapped(folder)) },
+                                onRename: { store.send(.renameFolderRequested(folder.id)) },
+                                onDelete: { store.send(.folderDeleteConfirmationRequested(folder.id)) },
+                                onDropComic: { comicId in
+                                    store.send(.comicMoveToFolderRequested(comicId: comicId, folderId: folder.id))
+                                }
+                            )
+                        }
                     }
-                    if let folder = store.currentFolder {
-                        breadcrumb(folder: folder)
-                    }
-                    if !store.displayedComics.isEmpty {
-                        comicsGrid
-                    }
-                }
-                .padding(Tokens.Spacing.m)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var foldersSection: some View {
-        let comics = store.comics
-        VStack(alignment: .leading, spacing: Tokens.Spacing.s) {
-            Text("library.folders", bundle: .module)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: Tokens.Spacing.m) {
-                    ForEach(store.displayedFolders) { folder in
-                        FolderCard(
-                            folder: folder,
-                            comicsInFolder: comics.filter { $0.folderId == folder.id },
-                            onTap: { store.send(.folderTapped(folder)) },
-                            onDelete: { store.send(.folderDeleteConfirmationRequested(folder.id)) },
-                            onDropComic: { comicId in
-                                store.send(.comicMoveToFolderRequested(comicId: comicId, folderId: folder.id))
+                    ForEach(store.displayedComics) { comic in
+                        Button {
+                            store.send(.comicTapped(comic))
+                        } label: {
+                            LibraryCell(comic: comic)
+                        }
+                        .buttonStyle(.plain)
+                        .draggable(ComicDragPayload(comicId: comic.id))
+                        .contextMenu {
+                            moveMenu(for: comic)
+                            Button(role: .destructive) {
+                                store.send(.deleteComicRequested(comic.id))
+                            } label: {
+                                Label {
+                                    Text("library.delete", bundle: .module)
+                                } icon: {
+                                    Image(systemName: "trash")
+                                }
                             }
-                        )
-                    }
-                }
-                .padding(.vertical, Tokens.Spacing.xs)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func breadcrumb(folder: Folder) -> some View {
-        HStack(spacing: Tokens.Spacing.xs) {
-            Button { store.send(.backToRoot) } label: {
-                Label {
-                    Text("library.title", bundle: .module)
-                } icon: {
-                    Image(systemName: "chevron.left")
-                }
-                .labelStyle(.titleAndIcon)
-            }
-            Text("/").foregroundStyle(.secondary)
-            Text(folder.name).fontWeight(.semibold)
-            Spacer()
-        }
-        .dropDestination(for: ComicDragPayload.self) { payloads, _ in
-            for payload in payloads {
-                store.send(.comicMoveToFolderRequested(comicId: payload.comicId, folderId: nil))
-            }
-            return !payloads.isEmpty
-        }
-    }
-
-    @ViewBuilder
-    private var comicsGrid: some View {
-        LazyVGrid(columns: columns, spacing: Tokens.Spacing.l) {
-            ForEach(store.displayedComics) { comic in
-                Button {
-                    store.send(.comicTapped(comic))
-                } label: {
-                    LibraryCell(comic: comic)
-                }
-                .buttonStyle(.plain)
-                .draggable(ComicDragPayload(comicId: comic.id))
-                .contextMenu {
-                    moveMenu(for: comic)
-                    Button(role: .destructive) {
-                        store.send(.deleteComicRequested(comic.id))
-                    } label: {
-                        Label {
-                            Text("library.delete", bundle: .module)
-                        } icon: {
-                            Image(systemName: "trash")
                         }
                     }
                 }
+                .padding(Tokens.Spacing.m)
             }
         }
     }

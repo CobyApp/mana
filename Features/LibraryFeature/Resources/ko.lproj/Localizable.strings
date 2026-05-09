@@ -31,3 +31,5 @@
 "library.empty.description"     = "만화 파일을 가져와서 시작해보세요";
 "library.folder_empty.title"    = "폴더가 비어 있습니다";
 "library.folder_empty.description" = "이 폴더에 만화를 추가해보세요";
+"library.rename_folder"         = "폴더 이름 변경";
+"library.save"                  = "저장";

@@ -31,3 +31,5 @@
 "library.empty.description"     = "コミックファイルを読み込んで始めましょう";
 "library.folder_empty.title"    = "フォルダは空です";
 "library.folder_empty.description" = "このフォルダにコミックを追加しましょう";
+"library.rename_folder"         = "フォルダ名の変更";
+"library.save"                  = "保存";

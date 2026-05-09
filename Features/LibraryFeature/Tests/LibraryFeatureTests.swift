@@ -182,6 +182,32 @@ struct StubImporter: LibraryImporter, @unchecked Sendable {
     }
 }
 
+@Test func renameFolderSubmittedUpdatesState() async {
+    let folder = Folder(id: UUID(), name: "Old", dateAdded: .init(timeIntervalSince1970: 0))
+    let folderRepo = StubFolderRepo()
+    try? await folderRepo.upsert(folder)
+
+    var initialState = LibraryFeature.State(
+        folders: IdentifiedArray(uniqueElements: [folder])
+    )
+    initialState.renameFolderSheet = LibraryFeature.RenameFolderSheet.State(folderId: folder.id, name: "New")
+
+    let store = await TestStore(initialState: initialState) {
+        LibraryFeature()
+    } withDependencies: {
+        $0.comicRepository = StubComicRepo(initial: [])
+        $0.libraryImporter = StubImporter()
+        $0.folderRepository = folderRepo
+    }
+    store.exhaustivity = .off(showSkippedAssertions: false)
+
+    await store.send(.renameFolderSubmitted) {
+        let renamed = Folder(id: folder.id, name: "New", dateAdded: folder.dateAdded)
+        $0.folders.updateOrAppend(renamed)
+        $0.renameFolderSheet = nil
+    }
+}
+
 actor StubFolderRepo: FolderRepository {
     private var items: [Folder] = []
     init() {}
