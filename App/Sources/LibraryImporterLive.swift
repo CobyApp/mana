@@ -27,7 +27,7 @@ public struct LibraryImporterLive: LibraryImporter {
         self.fileSync = fileSync
     }
 
-    public func importFiles(_ urls: [URL]) async throws -> [ComicItem] {
+    public func importFiles(_ urls: [URL], folderId: UUID?) async throws -> [ComicItem] {
         var results: [ComicItem] = []
         for url in urls {
             let needsStop = url.startAccessingSecurityScopedResource()
@@ -37,8 +37,6 @@ public struct LibraryImporterLive: LibraryImporter {
                 throw ArchiveError.unsupportedFormat(url.pathExtension)
             }
 
-            // If iCloud is available, copy file into ubiquity container.
-            // Otherwise keep the picked URL and store its bookmark for re-resolution.
             let canonicalURL: URL
             let bookmark: Data?
             if await fileSync.isAvailable {
@@ -73,7 +71,9 @@ public struct LibraryImporterLive: LibraryImporter {
                 dateAdded: Date(),
                 fileSizeBytes: size,
                 readingMode: nil,
-                urlBookmarkData: bookmark
+                urlBookmarkData: bookmark,
+                folderId: folderId,
+                pageProgressionDirection: nil
             )
             try await repo.upsert(item)
             results.append(item)

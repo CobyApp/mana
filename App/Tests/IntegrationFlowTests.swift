@@ -35,7 +35,7 @@ private struct UnavailableFileSync: FileSyncService {
         let fixture = try #require(Bundle(for: BundleAnchor.self).url(forResource: "sample", withExtension: "cbz"))
 
         // Import
-        let imported = try await importer.importFiles([fixture])
+        let imported = try await importer.importFiles([fixture], folderId: nil)
         #expect(imported.count == 1)
         let comic = imported[0]
         #expect(comic.format == .cbz)
@@ -44,6 +44,7 @@ private struct UnavailableFileSync: FileSyncService {
         // so downsampling fails and the thumbnail stays nil. That's expected.
         #expect(comic.coverThumbnail == nil)
         #expect(comic.readingMode == nil)
+        #expect(comic.folderId == nil)
         // fileSync is unavailable, so importer fell back to storing a security-scoped bookmark.
         #expect(comic.urlBookmarkData != nil)
 

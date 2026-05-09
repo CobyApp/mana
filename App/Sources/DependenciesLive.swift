@@ -17,7 +17,6 @@ enum LiveDependencies {
     static func register() {
         let ubi = UbiquityContainer(identifier: containerIdentifier)
 
-        // Pick the SwiftData stack: CloudKit if available, on-disk otherwise.
         let stack: SwiftDataStack
         if ubi.isAvailable, let cloudStack = try? SwiftDataStack.cloudKit(containerIdentifier: containerIdentifier) {
             stack = cloudStack
@@ -30,6 +29,7 @@ enum LiveDependencies {
         let comicRepo = ComicRepositoryLive(stack: stack)
         let progressRepo = ProgressRepositoryLive(stack: stack)
         let bookmarkRepo = BookmarkRepositoryLive(stack: stack)
+        let folderRepo = FolderRepositoryLive(stack: stack)
         let router = DefaultArchiveReaderRouter()
         let cache = ImageCache(
             diskDirectory: URL.cachesDirectory.appending(path: "mana-pages"),
@@ -43,11 +43,8 @@ enum LiveDependencies {
             isAvailable: ubi.isAvailable
         )
         let importer = LibraryImporterLive(
-            repo: comicRepo,
-            router: router,
-            cache: cache,
-            thumbnails: thumbnails,
-            fileSync: fileSync
+            repo: comicRepo, router: router, cache: cache,
+            thumbnails: thumbnails, fileSync: fileSync
         )
 
         prepareDependencies {
@@ -57,6 +54,7 @@ enum LiveDependencies {
             $0.comicRepository = comicRepo
             $0.libraryImporter = importer
             $0.bookmarkRepository = bookmarkRepo
+            $0.folderRepository = folderRepo
             $0.userDefaults = LiveUserDefaultsClient()
             $0.fileSyncService = fileSync
         }
