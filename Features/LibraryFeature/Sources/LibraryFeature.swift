@@ -1,6 +1,7 @@
 import Foundation
 import ComposableArchitecture
 import Domain
+import CloudSyncKit
 
 public protocol LibraryImporter: Sendable {
     /// Take user-picked file URLs, ingest them, and return persisted ComicItems.
@@ -29,6 +30,7 @@ public struct LibraryFeature {
     public enum Action {
         case task
         case refreshed([ComicItem])
+        case fileSyncEvent(FileSyncEvent)
         case importTapped
         case importPicked([URL])
         case imported([ComicItem])
@@ -43,11 +45,26 @@ public struct LibraryFeature {
 
     @Dependency(\.comicRepository) var repo
     @Dependency(\.libraryImporter) var importer
+    @Dependency(\.fileSyncService) var fileSync
 
     public var body: some ReducerOf<Self> {
         Reduce { state, action in
             switch action {
             case .task:
+                return .merge(
+                    .run { send in
+                        let items = await repo.all()
+                        await send(.refreshed(items))
+                    },
+                    .run { send in
+                        for await event in fileSync.observeChanges() {
+                            await send(.fileSyncEvent(event))
+                        }
+                    }
+                )
+
+            case .fileSyncEvent:
+                // Naive refresh — Plan 4 polish would diff incrementally.
                 return .run { send in
                     let items = await repo.all()
                     await send(.refreshed(items))

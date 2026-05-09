@@ -3,6 +3,18 @@ import Foundation
 import ComposableArchitecture
 @testable import LibraryFeature
 import Domain
+import CloudSyncKit
+
+private struct UnavailableFileSync: FileSyncService {
+    var isAvailable: Bool { get async { false } }
+    func ingest(localURL: URL) async throws -> URL { throw SyncError.iCloudUnavailable }
+    func ensureLocal(url: URL) async throws { throw SyncError.iCloudUnavailable }
+    func observeChanges() -> AsyncStream<FileSyncEvent> {
+        AsyncStream { continuation in
+            continuation.finish()
+        }
+    }
+}
 
 @MainActor
 @Suite struct LibraryFeatureTests {
@@ -29,9 +41,30 @@ import Domain
         } withDependencies: {
             $0.comicRepository = repo
             $0.libraryImporter = StubImporter()
+            $0.fileSyncService = UnavailableFileSync()
         }
 
         await store.send(.task)
+        await store.receive(\.refreshed) {
+            $0.comics = IdentifiedArray(uniqueElements: initial)
+        }
+    }
+
+    @Test func fileSyncEventTriggersRefresh() async {
+        let initial = [sample("A")]
+        let repo = StubComicRepo(initial: initial)
+
+        let store = await TestStore(initialState: LibraryFeature.State()) {
+            LibraryFeature()
+        } withDependencies: {
+            $0.comicRepository = repo
+            $0.libraryImporter = StubImporter()
+            $0.fileSyncService = UnavailableFileSync()
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        let url = URL(fileURLWithPath: "/tmp/x.cbz")
+        await store.send(.fileSyncEvent(.added(url)))
         await store.receive(\.refreshed) {
             $0.comics = IdentifiedArray(uniqueElements: initial)
         }
@@ -47,6 +80,7 @@ import Domain
         } withDependencies: {
             $0.comicRepository = repo
             $0.libraryImporter = importer
+            $0.fileSyncService = UnavailableFileSync()
         }
 
         await store.send(.importPicked([URL(fileURLWithPath: "/tmp/Imported.cbz")])) {
