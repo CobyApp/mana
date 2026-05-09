@@ -32,38 +32,49 @@ public struct FolderCard: View {
     public var body: some View {
         Button(action: onTap) {
             VStack(spacing: Tokens.Spacing.s) {
-                ZStack {
-                    FolderThumbnail(comicsInFolder: comicsInFolder)
-                    VStack {
-                        HStack {
+                MangaPanel(
+                    surface: .paper,
+                    tiltIndex: tiltIndex,
+                    cornerRadius: Tokens.Radius.panel,
+                    strokeWidth: Tokens.Stroke.panel
+                ) {
+                    ZStack {
+                        FolderThumbnail(comicsInFolder: comicsInFolder)
+                        VStack {
+                            HStack {
+                                folderTag
+                                Spacer()
+                                countBadge
+                            }
+                            .padding(8)
                             Spacer()
-                            Image(systemName: "folder.fill")
-                                .font(.caption)
-                                .foregroundStyle(.white)
-                                .padding(6)
-                                .background(.black.opacity(0.5), in: .circle)
-                                .padding(8)
                         }
-                        Spacer()
+                    }
+                    .aspectRatio(0.7, contentMode: .fit)
+                    .frame(maxWidth: .infinity)
+                }
+                .overlay(alignment: .center) {
+                    if isTargeted {
+                        RoundedRectangle(cornerRadius: Tokens.Radius.panel, style: .continuous)
+                            .strokeBorder(
+                                Tokens.Colors.accent,
+                                style: StrokeStyle(lineWidth: Tokens.Stroke.bold, dash: [8, 4])
+                            )
+                            .padding(2)
                     }
                 }
-                .aspectRatio(0.7, contentMode: .fit)
-                .frame(maxWidth: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.card))
-                .overlay(
-                    RoundedRectangle(cornerRadius: Tokens.Radius.card)
-                        .stroke(isTargeted ? Tokens.Colors.accent : .clear, lineWidth: 3)
-                )
-                .shadow(color: .black.opacity(0.18), radius: 5, x: 0, y: 3)
+                .glitch(trigger: isTargeted, intensity: 5)
 
                 Text(folder.name)
-                    .font(.caption)
+                    .font(Tokens.Typography.caption)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(Tokens.Colors.ink)
             }
             .padding(.bottom, Tokens.Spacing.xs)
+            .padding(.trailing, 4)
+            .padding(.bottom, 5)
         }
         .buttonStyle(.plain)
         .dropDestination(for: ComicDragPayload.self) { payloads, _ in
@@ -89,6 +100,34 @@ public struct FolderCard: View {
                     Image(systemName: "trash")
                 }
             }
+        }
+    }
+
+    private var tiltIndex: Int {
+        abs(folder.id.hashValue)
+    }
+
+    private var folderTag: some View {
+        Text("FOLDER")
+            .font(Tokens.Typography.mono)
+            .foregroundStyle(Tokens.Colors.paper)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Tokens.Colors.ink)
+    }
+
+    @ViewBuilder
+    private var countBadge: some View {
+        if !comicsInFolder.isEmpty {
+            Text("×\(comicsInFolder.count)")
+                .font(Tokens.Typography.mono)
+                .foregroundStyle(Tokens.Colors.ink)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Tokens.Colors.accent)
+                .overlay(
+                    Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: 1.5)
+                )
         }
     }
 }

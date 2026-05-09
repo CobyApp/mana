@@ -119,14 +119,7 @@ public struct ReaderFeature {
                 }
                 state.pageProgressionDirection = resolvedDirection
                 state.pageOffset = state.comic.pageOffset
-                if let saved = savedLastPage {
-                    state.pageIndex = saved
-                } else {
-                    // No saved progress: RTL starts at the last page (manga cover position).
-                    state.pageIndex = (resolvedDirection == .rightToLeft && pageCount > 0)
-                        ? pageCount - 1
-                        : 0
-                }
+                state.pageIndex = savedLastPage ?? 0
                 return .none
 
             case let .openFailed(message):

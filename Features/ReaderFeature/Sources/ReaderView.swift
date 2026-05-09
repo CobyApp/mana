@@ -23,7 +23,7 @@ public struct ReaderView: View {
                 renderer
                     .ignoresSafeArea()
             } else {
-                ProgressView().tint(.white)
+                ProgressView().tint(Tokens.Colors.accent)
             }
 
             if store.isControlsVisible {
@@ -92,24 +92,22 @@ public struct ReaderView: View {
 
     @ViewBuilder
     private var controlsOverlay: some View {
-        GlassEffectContainer(spacing: 24) {
-            VStack {
-                topBar
-                    .transition(.asymmetric(
-                        insertion: .move(edge: .top).combined(with: .opacity),
-                        removal: .opacity
-                    ))
-                Spacer()
-                bottomBar
-                    .transition(.asymmetric(
-                        insertion: .move(edge: .bottom).combined(with: .opacity),
-                        removal: .opacity
-                    ))
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+        VStack {
+            topBar
+                .transition(.asymmetric(
+                    insertion: .move(edge: .top).combined(with: .opacity),
+                    removal: .opacity
+                ))
+            Spacer()
+            bottomBar
+                .transition(.asymmetric(
+                    insertion: .move(edge: .bottom).combined(with: .opacity),
+                    removal: .opacity
+                ))
         }
-        .foregroundStyle(.white)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .foregroundStyle(Tokens.Colors.paper)
     }
 
     @ViewBuilder
@@ -117,31 +115,40 @@ public struct ReaderView: View {
         HStack(spacing: 12) {
             Button { dismiss() } label: {
                 Image(systemName: "chevron.left")
-                    .font(.title3.weight(.semibold))
+                    .font(.system(size: 18, weight: .black))
+                    .foregroundStyle(Tokens.Colors.paper)
                     .frame(width: 36, height: 36)
+                    .background(Tokens.Colors.ink)
+                    .overlay(Rectangle().strokeBorder(Tokens.Colors.paper, lineWidth: 1.5).padding(2))
             }
             Spacer()
             Text(store.comic.title)
-                .font(.headline)
+                .font(Tokens.Typography.title)
                 .lineLimit(1)
                 .truncationMode(.middle)
+                .foregroundStyle(Tokens.Colors.paper)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Tokens.Colors.ink)
+                .overlay(Rectangle().strokeBorder(Tokens.Colors.paper, lineWidth: 1.5).padding(2))
             Spacer()
-            // Invisible spacer matching the back button's width to keep title centered
             Color.clear.frame(width: 36, height: 36)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .glassEffect(.regular, in: .rect(cornerRadius: 24))
-        .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
+        .background(Tokens.Colors.ink.opacity(0.85))
+        .overlay(Rectangle().strokeBorder(Tokens.Colors.paper, lineWidth: Tokens.Stroke.bold))
+        .background(Tokens.Colors.accent.offset(x: 4, y: 4))
     }
 
     @ViewBuilder
     private var bottomBar: some View {
-        VStack(spacing: 8) {
-            // Centered page indicator
-            Text("\(store.pageIndex + 1) / \(store.pageCount)")
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.white.opacity(0.85))
+        VStack(spacing: 10) {
+            HStack {
+                Spacer()
+                pageReadout
+                Spacer()
+            }
 
             HStack(spacing: 12) {
                 if store.pageCount > 1 {
@@ -185,15 +192,36 @@ public struct ReaderView: View {
                     }
                 } label: {
                     Image(systemName: "slider.horizontal.3")
-                        .font(.title3.weight(.semibold))
+                        .font(.system(size: 18, weight: .black))
+                        .foregroundStyle(Tokens.Colors.paper)
                         .frame(width: 36, height: 36)
+                        .background(Tokens.Colors.ink)
+                        .overlay(Rectangle().strokeBorder(Tokens.Colors.paper, lineWidth: 1.5).padding(2))
                 }
             }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 12)
         .padding(.vertical, 12)
-        .glassEffect(.regular, in: .rect(cornerRadius: 24))
-        .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
+        .background(Tokens.Colors.ink.opacity(0.85))
+        .overlay(Rectangle().strokeBorder(Tokens.Colors.paper, lineWidth: Tokens.Stroke.bold))
+        .background(Tokens.Colors.accent.offset(x: 4, y: -4))
     }
 
+    private var pageReadout: some View {
+        HStack(spacing: 4) {
+            Text("\(store.pageIndex + 1)")
+                .font(Tokens.Typography.monoLarge)
+                .foregroundStyle(Tokens.Colors.accent)
+            Text("/")
+                .font(Tokens.Typography.mono)
+                .foregroundStyle(Tokens.Colors.paper.opacity(0.6))
+            Text("\(store.pageCount)")
+                .font(Tokens.Typography.mono)
+                .foregroundStyle(Tokens.Colors.paper)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(Tokens.Colors.ink)
+        .overlay(Rectangle().strokeBorder(Tokens.Colors.paper.opacity(0.4), lineWidth: 1))
+    }
 }

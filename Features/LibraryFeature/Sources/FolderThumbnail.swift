@@ -21,7 +21,6 @@ public struct FolderThumbnail: View {
                 grid(Array(covers))
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.card))
     }
 
     @ViewBuilder
@@ -36,16 +35,17 @@ public struct FolderThumbnail: View {
     @ViewBuilder
     private func grid(_ items: [ComicItem]) -> some View {
         let padded = items + Array(repeating: nil as ComicItem?, count: max(0, 4 - items.count))
-        VStack(spacing: 1) {
-            HStack(spacing: 1) {
+        VStack(spacing: 2) {
+            HStack(spacing: 2) {
                 cell(padded[0])
                 cell(padded[1])
             }
-            HStack(spacing: 1) {
+            HStack(spacing: 2) {
                 cell(padded.count > 2 ? padded[2] : nil)
                 cell(padded.count > 3 ? padded[3] : nil)
             }
         }
+        .background(Tokens.Colors.ink)
     }
 
     @ViewBuilder
@@ -58,6 +58,10 @@ public struct FolderThumbnail: View {
     }
 
     private var placeholder: some View {
-        Tokens.Colors.backgroundSecondary
+        ZStack {
+            Tokens.Colors.paper
+            HalftoneBackground(spacing: Tokens.Halftone.denseDotSpacing,
+                               radius: Tokens.Halftone.denseDotRadius)
+        }
     }
 }

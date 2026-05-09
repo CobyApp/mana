@@ -1,0 +1,12 @@
+"reader.controls.back"     = "Back";
+"reader.controls.mode"     = "Mode";
+"reader.controls.direction" = "Direction";
+"reader.error.cannot_open" = "Cannot open comic";
+"mode.single"              = "Single page";
+"mode.dual"                = "Two pages";
+"mode.scroll.ltr"          = "Scroll (L→R)";
+"mode.scroll.rtl"          = "Scroll (R→L)";
+"mode.scroll.ttb"          = "Webtoon (top→bottom)";
+"direction.ltr"            = "Left to Right";
+"direction.rtl"            = "Right to Left";
+"reader.controls.page_offset" = "First page solo";

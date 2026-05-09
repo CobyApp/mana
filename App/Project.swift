@@ -14,7 +14,7 @@ let project = Project(
     name: "App",
     organizationName: "com.coby",
     options: .options(
-        defaultKnownRegions: ["ko", "ja", "Base"],
+        defaultKnownRegions: ["ko", "ja", "en", "Base"],
         developmentRegion: "ko"
     ),
     targets: [
@@ -39,6 +39,7 @@ let project = Project(
                 .project(target: "ImageCacheKit", path: "../Data/ImageCacheKit"),
                 .project(target: "ThumbnailKit", path: "../Data/ThumbnailKit"),
                 .project(target: "Domain", path: "../Domain"),
+                .project(target: "DesignSystem", path: "../DesignSystem"),
                 .external(name: "ComposableArchitecture")
             ],
             settings: .settings(base: appBaseSettings)

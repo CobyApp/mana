@@ -56,6 +56,8 @@ public struct SettingsFeature {
                 if let raw = defaults.string(forKey: Self.languageKey),
                    let lang = AppLanguage(rawValue: raw) {
                     state.appLanguage = lang
+                } else {
+                    state.appLanguage = AppLanguage.systemDefault
                 }
                 return .none
 
@@ -115,6 +117,19 @@ public struct SettingsFeature {
 public enum AppLanguage: String, Sendable, Equatable, CaseIterable {
     case ko
     case ja
+    case en
+
+    /// Falls back to English when the system locale isn't Korean or Japanese.
+    public static var systemDefault: AppLanguage {
+        let preferred = Bundle.main.preferredLocalizations.first
+            ?? Locale.current.language.languageCode?.identifier
+            ?? "en"
+        switch preferred.lowercased().prefix(2) {
+        case "ko": return .ko
+        case "ja": return .ja
+        default:   return .en
+        }
+    }
 }
 
 public protocol UserDefaultsClient: Sendable {

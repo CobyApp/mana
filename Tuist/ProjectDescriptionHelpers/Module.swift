@@ -45,7 +45,7 @@ public struct Module {
         let frameworkInfoPlist: InfoPlist = hasResources
             ? .extendingDefault(with: [
                 "CFBundleDevelopmentRegion": "ko",
-                "CFBundleLocalizations": ["ko", "ja"]
+                "CFBundleLocalizations": ["ko", "ja", "en"]
             ])
             : .default
 
