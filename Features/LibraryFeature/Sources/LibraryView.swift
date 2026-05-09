@@ -17,57 +17,15 @@ public struct LibraryView: View {
     }
 
     public var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Tokens.Spacing.l) {
-                if store.currentFolderId == nil, !store.displayedFolders.isEmpty {
-                    foldersSection
-                }
-
-                if let folder = store.currentFolder {
-                    breadcrumb(folder: folder)
-                }
-
-                if !store.displayedComics.isEmpty {
-                    comicsGrid
+        contentBody
+            .overlay {
+                if store.isImporting {
+                    ProgressView { Text("library.importing", bundle: .module) }
+                        .padding(Tokens.Spacing.l)
+                        .background(.regularMaterial, in: .rect(cornerRadius: 12))
                 }
             }
-            .padding(Tokens.Spacing.m)
-        }
-        .overlay {
-            if store.isImporting {
-                ProgressView { Text("library.importing", bundle: .module) }
-                    .padding(Tokens.Spacing.l)
-                    .background(.regularMaterial, in: .rect(cornerRadius: 12))
-            } else if isLibraryEmpty {
-                ContentUnavailableView {
-                    Label {
-                        Text("library.empty.title", bundle: .module)
-                    } icon: {
-                        Image(systemName: "books.vertical")
-                    }
-                } description: {
-                    Text("library.empty.description", bundle: .module)
-                } actions: {
-                    Button {
-                        showImporter = true
-                    } label: {
-                        Text("library.import_dotdotdot", bundle: .module)
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-            } else if isFolderEmpty {
-                ContentUnavailableView {
-                    Label {
-                        Text("library.folder_empty.title", bundle: .module)
-                    } icon: {
-                        Image(systemName: "tray")
-                    }
-                } description: {
-                    Text("library.folder_empty.description", bundle: .module)
-                }
-            }
-        }
-        .navigationTitle(store.currentFolder?.name ?? String(localized: "library.title", bundle: .module))
+            .navigationTitle(store.currentFolder?.name ?? String(localized: "library.title", bundle: .module))
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button { store.send(.settingsTapped) } label: { Image(systemName: "gearshape") }
@@ -146,6 +104,57 @@ public struct LibraryView: View {
 
     private var isFolderEmpty: Bool {
         store.currentFolderId != nil && store.displayedComics.isEmpty
+    }
+
+    @ViewBuilder
+    private var contentBody: some View {
+        if isLibraryEmpty {
+            ContentUnavailableView {
+                Label {
+                    Text("library.empty.title", bundle: .module)
+                } icon: {
+                    Image(systemName: "books.vertical")
+                }
+            } description: {
+                Text("library.empty.description", bundle: .module)
+            } actions: {
+                Button {
+                    showImporter = true
+                } label: {
+                    Text("library.import_dotdotdot", bundle: .module)
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        } else if isFolderEmpty {
+            VStack(spacing: 0) {
+                breadcrumb(folder: store.currentFolder!)
+                    .padding(Tokens.Spacing.m)
+                ContentUnavailableView {
+                    Label {
+                        Text("library.folder_empty.title", bundle: .module)
+                    } icon: {
+                        Image(systemName: "tray")
+                    }
+                } description: {
+                    Text("library.folder_empty.description", bundle: .module)
+                }
+            }
+        } else {
+            ScrollView {
+                VStack(alignment: .leading, spacing: Tokens.Spacing.l) {
+                    if store.currentFolderId == nil, !store.displayedFolders.isEmpty {
+                        foldersSection
+                    }
+                    if let folder = store.currentFolder {
+                        breadcrumb(folder: folder)
+                    }
+                    if !store.displayedComics.isEmpty {
+                        comicsGrid
+                    }
+                }
+                .padding(Tokens.Spacing.m)
+            }
+        }
     }
 
     @ViewBuilder
