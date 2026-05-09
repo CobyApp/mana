@@ -18,6 +18,7 @@ public struct SettingsView: View {
                     Text("mode.single", bundle: .module).tag(ReadingMode.single)
                     Text("mode.dual", bundle: .module).tag(ReadingMode.dual)
                 } label: { Text("settings.default_mode", bundle: .module) }
+                .pickerStyle(.segmented)
                 Picker(selection: Binding(
                     get: { store.defaultPageProgressionDirection },
                     set: { store.send(.defaultDirectionChanged($0)) }
@@ -25,6 +26,7 @@ public struct SettingsView: View {
                     Text("direction.ltr", bundle: .module).tag(PageProgressionDirection.leftToRight)
                     Text("direction.rtl", bundle: .module).tag(PageProgressionDirection.rightToLeft)
                 } label: { Text("settings.default_direction", bundle: .module) }
+                .pickerStyle(.segmented)
                 Picker(selection: Binding(
                     get: { store.appLanguage },
                     set: {
@@ -32,10 +34,10 @@ public struct SettingsView: View {
                         showingRestartAlert = true
                     }
                 )) {
-                    Text("language.system", bundle: .module).tag(AppLanguage.system)
                     Text("language.ko", bundle: .module).tag(AppLanguage.ko)
                     Text("language.ja", bundle: .module).tag(AppLanguage.ja)
                 } label: { Text("settings.app_language", bundle: .module) }
+                .pickerStyle(.segmented)
             } header: { Text("settings.general", bundle: .module) }
 
             Section {

@@ -16,7 +16,7 @@ public struct SettingsFeature {
         public init(
             defaultMode: ReadingMode = .single,
             defaultPageProgressionDirection: PageProgressionDirection = .leftToRight,
-            appLanguage: AppLanguage = .system
+            appLanguage: AppLanguage = .ko
         ) {
             self.defaultMode = defaultMode
             self.defaultPageProgressionDirection = defaultPageProgressionDirection
@@ -72,11 +72,7 @@ public struct SettingsFeature {
             case let .appLanguageChanged(lang):
                 state.appLanguage = lang
                 defaults.set(lang.rawValue, forKey: Self.languageKey)
-                if lang == .system {
-                    defaults.removeObject(forKey: "AppleLanguages")
-                } else {
-                    defaults.setStringArray([lang.rawValue], forKey: "AppleLanguages")
-                }
+                defaults.setStringArray([lang.rawValue], forKey: "AppleLanguages")
                 return .none
 
             case .resetLibraryRequested:
@@ -117,7 +113,6 @@ public struct SettingsFeature {
 }
 
 public enum AppLanguage: String, Sendable, Equatable, CaseIterable {
-    case system
     case ko
     case ja
 }

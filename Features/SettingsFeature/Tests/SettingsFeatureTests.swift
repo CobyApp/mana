@@ -61,29 +61,14 @@ import Domain
         } withDependencies: {
             $0.userDefaults = defaults
         }
-        await store.send(.appLanguageChanged(.ko)) {
-            $0.appLanguage = .ko
+        // Default is .ko; switch to .ja so the state actually changes.
+        await store.send(.appLanguageChanged(.ja)) {
+            $0.appLanguage = .ja
         }
-        #expect(defaults.string(forKey: SettingsFeature.languageKey) == "ko")
+        #expect(defaults.string(forKey: SettingsFeature.languageKey) == "ja")
         // InMemory stores [String] as a comma-joined string; verify the value is non-nil
         // (Live variant writes a real [String] array that iOS reads correctly).
         #expect(defaults.string(forKey: "AppleLanguages") != nil)
     }
 
-    @Test func appLanguageSystemRemovesAppleLanguagesKey() async {
-        let defaults = InMemoryUserDefaults()
-        // Pre-populate a language override so we can verify it gets removed.
-        defaults.setStringArray(["ko"], forKey: "AppleLanguages")
-        let store = await TestStore(initialState: SettingsFeature.State(appLanguage: .ko)) {
-            SettingsFeature()
-        } withDependencies: {
-            $0.userDefaults = defaults
-        }
-        await store.send(.appLanguageChanged(.system)) {
-            $0.appLanguage = .system
-        }
-        #expect(defaults.string(forKey: SettingsFeature.languageKey) == "system")
-        // The key must be absent so iOS uses its default fallback chain.
-        #expect(defaults.string(forKey: "AppleLanguages") == nil)
-    }
 }
