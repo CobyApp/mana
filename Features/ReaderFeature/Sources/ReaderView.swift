@@ -140,18 +140,18 @@ public struct ReaderView: View {
                         get: { store.mode },
                         set: { store.send(.modeChanged($0)) }
                     ), label: Text("reader.controls.mode", bundle: .module)) {
-                        Text(LocalizedStringKey("mode.single")).tag(ReadingMode.single)
-                        Text(LocalizedStringKey("mode.dual")).tag(ReadingMode.dual)
-                        Text(LocalizedStringKey("mode.scroll.ltr")).tag(ReadingMode.scroll(direction: .ltr))
-                        Text(LocalizedStringKey("mode.scroll.rtl")).tag(ReadingMode.scroll(direction: .rtl))
-                        Text(LocalizedStringKey("mode.scroll.ttb")).tag(ReadingMode.scroll(direction: .ttb))
+                        Text("mode.single", bundle: .module).tag(ReadingMode.single)
+                        Text("mode.dual", bundle: .module).tag(ReadingMode.dual)
+                        Text("mode.scroll.ltr", bundle: .module).tag(ReadingMode.scroll(direction: .ltr))
+                        Text("mode.scroll.rtl", bundle: .module).tag(ReadingMode.scroll(direction: .rtl))
+                        Text("mode.scroll.ttb", bundle: .module).tag(ReadingMode.scroll(direction: .ttb))
                     }
                     Picker(selection: Binding(
                         get: { store.pageProgressionDirection },
                         set: { store.send(.progressionDirectionChanged($0)) }
                     ), label: Text("reader.controls.direction", bundle: .module)) {
-                        Text(LocalizedStringKey("direction.ltr")).tag(PageProgressionDirection.leftToRight)
-                        Text(LocalizedStringKey("direction.rtl")).tag(PageProgressionDirection.rightToLeft)
+                        Text("direction.ltr", bundle: .module).tag(PageProgressionDirection.leftToRight)
+                        Text("direction.rtl", bundle: .module).tag(PageProgressionDirection.rightToLeft)
                     }
                 } label: {
                     Image(systemName: "rectangle.split.2x1").font(.title3)

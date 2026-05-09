@@ -16,13 +16,13 @@ public struct BookmarkSheet: View {
     public var body: some View {
         NavigationStack {
             Form {
-                Section(LocalizedStringKey("bookmarks.page")) {
+                Section {
                     Text("\(String(localized: "bookmarks.page", bundle: .module)) \(pageIndex + 1)")
-                }
-                Section(LocalizedStringKey("bookmarks.note")) {
+                } header: { Text("bookmarks.page", bundle: .module) }
+                Section {
                     TextField(String(localized: "bookmarks.note_placeholder", bundle: .module), text: $note, axis: .vertical)
                         .lineLimit(2...5)
-                }
+                } header: { Text("bookmarks.note", bundle: .module) }
             }
             .navigationTitle(Text("bookmarks.add", bundle: .module))
             .navigationBarTitleDisplayMode(.inline)

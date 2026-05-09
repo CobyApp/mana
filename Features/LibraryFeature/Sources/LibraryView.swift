@@ -15,21 +15,7 @@ public struct LibraryView: View {
     public var body: some View {
         List {
             if store.currentFolderId == nil, !store.displayedFolders.isEmpty {
-                Section(LocalizedStringKey("library.folders")) {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        LazyHStack(spacing: Tokens.Spacing.m) {
-                            ForEach(store.displayedFolders) { folder in
-                                FolderCard(
-                                    folder: folder,
-                                    comicsInFolder: store.comics.filter { $0.folderId == folder.id },
-                                    onTap: { store.send(.folderTapped(folder)) },
-                                    onDelete: { store.send(.folderDeleteRequested(folder.id)) }
-                                )
-                            }
-                        }
-                        .padding(.vertical, Tokens.Spacing.s)
-                    }
-                }
+                foldersSection
             }
 
             if let folder = store.currentFolder {
@@ -58,18 +44,7 @@ public struct LibraryView: View {
                 }
                 .buttonStyle(.plain)
                 .contextMenu {
-                    Menu {
-                        Button(LocalizedStringKey("library.move_to_root")) {
-                            store.send(.comicMoveToFolderRequested(comicId: comic.id, folderId: nil))
-                        }
-                        ForEach(store.folders.elements) { folder in
-                            Button(folder.name) {
-                                store.send(.comicMoveToFolderRequested(comicId: comic.id, folderId: folder.id))
-                            }
-                        }
-                    } label: {
-                        Label(LocalizedStringKey("library.move_to"), systemImage: "folder")
-                    }
+                    moveMenu(for: comic)
                 }
             }
             .onDelete { indexSet in store.send(.delete(indexSet)) }
@@ -82,10 +57,10 @@ public struct LibraryView: View {
             ToolbarItem(placement: .primaryAction) {
                 Menu {
                     Button { store.send(.newFolderRequested) } label: {
-                        Label(LocalizedStringKey("library.new_folder"), systemImage: "folder.badge.plus")
+                        newFolderLabel
                     }
                     Button { showImporter = true } label: {
-                        Label(LocalizedStringKey("library.import_dotdotdot"), systemImage: "doc.badge.plus")
+                        importLabel
                     }
                     Picker(selection: Binding(
                         get: { store.sort },
@@ -130,7 +105,7 @@ public struct LibraryView: View {
         .task { await store.send(.task).finish() }
         .alert($store.scope(state: \.alert, action: \.alert))
         .overlay {
-            if store.isImporting { ProgressView(LocalizedStringKey("library.importing")) }
+            if store.isImporting { ProgressView { Text("library.importing", bundle: .module) } }
         }
         .sheet(
             isPresented: Binding(
@@ -148,6 +123,50 @@ public struct LibraryView: View {
                     onCancel: { store.send(.newFolderSheetDismissed) }
                 )
             }
+        }
+    }
+
+    private var newFolderLabel: some View {
+        Label(title: { Text("library.new_folder", bundle: .module) }, icon: { Image(systemName: "folder.badge.plus") })
+    }
+
+    private var importLabel: some View {
+        Label(title: { Text("library.import_dotdotdot", bundle: .module) }, icon: { Image(systemName: "doc.badge.plus") })
+    }
+
+    @ViewBuilder
+    private var foldersSection: some View {
+        let comics = store.comics
+        Section {
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: Tokens.Spacing.m) {
+                    ForEach(store.displayedFolders) { folder in
+                        FolderCard(
+                            folder: folder,
+                            comicsInFolder: comics.filter { $0.folderId == folder.id },
+                            onTap: { store.send(.folderTapped(folder)) },
+                            onDelete: { store.send(.folderDeleteRequested(folder.id)) }
+                        )
+                    }
+                }
+                .padding(.vertical, Tokens.Spacing.s)
+            }
+        } header: { Text("library.folders", bundle: .module) }
+    }
+
+    @ViewBuilder
+    private func moveMenu(for comic: ComicItem) -> some View {
+        Menu {
+            Button {
+                store.send(.comicMoveToFolderRequested(comicId: comic.id, folderId: nil))
+            } label: { Text("library.move_to_root", bundle: .module) }
+            ForEach(store.folders.elements) { folder in
+                Button(folder.name) {
+                    store.send(.comicMoveToFolderRequested(comicId: comic.id, folderId: folder.id))
+                }
+            }
+        } label: {
+            Label(title: { Text("library.move_to", bundle: .module) }, icon: { Image(systemName: "folder") })
         }
     }
 }

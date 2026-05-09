@@ -10,7 +10,9 @@ public struct BookmarksView: View {
     public var body: some View {
         List {
             if store.bookmarks.isEmpty {
-                ContentUnavailableView(LocalizedStringKey("bookmarks.empty"), systemImage: "bookmark")
+                ContentUnavailableView {
+                    Label { Text("bookmarks.empty", bundle: .module) } icon: { Image(systemName: "bookmark") }
+                }
             } else {
                 ForEach(store.bookmarks) { bm in
                     Button {
@@ -26,7 +28,7 @@ public struct BookmarksView: View {
                     .swipeActions {
                         Button(role: .destructive) {
                             store.send(.removeRequested(bm.id))
-                        } label: { Label(LocalizedStringKey("bookmarks.delete"), systemImage: "trash") }
+                        } label: { Label { Text("bookmarks.delete", bundle: .module) } icon: { Image(systemName: "trash") } }
                     }
                 }
             }

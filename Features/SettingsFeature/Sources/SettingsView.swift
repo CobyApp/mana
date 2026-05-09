@@ -10,63 +10,63 @@ public struct SettingsView: View {
 
     public var body: some View {
         Form {
-            Section(LocalizedStringKey("settings.general")) {
-                Picker(LocalizedStringKey("settings.default_mode"), selection: Binding(
+            Section {
+                Picker(selection: Binding(
                     get: { store.defaultMode },
                     set: { store.send(.defaultModeChanged($0)) }
                 )) {
-                    Text(LocalizedStringKey("mode.single")).tag(ReadingMode.single)
-                    Text(LocalizedStringKey("mode.dual")).tag(ReadingMode.dual)
-                    Text(LocalizedStringKey("mode.scroll.ltr")).tag(ReadingMode.scroll(direction: .ltr))
-                    Text(LocalizedStringKey("mode.scroll.rtl")).tag(ReadingMode.scroll(direction: .rtl))
-                    Text(LocalizedStringKey("mode.scroll.ttb")).tag(ReadingMode.scroll(direction: .ttb))
-                }
-                Picker(LocalizedStringKey("settings.default_direction"), selection: Binding(
+                    Text("mode.single", bundle: .module).tag(ReadingMode.single)
+                    Text("mode.dual", bundle: .module).tag(ReadingMode.dual)
+                    Text("mode.scroll.ltr", bundle: .module).tag(ReadingMode.scroll(direction: .ltr))
+                    Text("mode.scroll.rtl", bundle: .module).tag(ReadingMode.scroll(direction: .rtl))
+                    Text("mode.scroll.ttb", bundle: .module).tag(ReadingMode.scroll(direction: .ttb))
+                } label: { Text("settings.default_mode", bundle: .module) }
+                Picker(selection: Binding(
                     get: { store.defaultPageProgressionDirection },
                     set: { store.send(.defaultDirectionChanged($0)) }
                 )) {
-                    Text(LocalizedStringKey("direction.ltr")).tag(PageProgressionDirection.leftToRight)
-                    Text(LocalizedStringKey("direction.rtl")).tag(PageProgressionDirection.rightToLeft)
-                }
-                Picker(LocalizedStringKey("settings.app_language"), selection: Binding(
+                    Text("direction.ltr", bundle: .module).tag(PageProgressionDirection.leftToRight)
+                    Text("direction.rtl", bundle: .module).tag(PageProgressionDirection.rightToLeft)
+                } label: { Text("settings.default_direction", bundle: .module) }
+                Picker(selection: Binding(
                     get: { store.appLanguage },
                     set: {
                         store.send(.appLanguageChanged($0))
                         showingRestartAlert = true
                     }
                 )) {
-                    Text(LocalizedStringKey("language.system")).tag(AppLanguage.system)
-                    Text(LocalizedStringKey("language.en")).tag(AppLanguage.en)
-                    Text(LocalizedStringKey("language.ko")).tag(AppLanguage.ko)
-                    Text(LocalizedStringKey("language.ja")).tag(AppLanguage.ja)
-                }
-            }
+                    Text("language.system", bundle: .module).tag(AppLanguage.system)
+                    Text("language.en", bundle: .module).tag(AppLanguage.en)
+                    Text("language.ko", bundle: .module).tag(AppLanguage.ko)
+                    Text("language.ja", bundle: .module).tag(AppLanguage.ja)
+                } label: { Text("settings.app_language", bundle: .module) }
+            } header: { Text("settings.general", bundle: .module) }
 
-            Section(LocalizedStringKey("settings.gestures")) {
-                Toggle(LocalizedStringKey("settings.tap_zones"), isOn: Binding(
+            Section {
+                Toggle(isOn: Binding(
                     get: { store.tapZonesEnabled },
                     set: { store.send(.tapZonesToggled($0)) }
-                ))
-                Toggle(LocalizedStringKey("settings.swipe"), isOn: Binding(
+                )) { Text("settings.tap_zones", bundle: .module) }
+                Toggle(isOn: Binding(
                     get: { store.swipeEnabled },
                     set: { store.send(.swipeToggled($0)) }
-                ))
-                Picker(LocalizedStringKey("settings.auto_hide"), selection: Binding(
+                )) { Text("settings.swipe", bundle: .module) }
+                Picker(selection: Binding(
                     get: { store.controlsAutoHideSeconds },
                     set: { store.send(.controlsAutoHideChanged($0)) }
                 )) {
-                    Text(LocalizedStringKey("settings.auto_hide.3")).tag(3.0 as Double)
-                    Text(LocalizedStringKey("settings.auto_hide.5")).tag(5.0 as Double)
-                    Text(LocalizedStringKey("settings.auto_hide.off")).tag(0.0 as Double)
-                }
-            }
+                    Text("settings.auto_hide.3", bundle: .module).tag(3.0 as Double)
+                    Text("settings.auto_hide.5", bundle: .module).tag(5.0 as Double)
+                    Text("settings.auto_hide.off", bundle: .module).tag(0.0 as Double)
+                } label: { Text("settings.auto_hide", bundle: .module) }
+            } header: { Text("settings.gestures", bundle: .module) }
         }
         .navigationTitle(Text("settings.title", bundle: .module))
         .task { await store.send(.task).finish() }
-        .alert(LocalizedStringKey("settings.restart_title"), isPresented: $showingRestartAlert) {
-            Button(LocalizedStringKey("settings.ok"), role: .cancel) {}
+        .alert(Text("settings.restart_title", bundle: .module), isPresented: $showingRestartAlert) {
+            Button(role: .cancel) {} label: { Text("settings.ok", bundle: .module) }
         } message: {
-            Text(LocalizedStringKey("settings.restart_required"))
+            Text("settings.restart_required", bundle: .module)
         }
     }
 }

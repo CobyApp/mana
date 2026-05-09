@@ -14,9 +14,9 @@ public struct NewFolderSheetView: View {
     public var body: some View {
         NavigationStack {
             Form {
-                Section(LocalizedStringKey("library.folder_name")) {
+                Section {
                     TextField(String(localized: "library.folder_name_placeholder", bundle: .module), text: $name)
-                }
+                } header: { Text("library.folder_name", bundle: .module) }
             }
             .navigationTitle(Text("library.new_folder", bundle: .module))
             .navigationBarTitleDisplayMode(.inline)
