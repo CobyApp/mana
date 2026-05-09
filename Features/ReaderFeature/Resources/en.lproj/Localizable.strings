@@ -1,0 +1,12 @@
+"reader.controls.back"     = "Back";
+"reader.controls.bookmark" = "Bookmark";
+"reader.controls.mode"     = "Mode";
+"reader.controls.direction" = "Direction";
+"reader.error.cannot_open" = "Cannot open comic";
+"mode.single"              = "Single";
+"mode.dual"                = "Dual";
+"mode.scroll.ltr"          = "Scroll (LTR)";
+"mode.scroll.rtl"          = "Scroll (RTL)";
+"mode.scroll.ttb"          = "Webtoon (TTB)";
+"direction.ltr"            = "Left to Right";
+"direction.rtl"            = "Right to Left";

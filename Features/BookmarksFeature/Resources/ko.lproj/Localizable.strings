@@ -1,0 +1,9 @@
+"bookmarks.title"        = "북마크";
+"bookmarks.add"          = "북마크 추가";
+"bookmarks.note"         = "메모 (선택)";
+"bookmarks.note_placeholder" = "예: 멋진 컷";
+"bookmarks.empty"        = "북마크 없음";
+"bookmarks.delete"       = "삭제";
+"bookmarks.cancel"       = "취소";
+"bookmarks.save"         = "저장";
+"bookmarks.page"         = "페이지";

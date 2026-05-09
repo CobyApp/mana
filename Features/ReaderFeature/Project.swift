@@ -14,5 +14,6 @@ let project = Module(
         .project(target: "SettingsFeature", path: "../SettingsFeature")
     ],
     externalDependencies: ["ComposableArchitecture"],
+    hasResources: true,
     hasTests: true
 ).project()

@@ -10,14 +10,14 @@ public struct BookmarksView: View {
     public var body: some View {
         List {
             if store.bookmarks.isEmpty {
-                ContentUnavailableView("No bookmarks", systemImage: "bookmark")
+                ContentUnavailableView(LocalizedStringKey("bookmarks.empty"), systemImage: "bookmark")
             } else {
                 ForEach(store.bookmarks) { bm in
                     Button {
                         store.send(.tapped(bm))
                     } label: {
                         VStack(alignment: .leading) {
-                            Text("Page \(bm.pageIndex + 1)").font(.headline)
+                            Text("\(String(localized: "bookmarks.page", bundle: .module)) \(bm.pageIndex + 1)").font(.headline)
                             if let note = bm.note, !note.isEmpty {
                                 Text(note).font(.subheadline).foregroundStyle(.secondary)
                             }
@@ -26,12 +26,12 @@ public struct BookmarksView: View {
                     .swipeActions {
                         Button(role: .destructive) {
                             store.send(.removeRequested(bm.id))
-                        } label: { Label("Delete", systemImage: "trash") }
+                        } label: { Label(LocalizedStringKey("bookmarks.delete"), systemImage: "trash") }
                     }
                 }
             }
         }
-        .navigationTitle("Bookmarks")
+        .navigationTitle(Text("bookmarks.title", bundle: .module))
         .toolbar {
             if store.currentPageIndex != nil {
                 ToolbarItem(placement: .primaryAction) {

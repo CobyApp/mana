@@ -6,5 +6,6 @@ let project = Module(
     kind: .feature,
     dependencies: [.project(target: "Domain", path: "../../Domain")],
     externalDependencies: ["ComposableArchitecture"],
+    hasResources: true,
     hasTests: true
 ).project()

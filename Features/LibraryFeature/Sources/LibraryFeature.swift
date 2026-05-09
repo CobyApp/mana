@@ -188,7 +188,7 @@ public struct LibraryFeature {
             case let .importFailed(message):
                 state.isImporting = false
                 state.alert = AlertState {
-                    TextState("Import failed")
+                    TextState("library.import_failed")
                 } message: {
                     TextState(message)
                 }

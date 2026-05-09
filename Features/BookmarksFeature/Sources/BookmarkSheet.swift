@@ -16,22 +16,22 @@ public struct BookmarkSheet: View {
     public var body: some View {
         NavigationStack {
             Form {
-                Section("Page") {
-                    Text("Page \(pageIndex + 1)")
+                Section(LocalizedStringKey("bookmarks.page")) {
+                    Text("\(String(localized: "bookmarks.page", bundle: .module)) \(pageIndex + 1)")
                 }
-                Section("Note (optional)") {
-                    TextField("e.g. great panel", text: $note, axis: .vertical)
+                Section(LocalizedStringKey("bookmarks.note")) {
+                    TextField(String(localized: "bookmarks.note_placeholder", bundle: .module), text: $note, axis: .vertical)
                         .lineLimit(2...5)
                 }
             }
-            .navigationTitle("Add Bookmark")
+            .navigationTitle(Text("bookmarks.add", bundle: .module))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", action: onCancel)
+                    Button(String(localized: "bookmarks.cancel", bundle: .module), action: onCancel)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save", action: onSubmit)
+                    Button(String(localized: "bookmarks.save", bundle: .module), action: onSubmit)
                 }
             }
         }

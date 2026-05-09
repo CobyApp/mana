@@ -1,0 +1,12 @@
+"reader.controls.back"     = "뒤로";
+"reader.controls.bookmark" = "북마크";
+"reader.controls.mode"     = "모드";
+"reader.controls.direction" = "진행 방향";
+"reader.error.cannot_open" = "만화를 열 수 없습니다";
+"mode.single"              = "한 페이지";
+"mode.dual"                = "두 페이지";
+"mode.scroll.ltr"          = "스크롤 (좌→우)";
+"mode.scroll.rtl"          = "스크롤 (우→좌)";
+"mode.scroll.ttb"          = "웹툰 (위→아래)";
+"direction.ltr"            = "왼쪽에서 오른쪽";
+"direction.rtl"            = "오른쪽에서 왼쪽";

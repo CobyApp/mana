@@ -14,18 +14,18 @@ public struct NewFolderSheetView: View {
     public var body: some View {
         NavigationStack {
             Form {
-                Section("Folder Name") {
-                    TextField("e.g. Manga", text: $name)
+                Section(LocalizedStringKey("library.folder_name")) {
+                    TextField(String(localized: "library.folder_name_placeholder", bundle: .module), text: $name)
                 }
             }
-            .navigationTitle("New Folder")
+            .navigationTitle(Text("library.new_folder", bundle: .module))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", action: onCancel)
+                    Button(String(localized: "library.cancel", bundle: .module), action: onCancel)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Create", action: onSubmit).disabled(name.isEmpty)
+                    Button(String(localized: "library.create", bundle: .module), action: onSubmit).disabled(name.isEmpty)
                 }
             }
         }

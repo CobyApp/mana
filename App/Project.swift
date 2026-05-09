@@ -13,6 +13,10 @@ private let appBaseSettings: [String: SettingValue] = [
 let project = Project(
     name: "App",
     organizationName: "com.coby",
+    options: .options(
+        defaultKnownRegions: ["en", "ja", "ko", "Base"],
+        developmentRegion: "en"
+    ),
     targets: [
         .target(
             name: "Mana",

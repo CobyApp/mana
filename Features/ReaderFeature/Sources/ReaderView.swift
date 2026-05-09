@@ -140,18 +140,18 @@ public struct ReaderView: View {
                         get: { store.mode },
                         set: { store.send(.modeChanged($0)) }
                     )) {
-                        Text("Single").tag(ReadingMode.single)
-                        Text("Dual").tag(ReadingMode.dual)
-                        Text("Scroll LTR").tag(ReadingMode.scroll(direction: .ltr))
-                        Text("Scroll RTL").tag(ReadingMode.scroll(direction: .rtl))
-                        Text("Scroll TTB").tag(ReadingMode.scroll(direction: .ttb))
+                        Text(LocalizedStringKey("mode.single")).tag(ReadingMode.single)
+                        Text(LocalizedStringKey("mode.dual")).tag(ReadingMode.dual)
+                        Text(LocalizedStringKey("mode.scroll.ltr")).tag(ReadingMode.scroll(direction: .ltr))
+                        Text(LocalizedStringKey("mode.scroll.rtl")).tag(ReadingMode.scroll(direction: .rtl))
+                        Text(LocalizedStringKey("mode.scroll.ttb")).tag(ReadingMode.scroll(direction: .ttb))
                     }
                     Picker("Direction", selection: Binding(
                         get: { store.pageProgressionDirection },
                         set: { store.send(.progressionDirectionChanged($0)) }
                     )) {
-                        Text("Left to Right").tag(PageProgressionDirection.leftToRight)
-                        Text("Right to Left").tag(PageProgressionDirection.rightToLeft)
+                        Text(LocalizedStringKey("direction.ltr")).tag(PageProgressionDirection.leftToRight)
+                        Text(LocalizedStringKey("direction.rtl")).tag(PageProgressionDirection.rightToLeft)
                     }
                 } label: {
                     Image(systemName: "rectangle.split.2x1").font(.title3)

@@ -10,5 +10,6 @@ let project = Module(
         .project(target: "DesignSystem", path: "../../DesignSystem")
     ],
     externalDependencies: ["ComposableArchitecture"],
+    hasResources: true,
     hasTests: true
 ).project()

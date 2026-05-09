@@ -10,63 +10,63 @@ public struct SettingsView: View {
 
     public var body: some View {
         Form {
-            Section("General") {
-                Picker("Default Reading Mode", selection: Binding(
+            Section(LocalizedStringKey("settings.general")) {
+                Picker(LocalizedStringKey("settings.default_mode"), selection: Binding(
                     get: { store.defaultMode },
                     set: { store.send(.defaultModeChanged($0)) }
                 )) {
-                    Text("Single").tag(ReadingMode.single)
-                    Text("Dual").tag(ReadingMode.dual)
-                    Text("Scroll LTR").tag(ReadingMode.scroll(direction: .ltr))
-                    Text("Scroll RTL").tag(ReadingMode.scroll(direction: .rtl))
-                    Text("Webtoon (TTB)").tag(ReadingMode.scroll(direction: .ttb))
+                    Text(LocalizedStringKey("mode.single")).tag(ReadingMode.single)
+                    Text(LocalizedStringKey("mode.dual")).tag(ReadingMode.dual)
+                    Text(LocalizedStringKey("mode.scroll.ltr")).tag(ReadingMode.scroll(direction: .ltr))
+                    Text(LocalizedStringKey("mode.scroll.rtl")).tag(ReadingMode.scroll(direction: .rtl))
+                    Text(LocalizedStringKey("mode.scroll.ttb")).tag(ReadingMode.scroll(direction: .ttb))
                 }
-                Picker("Default Page Direction", selection: Binding(
+                Picker(LocalizedStringKey("settings.default_direction"), selection: Binding(
                     get: { store.defaultPageProgressionDirection },
                     set: { store.send(.defaultDirectionChanged($0)) }
                 )) {
-                    Text("Left to Right").tag(PageProgressionDirection.leftToRight)
-                    Text("Right to Left").tag(PageProgressionDirection.rightToLeft)
+                    Text(LocalizedStringKey("direction.ltr")).tag(PageProgressionDirection.leftToRight)
+                    Text(LocalizedStringKey("direction.rtl")).tag(PageProgressionDirection.rightToLeft)
                 }
-                Picker("App Language", selection: Binding(
+                Picker(LocalizedStringKey("settings.app_language"), selection: Binding(
                     get: { store.appLanguage },
                     set: {
                         store.send(.appLanguageChanged($0))
                         showingRestartAlert = true
                     }
                 )) {
-                    Text("System").tag(AppLanguage.system)
-                    Text("English").tag(AppLanguage.en)
-                    Text("한국어").tag(AppLanguage.ko)
-                    Text("日本語").tag(AppLanguage.ja)
+                    Text(LocalizedStringKey("language.system")).tag(AppLanguage.system)
+                    Text(LocalizedStringKey("language.en")).tag(AppLanguage.en)
+                    Text(LocalizedStringKey("language.ko")).tag(AppLanguage.ko)
+                    Text(LocalizedStringKey("language.ja")).tag(AppLanguage.ja)
                 }
             }
 
-            Section("Reader Gestures") {
-                Toggle("Tap Zones to Turn Pages", isOn: Binding(
+            Section(LocalizedStringKey("settings.gestures")) {
+                Toggle(LocalizedStringKey("settings.tap_zones"), isOn: Binding(
                     get: { store.tapZonesEnabled },
                     set: { store.send(.tapZonesToggled($0)) }
                 ))
-                Toggle("Swipe to Turn Pages", isOn: Binding(
+                Toggle(LocalizedStringKey("settings.swipe"), isOn: Binding(
                     get: { store.swipeEnabled },
                     set: { store.send(.swipeToggled($0)) }
                 ))
-                Picker("Auto-hide Controls", selection: Binding(
+                Picker(LocalizedStringKey("settings.auto_hide"), selection: Binding(
                     get: { store.controlsAutoHideSeconds },
                     set: { store.send(.controlsAutoHideChanged($0)) }
                 )) {
-                    Text("3 seconds").tag(3.0 as Double)
-                    Text("5 seconds").tag(5.0 as Double)
-                    Text("Off").tag(0.0 as Double)
+                    Text(LocalizedStringKey("settings.auto_hide.3")).tag(3.0 as Double)
+                    Text(LocalizedStringKey("settings.auto_hide.5")).tag(5.0 as Double)
+                    Text(LocalizedStringKey("settings.auto_hide.off")).tag(0.0 as Double)
                 }
             }
         }
-        .navigationTitle("Settings")
+        .navigationTitle(Text("settings.title", bundle: .module))
         .task { await store.send(.task).finish() }
-        .alert("Restart Mana", isPresented: $showingRestartAlert) {
-            Button("OK", role: .cancel) {}
+        .alert(LocalizedStringKey("settings.restart_title"), isPresented: $showingRestartAlert) {
+            Button(LocalizedStringKey("settings.ok"), role: .cancel) {}
         } message: {
-            Text("Restart Mana to apply this change.")
+            Text(LocalizedStringKey("settings.restart_required"))
         }
     }
 }

@@ -15,7 +15,7 @@ public struct LibraryView: View {
     public var body: some View {
         List {
             if store.currentFolderId == nil, !store.displayedFolders.isEmpty {
-                Section("Folders") {
+                Section(LocalizedStringKey("library.folders")) {
                     ScrollView(.horizontal, showsIndicators: false) {
                         LazyHStack(spacing: Tokens.Spacing.m) {
                             ForEach(store.displayedFolders) { folder in
@@ -55,7 +55,7 @@ public struct LibraryView: View {
                 .buttonStyle(.plain)
                 .contextMenu {
                     Menu {
-                        Button("Move to Library Root") {
+                        Button(LocalizedStringKey("library.move_to_root")) {
                             store.send(.comicMoveToFolderRequested(comicId: comic.id, folderId: nil))
                         }
                         ForEach(store.folders.elements) { folder in
@@ -64,13 +64,13 @@ public struct LibraryView: View {
                             }
                         }
                     } label: {
-                        Label("Move to…", systemImage: "folder")
+                        Label(LocalizedStringKey("library.move_to"), systemImage: "folder")
                     }
                 }
             }
             .onDelete { indexSet in store.send(.delete(indexSet)) }
         }
-        .navigationTitle(store.currentFolder?.name ?? "Library")
+        .navigationTitle(store.currentFolder?.name ?? String(localized: "library.title", bundle: .module))
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button { store.send(.settingsTapped) } label: { Image(systemName: "gearshape") }
@@ -78,10 +78,10 @@ public struct LibraryView: View {
             ToolbarItem(placement: .primaryAction) {
                 Menu {
                     Button { store.send(.newFolderRequested) } label: {
-                        Label("New Folder", systemImage: "folder.badge.plus")
+                        Label(LocalizedStringKey("library.new_folder"), systemImage: "folder.badge.plus")
                     }
                     Button { showImporter = true } label: {
-                        Label("Import…", systemImage: "doc.badge.plus")
+                        Label(LocalizedStringKey("library.import_dotdotdot"), systemImage: "doc.badge.plus")
                     }
                     Picker("Sort", selection: Binding(
                         get: { store.sort },
@@ -122,7 +122,7 @@ public struct LibraryView: View {
         .task { await store.send(.task).finish() }
         .alert($store.scope(state: \.alert, action: \.alert))
         .overlay {
-            if store.isImporting { ProgressView("Importing…") }
+            if store.isImporting { ProgressView(LocalizedStringKey("library.importing")) }
         }
         .sheet(
             isPresented: Binding(

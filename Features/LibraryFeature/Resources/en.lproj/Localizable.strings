@@ -1,0 +1,17 @@
+"library.title"             = "Library";
+"library.empty"             = "No comics yet";
+"library.import"            = "Import";
+"library.import_dotdotdot"  = "Import…";
+"library.new_folder"        = "New Folder";
+"library.move_to"           = "Move to…";
+"library.move_to_root"      = "Move to Library Root";
+"library.delete"            = "Delete";
+"library.sort"              = "Sort";
+"library.filter"            = "Filter";
+"library.create"            = "Create";
+"library.cancel"            = "Cancel";
+"library.folder_name"       = "Folder Name";
+"library.folder_name_placeholder" = "e.g. Manga";
+"library.import_failed"     = "Import failed";
+"library.importing"         = "Importing…";
+"library.folders"           = "Folders";

@@ -136,7 +136,7 @@ public struct ReaderFeature {
 
             case let .openFailed(message):
                 state.alert = AlertState {
-                    TextState("Cannot open comic")
+                    TextState("reader.error.cannot_open")
                 } message: {
                     TextState(message)
                 }

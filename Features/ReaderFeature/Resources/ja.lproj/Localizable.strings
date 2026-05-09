@@ -1,0 +1,12 @@
+"reader.controls.back"     = "戻る";
+"reader.controls.bookmark" = "ブックマーク";
+"reader.controls.mode"     = "モード";
+"reader.controls.direction" = "進行方向";
+"reader.error.cannot_open" = "コミックを開けません";
+"mode.single"              = "シングル";
+"mode.dual"                = "デュアル";
+"mode.scroll.ltr"          = "スクロール (左→右)";
+"mode.scroll.rtl"          = "スクロール (右→左)";
+"mode.scroll.ttb"          = "縦読み";
+"direction.ltr"            = "左から右";
+"direction.rtl"            = "右から左";

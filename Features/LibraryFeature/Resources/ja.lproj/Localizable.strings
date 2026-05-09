@@ -1,0 +1,17 @@
+"library.title"             = "ライブラリ";
+"library.empty"             = "コミックがありません";
+"library.import"            = "読み込み";
+"library.import_dotdotdot"  = "読み込み…";
+"library.new_folder"        = "新規フォルダ";
+"library.move_to"           = "移動…";
+"library.move_to_root"      = "ルートに移動";
+"library.delete"            = "削除";
+"library.sort"              = "並べ替え";
+"library.filter"            = "フィルタ";
+"library.create"            = "作成";
+"library.cancel"            = "キャンセル";
+"library.folder_name"       = "フォルダ名";
+"library.folder_name_placeholder" = "例: 漫画";
+"library.import_failed"     = "読み込み失敗";
+"library.importing"         = "読み込み中…";
+"library.folders"           = "フォルダ";
