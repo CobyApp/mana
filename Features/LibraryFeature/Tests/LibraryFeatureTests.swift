@@ -208,6 +208,118 @@ struct StubImporter: LibraryImporter, @unchecked Sendable {
     }
 }
 
+@Test func selectionModeToggleClearsSelection() async {
+    let comic = ComicItem(id: UUID(), url: URL(fileURLWithPath: "/x"), format: .cbz, title: "X",
+                          pageCount: 0, coverThumbnail: nil, dateAdded: .init(timeIntervalSince1970: 0), fileSizeBytes: 0)
+    var initialState = LibraryFeature.State(comics: IdentifiedArray(uniqueElements: [comic]))
+    initialState.isSelecting = true
+    initialState.selectedComicIds = [comic.id]
+
+    let store = await TestStore(initialState: initialState) {
+        LibraryFeature()
+    } withDependencies: {
+        $0.comicRepository = StubComicRepo(initial: [comic])
+        $0.libraryImporter = StubImporter()
+        $0.folderRepository = StubFolderRepo()
+    }
+    await store.send(.selectionModeToggled) {
+        $0.isSelecting = false
+        $0.selectedComicIds = []
+    }
+}
+
+@Test func comicSelectionToggledAddsAndRemoves() async {
+    let id = UUID()
+    let comic = ComicItem(id: id, url: URL(fileURLWithPath: "/x"), format: .cbz, title: "X",
+                          pageCount: 0, coverThumbnail: nil, dateAdded: .init(timeIntervalSince1970: 0), fileSizeBytes: 0)
+    var initialState = LibraryFeature.State(comics: IdentifiedArray(uniqueElements: [comic]))
+    initialState.isSelecting = true
+
+    let store = await TestStore(initialState: initialState) {
+        LibraryFeature()
+    } withDependencies: {
+        $0.comicRepository = StubComicRepo(initial: [comic])
+        $0.libraryImporter = StubImporter()
+        $0.folderRepository = StubFolderRepo()
+    }
+    await store.send(.comicSelectionToggled(id)) {
+        $0.selectedComicIds = [id]
+    }
+    await store.send(.comicSelectionToggled(id)) {
+        $0.selectedComicIds = []
+    }
+}
+
+@Test func bulkMoveDestinationChosenUpdatesFolderIds() async {
+    let folderId = UUID()
+    let folder = Folder(id: folderId, name: "F", dateAdded: .init(timeIntervalSince1970: 0))
+    let c1 = ComicItem(id: UUID(), url: URL(fileURLWithPath: "/a"), format: .cbz, title: "A",
+                       pageCount: 0, coverThumbnail: nil, dateAdded: .init(timeIntervalSince1970: 0), fileSizeBytes: 0)
+    let c2 = ComicItem(id: UUID(), url: URL(fileURLWithPath: "/b"), format: .cbz, title: "B",
+                       pageCount: 0, coverThumbnail: nil, dateAdded: .init(timeIntervalSince1970: 0), fileSizeBytes: 0)
+
+    var initialState = LibraryFeature.State(
+        comics: IdentifiedArray(uniqueElements: [c1, c2]),
+        folders: IdentifiedArray(uniqueElements: [folder])
+    )
+    initialState.isSelecting = true
+    initialState.selectedComicIds = [c1.id, c2.id]
+    initialState.bulkMoveSheet = LibraryFeature.BulkMoveSheet.State(comicIds: [c1.id, c2.id])
+
+    let store = await TestStore(initialState: initialState) {
+        LibraryFeature()
+    } withDependencies: {
+        $0.comicRepository = StubComicRepo(initial: [c1, c2])
+        $0.libraryImporter = StubImporter()
+        $0.folderRepository = StubFolderRepo()
+    }
+    store.exhaustivity = .off(showSkippedAssertions: false)
+
+    await store.send(.bulkMoveDestinationChosen(folderId: folderId)) {
+        $0.bulkMoveSheet = nil
+        $0.selectedComicIds = []
+        $0.isSelecting = false
+        let updated1 = ComicItem(id: c1.id, url: c1.url, format: c1.format, title: c1.title,
+                                 pageCount: c1.pageCount, coverThumbnail: c1.coverThumbnail,
+                                 dateAdded: c1.dateAdded, fileSizeBytes: c1.fileSizeBytes,
+                                 readingMode: c1.readingMode, folderId: folderId,
+                                 pageProgressionDirection: c1.pageProgressionDirection, pageOffset: c1.pageOffset)
+        let updated2 = ComicItem(id: c2.id, url: c2.url, format: c2.format, title: c2.title,
+                                 pageCount: c2.pageCount, coverThumbnail: c2.coverThumbnail,
+                                 dateAdded: c2.dateAdded, fileSizeBytes: c2.fileSizeBytes,
+                                 readingMode: c2.readingMode, folderId: folderId,
+                                 pageProgressionDirection: c2.pageProgressionDirection, pageOffset: c2.pageOffset)
+        $0.comics.updateOrAppend(updated1)
+        $0.comics.updateOrAppend(updated2)
+    }
+}
+
+@Test func renameComicSubmittedUpdatesTitle() async {
+    let comic = ComicItem(id: UUID(), url: URL(fileURLWithPath: "/c"), format: .cbz, title: "Old",
+                          pageCount: 0, coverThumbnail: nil, dateAdded: .init(timeIntervalSince1970: 0), fileSizeBytes: 0)
+    var initialState = LibraryFeature.State(comics: IdentifiedArray(uniqueElements: [comic]))
+    initialState.renameComicSheet = LibraryFeature.RenameComicSheet.State(comicId: comic.id, title: "New")
+
+    let store = await TestStore(initialState: initialState) {
+        LibraryFeature()
+    } withDependencies: {
+        $0.comicRepository = StubComicRepo(initial: [comic])
+        $0.libraryImporter = StubImporter()
+        $0.folderRepository = StubFolderRepo()
+    }
+    store.exhaustivity = .off(showSkippedAssertions: false)
+
+    await store.send(.renameComicSubmitted) {
+        $0.renameComicSheet = nil
+        let renamed = ComicItem(id: comic.id, url: comic.url, format: comic.format, title: "New",
+                                pageCount: comic.pageCount, coverThumbnail: comic.coverThumbnail,
+                                dateAdded: comic.dateAdded, fileSizeBytes: comic.fileSizeBytes,
+                                readingMode: comic.readingMode, folderId: comic.folderId,
+                                pageProgressionDirection: comic.pageProgressionDirection, pageOffset: comic.pageOffset)
+        $0.comics.updateOrAppend(renamed)
+    }
+}
+
 actor StubFolderRepo: FolderRepository {
     private var items: [Folder] = []
     init() {}

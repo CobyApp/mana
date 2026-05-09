@@ -33,3 +33,10 @@
 "library.folder_empty.description" = "このフォルダにコミックを追加しましょう";
 "library.rename_folder"         = "フォルダ名の変更";
 "library.save"                  = "保存";
+"library.rename_comic"          = "名前を変更";
+"library.comic_title_placeholder" = "例: コミックタイトル";
+"library.select"               = "選択";
+"library.done"                 = "完了";
+"library.selected_count"       = "%lld個選択中";
+"library.bulk_delete_title"    = "選択したコミックを削除";
+"library.bulk_delete_message"  = "選択したコミック %lld 件を削除しますか？";

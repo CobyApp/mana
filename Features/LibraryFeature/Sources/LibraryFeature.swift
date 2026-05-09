@@ -27,6 +27,19 @@ public struct LibraryFeature {
         }
     }
 
+    public struct RenameComicSheet: Equatable, Sendable {
+        public struct State: Equatable, Sendable {
+            public let comicId: UUID
+            public var title: String
+        }
+    }
+
+    public struct BulkMoveSheet: Equatable, Sendable {
+        public struct State: Equatable, Sendable {
+            public let comicIds: [UUID]
+        }
+    }
+
     @ObservableState
     public struct State: Equatable {
         public var comics: IdentifiedArrayOf<ComicItem> = []
@@ -37,8 +50,13 @@ public struct LibraryFeature {
         public var filter: LibraryFilter = .all
         public var newFolderSheet: NewFolderSheet.State?
         public var renameFolderSheet: RenameFolderSheet.State?
+        public var renameComicSheet: RenameComicSheet.State?
+        public var isSelecting: Bool = false
+        public var selectedComicIds: Set<UUID> = []
+        public var bulkMoveSheet: BulkMoveSheet.State?
         @Presents public var alert: AlertState<Action.Alert>?
         @Presents public var folderDeleteAlert: AlertState<Action.FolderDeleteAlert>?
+        @Presents public var bulkDeleteAlert: AlertState<Action.BulkDeleteAlert>?
 
         public init(
             comics: IdentifiedArrayOf<ComicItem> = [],
@@ -122,11 +140,30 @@ public struct LibraryFeature {
         case comicMoved(ComicItem)
         case deleteComicRequested(UUID)
         case alert(PresentationAction<Alert>)
+        // Comic rename
+        case renameComicRequested(UUID)
+        case renameComicSheetDismissed
+        case renameComicTitleChanged(String)
+        case renameComicSubmitted
+        case comicRenamed(ComicItem)
+        // Multi-select
+        case selectionModeToggled
+        case comicSelectionToggled(UUID)
+        case selectAllToggled
+        case bulkDeleteRequested
+        case bulkDeleteAlert(PresentationAction<BulkDeleteAlert>)
+        case bulkMoveRequested
+        case bulkMoveDestinationChosen(folderId: UUID?)
+        case bulkMoveSheetDismissed
 
         public enum Alert: Equatable {}
 
         public enum FolderDeleteAlert: Equatable, Sendable {
             case confirm(folderId: UUID)
+        }
+
+        public enum BulkDeleteAlert: Equatable, Sendable {
+            case confirm
         }
     }
 
@@ -416,10 +453,152 @@ public struct LibraryFeature {
 
             case .alert:
                 return .none
+
+            // MARK: - Comic rename
+
+            case let .renameComicRequested(comicId):
+                guard let comic = state.comics[id: comicId] else { return .none }
+                state.renameComicSheet = RenameComicSheet.State(comicId: comicId, title: comic.title)
+                return .none
+
+            case .renameComicSheetDismissed:
+                state.renameComicSheet = nil
+                return .none
+
+            case let .renameComicTitleChanged(text):
+                state.renameComicSheet?.title = text
+                return .none
+
+            case .renameComicSubmitted:
+                guard let sheet = state.renameComicSheet,
+                      !sheet.title.isEmpty,
+                      let existing = state.comics[id: sheet.comicId]
+                else { return .none }
+                let renamed = ComicItem(
+                    id: existing.id, url: existing.url, format: existing.format,
+                    title: sheet.title, pageCount: existing.pageCount,
+                    coverThumbnail: existing.coverThumbnail, dateAdded: existing.dateAdded,
+                    fileSizeBytes: existing.fileSizeBytes,
+                    readingMode: existing.readingMode, folderId: existing.folderId,
+                    pageProgressionDirection: existing.pageProgressionDirection,
+                    pageOffset: existing.pageOffset
+                )
+                state.comics.updateOrAppend(renamed)
+                state.renameComicSheet = nil
+                let repo = self.repo
+                return .run { send in
+                    try? await repo.upsert(renamed)
+                    await send(.comicRenamed(renamed))
+                }
+
+            case .comicRenamed:
+                return .none
+
+            // MARK: - Multi-select
+
+            case .selectionModeToggled:
+                state.isSelecting.toggle()
+                if !state.isSelecting {
+                    state.selectedComicIds = []
+                }
+                return .none
+
+            case let .comicSelectionToggled(id):
+                if state.selectedComicIds.contains(id) {
+                    state.selectedComicIds.remove(id)
+                } else {
+                    state.selectedComicIds.insert(id)
+                }
+                return .none
+
+            case .selectAllToggled:
+                let displayed = state.displayedComics.map(\.id)
+                let allSelected = !displayed.isEmpty && Set(displayed).isSubset(of: state.selectedComicIds)
+                if allSelected {
+                    for id in displayed { state.selectedComicIds.remove(id) }
+                } else {
+                    for id in displayed { state.selectedComicIds.insert(id) }
+                }
+                return .none
+
+            case .bulkDeleteRequested:
+                guard !state.selectedComicIds.isEmpty else { return .none }
+                let count = state.selectedComicIds.count
+                state.bulkDeleteAlert = AlertState {
+                    TextState("library.bulk_delete_title", bundle: .module)
+                } actions: {
+                    ButtonState(role: .destructive, action: .confirm) {
+                        TextState("library.delete", bundle: .module)
+                    }
+                    ButtonState(role: .cancel) {
+                        TextState("library.cancel", bundle: .module)
+                    }
+                } message: {
+                    TextState(verbatim: String(
+                        format: String(localized: "library.bulk_delete_message", bundle: .module),
+                        count
+                    ))
+                }
+                return .none
+
+            case .bulkDeleteAlert(.presented(.confirm)):
+                let toDelete = state.comics.filter { state.selectedComicIds.contains($0.id) }
+                for id in state.selectedComicIds { state.comics.remove(id: id) }
+                state.selectedComicIds = []
+                state.isSelecting = false
+                let repo = self.repo
+                return .run { _ in
+                    for comic in toDelete {
+                        Self.deleteComicFile(at: comic.url)
+                        try? await repo.delete(comic.id)
+                    }
+                }
+
+            case .bulkDeleteAlert:
+                return .none
+
+            case .bulkMoveRequested:
+                guard !state.selectedComicIds.isEmpty else { return .none }
+                state.bulkMoveSheet = BulkMoveSheet.State(comicIds: Array(state.selectedComicIds))
+                return .none
+
+            case let .bulkMoveDestinationChosen(folderId):
+                guard let sheet = state.bulkMoveSheet else { return .none }
+                let comicIds = sheet.comicIds
+                var updatedComics: [ComicItem] = []
+                for id in comicIds {
+                    guard let existing = state.comics[id: id] else { continue }
+                    let updated = ComicItem(
+                        id: existing.id, url: existing.url, format: existing.format,
+                        title: existing.title, pageCount: existing.pageCount,
+                        coverThumbnail: existing.coverThumbnail, dateAdded: existing.dateAdded,
+                        fileSizeBytes: existing.fileSizeBytes,
+                        readingMode: existing.readingMode, folderId: folderId,
+                        pageProgressionDirection: existing.pageProgressionDirection,
+                        pageOffset: existing.pageOffset
+                    )
+                    state.comics.updateOrAppend(updated)
+                    updatedComics.append(updated)
+                }
+                state.bulkMoveSheet = nil
+                state.selectedComicIds = []
+                state.isSelecting = false
+                let repo = self.repo
+                let comicsToUpsert = updatedComics
+                return .run { _ in
+                    for item in comicsToUpsert {
+                        try? await repo.upsert(item)
+                    }
+                }
+
+            case .bulkMoveSheetDismissed:
+                state.bulkMoveSheet = nil
+                return .none
             }
         }
         .ifLet(\.$alert, action: \.alert)
         .ifLet(\.$folderDeleteAlert, action: \.folderDeleteAlert)
+        .ifLet(\.$bulkDeleteAlert, action: \.bulkDeleteAlert)
     }
 
     private static func deleteComicFile(at url: URL) {
@@ -478,7 +657,7 @@ private enum FolderRepositoryKey: DependencyKey {
 }
 
 private struct LiveFolderRepoPlaceholder: FolderRepository {
-    func all() async -> [Folder] { [] }
+    func all() async -> [Folder] { []  }
     func upsert(_ folder: Folder) async throws {}
     func delete(_ id: UUID) async throws {}
 }

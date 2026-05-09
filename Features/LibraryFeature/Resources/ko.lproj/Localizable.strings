@@ -33,3 +33,10 @@
 "library.folder_empty.description" = "이 폴더에 만화를 추가해보세요";
 "library.rename_folder"         = "폴더 이름 변경";
 "library.save"                  = "저장";
+"library.rename_comic"          = "이름 변경";
+"library.comic_title_placeholder" = "예: 만화 제목";
+"library.select"               = "선택";
+"library.done"                 = "완료";
+"library.selected_count"       = "%lld개 선택됨";
+"library.bulk_delete_title"    = "선택한 만화 삭제";
+"library.bulk_delete_message"  = "선택한 만화 %lld개를 삭제하시겠습니까?";

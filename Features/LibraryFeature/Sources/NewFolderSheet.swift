@@ -4,6 +4,7 @@ public struct NewFolderSheetView: View {
     @Binding var name: String
     let titleKey: String
     let submitKey: String
+    let placeholderKey: String
     var onSubmit: () -> Void
     var onCancel: () -> Void
 
@@ -11,12 +12,14 @@ public struct NewFolderSheetView: View {
         name: Binding<String>,
         titleKey: String = "library.new_folder",
         submitKey: String = "library.create",
+        placeholderKey: String = "library.folder_name_placeholder",
         onSubmit: @escaping () -> Void,
         onCancel: @escaping () -> Void
     ) {
         self._name = name
         self.titleKey = titleKey
         self.submitKey = submitKey
+        self.placeholderKey = placeholderKey
         self.onSubmit = onSubmit
         self.onCancel = onCancel
     }
@@ -25,7 +28,10 @@ public struct NewFolderSheetView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField(String(localized: "library.folder_name_placeholder", bundle: .module), text: $name)
+                    TextField(
+                        Bundle.module.localizedString(forKey: placeholderKey, value: nil, table: nil),
+                        text: $name
+                    )
                 } header: { Text("library.folder_name", bundle: .module) }
             }
             .navigationTitle(Text(LocalizedStringKey(titleKey), bundle: .module))

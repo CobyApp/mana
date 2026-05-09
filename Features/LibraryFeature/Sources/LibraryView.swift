@@ -39,42 +39,60 @@ public struct LibraryView: View {
                     }
                 }
 
-                if let folderId = store.currentFolderId {
+                // Select / Done button — shows when there are comics
+                if !store.displayedComics.isEmpty {
                     ToolbarItem(placement: .primaryAction) {
-                        Button { store.send(.renameFolderRequested(folderId)) } label: {
-                            Image(systemName: "pencil")
+                        Button {
+                            store.send(.selectionModeToggled)
+                        } label: {
+                            Text(store.isSelecting
+                                ? Bundle.module.localizedString(forKey: "library.done", value: nil, table: nil)
+                                : Bundle.module.localizedString(forKey: "library.select", value: nil, table: nil)
+                            )
                         }
                     }
-                    ToolbarItem(placement: .primaryAction) {
-                        Button(role: .destructive) {
-                            store.send(.folderDeleteConfirmationRequested(folderId))
-                        } label: {
-                            Image(systemName: "trash")
+                }
+
+                if let folderId = store.currentFolderId {
+                    if !store.isSelecting {
+                        ToolbarItem(placement: .primaryAction) {
+                            Button { store.send(.renameFolderRequested(folderId)) } label: {
+                                Image(systemName: "pencil")
+                            }
+                        }
+                        ToolbarItem(placement: .primaryAction) {
+                            Button(role: .destructive) {
+                                store.send(.folderDeleteConfirmationRequested(folderId))
+                            } label: {
+                                Image(systemName: "trash")
+                            }
                         }
                     }
                 } else {
-                    ToolbarItem(placement: .primaryAction) {
-                        Menu {
-                            Button { store.send(.newFolderRequested) } label: { newFolderLabel }
-                            Button { showImporter = true } label: { importLabel }
-                            Picker(selection: Binding(
-                                get: { store.sort },
-                                set: { store.send(.sortChanged($0)) }
-                            ), label: Text("library.sort", bundle: .module)) {
-                                ForEach(LibrarySortOrder.allCases, id: \.self) {
-                                    Text(LocalizedStringKey($0.localizationKey), bundle: .module).tag($0)
+                    if !store.isSelecting {
+                        ToolbarItem(placement: .primaryAction) {
+                            Menu {
+                                Button { store.send(.newFolderRequested) } label: { newFolderLabel }
+                                Button { showImporter = true } label: { importLabel }
+                                Picker(selection: Binding(
+                                    get: { store.sort },
+                                    set: { store.send(.sortChanged($0)) }
+                                ), label: Text("library.sort", bundle: .module)) {
+                                    ForEach(LibrarySortOrder.allCases, id: \.self) {
+                                        Text(LocalizedStringKey($0.localizationKey), bundle: .module).tag($0)
+                                    }
                                 }
-                            }
-                            Picker(selection: Binding(
-                                get: { store.filter },
-                                set: { store.send(.filterChanged($0)) }
-                            ), label: Text("library.filter", bundle: .module)) {
-                                ForEach(LibraryFilter.allCases, id: \.self) {
-                                    Text(LocalizedStringKey($0.localizationKey), bundle: .module).tag($0)
+                                Picker(selection: Binding(
+                                    get: { store.filter },
+                                    set: { store.send(.filterChanged($0)) }
+                                ), label: Text("library.filter", bundle: .module)) {
+                                    ForEach(LibraryFilter.allCases, id: \.self) {
+                                        Text(LocalizedStringKey($0.localizationKey), bundle: .module).tag($0)
+                                    }
                                 }
+                            } label: {
+                                Image(systemName: "ellipsis.circle")
                             }
-                        } label: {
-                            Image(systemName: "ellipsis.circle")
                         }
                     }
                 }
@@ -101,6 +119,7 @@ public struct LibraryView: View {
             .task { await store.send(.task).finish() }
             .alert($store.scope(state: \.alert, action: \.alert))
             .alert($store.scope(state: \.folderDeleteAlert, action: \.folderDeleteAlert))
+            .alert($store.scope(state: \.bulkDeleteAlert, action: \.bulkDeleteAlert))
             .sheet(
                 isPresented: Binding(
                     get: { store.newFolderSheet != nil },
@@ -135,6 +154,107 @@ public struct LibraryView: View {
                         onSubmit: { store.send(.renameFolderSubmitted) },
                         onCancel: { store.send(.renameFolderSheetDismissed) }
                     )
+                }
+            }
+            .sheet(
+                isPresented: Binding(
+                    get: { store.renameComicSheet != nil },
+                    set: { if !$0 { store.send(.renameComicSheetDismissed) } }
+                )
+            ) {
+                if let sheet = store.renameComicSheet {
+                    NewFolderSheetView(
+                        name: Binding(
+                            get: { sheet.title },
+                            set: { store.send(.renameComicTitleChanged($0)) }
+                        ),
+                        titleKey: "library.rename_comic",
+                        submitKey: "library.save",
+                        placeholderKey: "library.comic_title_placeholder",
+                        onSubmit: { store.send(.renameComicSubmitted) },
+                        onCancel: { store.send(.renameComicSheetDismissed) }
+                    )
+                }
+            }
+            .sheet(
+                isPresented: Binding(
+                    get: { store.bulkMoveSheet != nil },
+                    set: { if !$0 { store.send(.bulkMoveSheetDismissed) } }
+                )
+            ) {
+                if store.bulkMoveSheet != nil {
+                    NavigationStack {
+                        List {
+                            Button {
+                                store.send(.bulkMoveDestinationChosen(folderId: nil))
+                            } label: {
+                                Label {
+                                    Text("library.move_to_root", bundle: .module)
+                                } icon: {
+                                    Image(systemName: "tray")
+                                }
+                            }
+                            ForEach(store.folders.elements) { folder in
+                                Button {
+                                    store.send(.bulkMoveDestinationChosen(folderId: folder.id))
+                                } label: {
+                                    Label {
+                                        Text(folder.name)
+                                    } icon: {
+                                        Image(systemName: "folder")
+                                    }
+                                }
+                            }
+                        }
+                        .navigationTitle(Text("library.move_to", bundle: .module))
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button {
+                                    store.send(.bulkMoveSheetDismissed)
+                                } label: {
+                                    Text("library.cancel", bundle: .module)
+                                }
+                            }
+                        }
+                    }
+                    .presentationDetents([.medium, .large])
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                if store.isSelecting && !store.selectedComicIds.isEmpty {
+                    HStack(spacing: 16) {
+                        Text(verbatim: String(
+                            format: Bundle.module.localizedString(forKey: "library.selected_count", value: nil, table: nil),
+                            store.selectedComicIds.count
+                        ))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+
+                        Spacer()
+
+                        Button {
+                            store.send(.bulkMoveRequested)
+                        } label: {
+                            Label {
+                                Text("library.move_to", bundle: .module)
+                            } icon: {
+                                Image(systemName: "folder")
+                            }
+                        }
+
+                        Button(role: .destructive) {
+                            store.send(.bulkDeleteRequested)
+                        } label: {
+                            Label {
+                                Text("library.delete", bundle: .module)
+                            } icon: {
+                                Image(systemName: "trash")
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(.regularMaterial)
                 }
             }
     }
@@ -197,21 +317,42 @@ public struct LibraryView: View {
                     }
                     ForEach(store.displayedComics) { comic in
                         Button {
-                            store.send(.comicTapped(comic))
+                            if store.isSelecting {
+                                store.send(.comicSelectionToggled(comic.id))
+                            } else {
+                                store.send(.comicTapped(comic))
+                            }
                         } label: {
-                            LibraryCell(comic: comic)
+                            LibraryCell(
+                                comic: comic,
+                                isSelectionMode: store.isSelecting,
+                                isSelected: store.selectedComicIds.contains(comic.id)
+                            )
                         }
                         .buttonStyle(.plain)
-                        .draggable(ComicDragPayload(comicId: comic.id))
+                        .draggable(
+                            ComicDragPayload(comicIds: dragPayloadFor(comic.id))
+                        )
                         .contextMenu {
-                            moveMenu(for: comic)
-                            Button(role: .destructive) {
-                                store.send(.deleteComicRequested(comic.id))
-                            } label: {
-                                Label {
-                                    Text("library.delete", bundle: .module)
-                                } icon: {
-                                    Image(systemName: "trash")
+                            if !store.isSelecting {
+                                Button {
+                                    store.send(.renameComicRequested(comic.id))
+                                } label: {
+                                    Label {
+                                        Text("library.rename_comic", bundle: .module)
+                                    } icon: {
+                                        Image(systemName: "pencil")
+                                    }
+                                }
+                                moveMenu(for: comic)
+                                Button(role: .destructive) {
+                                    store.send(.deleteComicRequested(comic.id))
+                                } label: {
+                                    Label {
+                                        Text("library.delete", bundle: .module)
+                                    } icon: {
+                                        Image(systemName: "trash")
+                                    }
                                 }
                             }
                         }
@@ -219,6 +360,14 @@ public struct LibraryView: View {
                 }
                 .padding(Tokens.Spacing.m)
             }
+        }
+    }
+
+    private func dragPayloadFor(_ comicId: UUID) -> [UUID] {
+        if store.isSelecting && store.selectedComicIds.contains(comicId) {
+            return Array(store.selectedComicIds)
+        } else {
+            return [comicId]
         }
     }
 

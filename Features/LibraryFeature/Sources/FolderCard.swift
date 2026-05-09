@@ -68,7 +68,9 @@ public struct FolderCard: View {
         .buttonStyle(.plain)
         .dropDestination(for: ComicDragPayload.self) { payloads, _ in
             for payload in payloads {
-                onDropComic(payload.comicId)
+                for comicId in payload.comicIds {
+                    onDropComic(comicId)
+                }
             }
             return !payloads.isEmpty
         } isTargeted: { isTargeted = $0 }

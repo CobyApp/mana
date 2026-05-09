@@ -3,10 +3,14 @@ import CoreTransferable
 import UniformTypeIdentifiers
 
 public struct ComicDragPayload: Codable, Transferable, Sendable {
-    public let comicId: UUID
+    public let comicIds: [UUID]
+
+    public init(comicIds: [UUID]) {
+        self.comicIds = comicIds
+    }
 
     public init(comicId: UUID) {
-        self.comicId = comicId
+        self.comicIds = [comicId]
     }
 
     public static var transferRepresentation: some TransferRepresentation {
