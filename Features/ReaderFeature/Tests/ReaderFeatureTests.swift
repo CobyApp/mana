@@ -118,6 +118,40 @@ private struct UnavailableFileSync: FileSyncService {
         #expect(stored.first?.readingMode == .scroll(direction: .rtl))
     }
 
+    @Test func modeChangedPreservesBookmarkData() async {
+        let bookmark = Data([1, 2, 3])
+        let comic = ComicItem(
+            id: UUID(),
+            url: URL(fileURLWithPath: "/tmp/x.cbz"),
+            format: .cbz,
+            title: "X",
+            pageCount: 5,
+            coverThumbnail: nil,
+            dateAdded: Date(timeIntervalSince1970: 0),
+            fileSizeBytes: 0,
+            readingMode: nil,
+            urlBookmarkData: bookmark
+        )
+        let repo = StubComicRepoForReader(initial: [comic])
+        let store = await TestStore(initialState: ReaderFeature.State(comic: comic, pageCount: 5)) {
+            ReaderFeature()
+        } withDependencies: {
+            let stubReader = StubReader(handle: ArchiveHandle(), pages: [])
+            $0.archiveReaderRouter = StubRouter(reader: stubReader)
+            $0.progressRepository = InMemoryProgressRepo(initial: [])
+            $0.imageCache = ImageCache.inMemoryOnly()
+            $0.mainQueue = .immediate
+            $0.comicRepository = repo
+            $0.fileSyncService = UnavailableFileSync()
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        await store.send(.modeChanged(.dual))
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        let stored = await repo.all()
+        #expect(stored.first?.urlBookmarkData == bookmark)
+    }
+
     @Test func pageChangedUpdatesIndex() async {
         let pages = (0..<5).map { Data([UInt8($0)]) }
         let stubHandle = ArchiveHandle()

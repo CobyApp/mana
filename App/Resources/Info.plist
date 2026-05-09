@@ -33,5 +33,17 @@
   <true/>
   <key>LSSupportsOpeningDocumentsInPlace</key>
   <true/>
+  <key>NSUbiquitousContainers</key>
+  <dict>
+    <key>iCloud.com.example.mana</key>
+    <dict>
+      <key>NSUbiquitousContainerIsDocumentScopePublic</key>
+      <true/>
+      <key>NSUbiquitousContainerSupportedFolderLevels</key>
+      <string>Any</string>
+      <key>NSUbiquitousContainerName</key>
+      <string>Mana</string>
+    </dict>
+  </dict>
 </dict>
 </plist>

@@ -183,7 +183,8 @@ public struct ReaderFeature {
                     coverThumbnail: state.comic.coverThumbnail,
                     dateAdded: state.comic.dateAdded,
                     fileSizeBytes: state.comic.fileSizeBytes,
-                    readingMode: mode
+                    readingMode: mode,
+                    urlBookmarkData: state.comic.urlBookmarkData
                 )
                 state.comic = updated
                 return .run { _ in

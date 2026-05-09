@@ -4,14 +4,14 @@ import Domain
 
 @Model
 public final class ComicEntity {
-    @Attribute(.unique) public var id: UUID
-    public var urlString: String
-    public var formatRaw: String
-    public var title: String
+    public var id: UUID = UUID()
+    public var urlString: String = ""
+    public var formatRaw: String = ""
+    public var title: String = ""
     public var pageCount: Int?
     public var coverThumbnail: Data?
-    public var dateAdded: Date
-    public var fileSizeBytes: Int64
+    public var dateAdded: Date = Date(timeIntervalSince1970: 0)
+    public var fileSizeBytes: Int64 = 0
     public var readingModeRaw: String?
     public var urlBookmarkData: Data?
 
@@ -73,10 +73,10 @@ public final class ComicEntity {
 
 @Model
 public final class ReadingProgressEntity {
-    @Attribute(.unique) public var comicId: UUID
-    public var lastPageIndex: Int
-    public var totalPages: Int
-    public var updatedAt: Date
+    public var comicId: UUID = UUID()
+    public var lastPageIndex: Int = 0
+    public var totalPages: Int = 0
+    public var updatedAt: Date = Date(timeIntervalSince1970: 0)
 
     public init(comicId: UUID, lastPageIndex: Int, totalPages: Int, updatedAt: Date) {
         self.comicId = comicId
@@ -92,11 +92,11 @@ public final class ReadingProgressEntity {
 
 @Model
 public final class BookmarkEntity {
-    @Attribute(.unique) public var id: UUID
-    public var comicId: UUID
-    public var pageIndex: Int
+    public var id: UUID = UUID()
+    public var comicId: UUID = UUID()
+    public var pageIndex: Int = 0
     public var note: String?
-    public var createdAt: Date
+    public var createdAt: Date = Date(timeIntervalSince1970: 0)
 
     public init(id: UUID, comicId: UUID, pageIndex: Int, note: String?, createdAt: Date) {
         self.id = id

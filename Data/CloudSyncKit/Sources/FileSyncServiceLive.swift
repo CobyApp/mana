@@ -8,6 +8,7 @@ public actor FileSyncServiceLive: FileSyncService {
     private let _isAvailable: Bool
     private var continuations: [UUID: AsyncStream<FileSyncEvent>.Continuation] = [:]
     private var metadataQuery: NSMetadataQuery?
+    private var queryObservers: [NSObjectProtocol] = []
 
     public init(containerURL: URL?, isAvailable: Bool) {
         self.containerURL = containerURL
@@ -80,12 +81,13 @@ public actor FileSyncServiceLive: FileSyncService {
         query.predicate = NSPredicate(format: "%K LIKE %@", NSMetadataItemFSNameKey, "*")
 
         let center = NotificationCenter.default
-        center.addObserver(forName: .NSMetadataQueryDidUpdate, object: query, queue: .main) { [weak self] note in
+        let updateToken = center.addObserver(forName: .NSMetadataQueryDidUpdate, object: query, queue: .main) { [weak self] note in
             Task { await self?.handleQueryUpdate(note) }
         }
-        center.addObserver(forName: .NSMetadataQueryDidFinishGathering, object: query, queue: .main) { [weak self] note in
+        let gatherToken = center.addObserver(forName: .NSMetadataQueryDidFinishGathering, object: query, queue: .main) { [weak self] note in
             Task { await self?.handleQueryUpdate(note) }
         }
+        queryObservers = [updateToken, gatherToken]
         query.start()
         metadataQuery = query
     }
@@ -93,7 +95,11 @@ public actor FileSyncServiceLive: FileSyncService {
     private func stopMetadataQuery() {
         metadataQuery?.stop()
         metadataQuery = nil
-        NotificationCenter.default.removeObserver(self)
+        let center = NotificationCenter.default
+        for token in queryObservers {
+            center.removeObserver(token)
+        }
+        queryObservers.removeAll()
     }
 
     private func handleQueryUpdate(_ notification: Notification) {

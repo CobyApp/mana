@@ -4,6 +4,7 @@ import DesignSystem
 
 public struct LibraryRow: View {
     let comic: ComicItem
+    @State private var isLocallyAvailable: Bool = false
 
     public init(comic: ComicItem) {
         self.comic = comic
@@ -30,10 +31,11 @@ public struct LibraryRow: View {
             Spacer()
         }
         .padding(.vertical, Tokens.Spacing.s)
-    }
-
-    private var isLocallyAvailable: Bool {
-        FileManager.default.fileExists(atPath: comic.url.path)
+        .task(id: comic.url) {
+            // Re-check availability whenever the row appears or url changes.
+            // Plan 4 polish: subscribe to FileSyncService events for live updates.
+            isLocallyAvailable = FileManager.default.fileExists(atPath: comic.url.path)
+        }
     }
 
     @ViewBuilder
