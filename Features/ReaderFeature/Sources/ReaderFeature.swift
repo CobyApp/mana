@@ -91,16 +91,21 @@ public struct ReaderFeature {
                         }
 
                         let didStart = url.startAccessingSecurityScopedResource()
-
-                        let reader = router.reader(for: comic.format)
-                        let handle = try await reader.openArchive(at: url)
-                        let pageCount = await reader.pageCount(handle)
-                        let saved = await progress.load(comicId: comic.id)
-                        let lastPage = saved.map { min(max(0, $0.lastPageIndex), max(0, pageCount - 1)) } ?? 0
-                        await send(.opened(handle: handle, pageCount: pageCount, lastPage: lastPage))
-                        await send(.prefetchHint(lastPage))
-                        if didStart {
-                            await send(.startedSecurityScope(url))
+                        do {
+                            let reader = router.reader(for: comic.format)
+                            let handle = try await reader.openArchive(at: url)
+                            let pageCount = await reader.pageCount(handle)
+                            let saved = await progress.load(comicId: comic.id)
+                            let lastPage = saved.map { min(max(0, $0.lastPageIndex), max(0, pageCount - 1)) } ?? 0
+                            await send(.opened(handle: handle, pageCount: pageCount, lastPage: lastPage))
+                            await send(.prefetchHint(lastPage))
+                            if didStart {
+                                await send(.startedSecurityScope(url))
+                            }
+                        } catch {
+                            // Release the scope here — onDisappear won't fire because the handle was never opened.
+                            if didStart { url.stopAccessingSecurityScopedResource() }
+                            throw error
                         }
                     } catch {
                         await send(.openFailed(error.localizedDescription))
