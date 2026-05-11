@@ -11,6 +11,8 @@ public struct ReaderView: View {
     @Dependency(\.imageCache) private var imageCache
     @Environment(\.dismiss) private var dismiss
 
+    @State private var showControlsPopover: Bool = false
+
     public init(store: StoreOf<ReaderFeature>) {
         self.store = store
     }
@@ -29,7 +31,22 @@ public struct ReaderView: View {
             if store.isControlsVisible {
                 controlsOverlay
             }
+
+            if showControlsPopover {
+                Color.black.opacity(0.0001)
+                    .ignoresSafeArea()
+                    .onTapGesture { showControlsPopover = false }
+            }
         }
+        .overlay(alignment: .bottomTrailing) {
+            if showControlsPopover {
+                controlsPopover
+                    .padding(.trailing, Tokens.Spacing.m)
+                    .padding(.bottom, 130)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+        }
+        .animation(.easeOut(duration: 0.18), value: showControlsPopover)
         .animation(.spring(duration: 0.35, bounce: 0.15), value: store.isControlsVisible)
         .toolbar(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(true)
@@ -41,7 +58,6 @@ public struct ReaderView: View {
             UIImpactFeedbackGenerator(style: .soft).impactOccurred()
             store.send(.toggleControls)
         }
-        .onDisappear { store.send(.onDisappear) }
         .alert($store.scope(state: \.alert, action: \.alert))
     }
 
@@ -152,45 +168,19 @@ public struct ReaderView: View {
 
             HStack(spacing: 12) {
                 if store.pageCount > 1 {
-                    Slider(
+                    MangaProgressBar(
                         value: Binding(
                             get: { Double(store.pageIndex) },
                             set: { store.send(.pageChanged(Int($0.rounded()))) }
                         ),
                         in: 0...Double(store.pageCount - 1),
-                        step: 1
-                    )
-                    .tint(Tokens.Colors.accent)
-                    .environment(
-                        \.layoutDirection,
-                        store.pageProgressionDirection == .rightToLeft ? .rightToLeft : .leftToRight
+                        reversed: store.pageProgressionDirection == .rightToLeft
                     )
                 } else {
                     Spacer()
                 }
 
-                Menu {
-                    Picker(selection: Binding(
-                        get: { store.mode },
-                        set: { store.send(.modeChanged($0)) }
-                    ), label: Text("reader.controls.mode", bundle: .module)) {
-                        Text("mode.single", bundle: .module).tag(ReadingMode.single)
-                        Text("mode.dual", bundle: .module).tag(ReadingMode.dual)
-                    }
-                    Picker(selection: Binding(
-                        get: { store.pageProgressionDirection },
-                        set: { store.send(.progressionDirectionChanged($0)) }
-                    ), label: Text("reader.controls.direction", bundle: .module)) {
-                        Text("direction.ltr", bundle: .module).tag(PageProgressionDirection.leftToRight)
-                        Text("direction.rtl", bundle: .module).tag(PageProgressionDirection.rightToLeft)
-                    }
-                    Toggle(isOn: Binding(
-                        get: { store.pageOffset },
-                        set: { store.send(.pageOffsetChanged($0)) }
-                    )) {
-                        Text("reader.controls.page_offset", bundle: .module)
-                    }
-                } label: {
+                Button { showControlsPopover.toggle() } label: {
                     Image(systemName: "slider.horizontal.3")
                         .font(.system(size: 18, weight: .black))
                         .foregroundStyle(Tokens.Colors.paper)
@@ -198,6 +188,7 @@ public struct ReaderView: View {
                         .background(Tokens.Colors.ink)
                         .overlay(Rectangle().strokeBorder(Tokens.Colors.paper, lineWidth: 1.5).padding(2))
                 }
+                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 12)
@@ -205,6 +196,77 @@ public struct ReaderView: View {
         .background(Tokens.Colors.ink.opacity(0.85))
         .overlay(Rectangle().strokeBorder(Tokens.Colors.paper, lineWidth: Tokens.Stroke.bold))
         .background(Tokens.Colors.accent.offset(x: 4, y: -4))
+    }
+
+    private var controlsPopover: some View {
+        VStack(alignment: .leading, spacing: Tokens.Spacing.l) {
+            controlSection(titleKey: "reader.controls.mode") {
+                MangaToggle(
+                    selection: Binding(
+                        get: { store.mode },
+                        set: { store.send(.modeChanged($0)) }
+                    ),
+                    options: [
+                        (ReadingMode.single, Text("mode.single", bundle: .module)),
+                        (ReadingMode.dual,   Text("mode.dual",   bundle: .module))
+                    ],
+                    showShadow: false
+                )
+            }
+
+            controlSection(titleKey: "reader.controls.direction") {
+                MangaToggle(
+                    selection: Binding(
+                        get: { store.pageProgressionDirection },
+                        set: { store.send(.progressionDirectionChanged($0)) }
+                    ),
+                    options: [
+                        (PageProgressionDirection.leftToRight, Text("direction.ltr", bundle: .module)),
+                        (PageProgressionDirection.rightToLeft, Text("direction.rtl", bundle: .module))
+                    ],
+                    showShadow: false
+                )
+            }
+
+            controlSection(titleKey: "reader.controls.page_offset") {
+                MangaToggle(
+                    selection: Binding(
+                        get: { store.pageOffset },
+                        set: { store.send(.pageOffsetChanged($0)) }
+                    ),
+                    options: [
+                        (false, Text("reader.controls.page_offset.off", bundle: .module)),
+                        (true,  Text("reader.controls.page_offset.on",  bundle: .module))
+                    ],
+                    showShadow: false
+                )
+            }
+        }
+        .padding(Tokens.Spacing.l)
+        .frame(width: 320)
+        .background(Tokens.Colors.paper)
+        .overlay(
+            Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.regular)
+        )
+        .background(
+            Rectangle()
+                .fill(Tokens.Colors.ink)
+                .offset(x: 4, y: 5)
+        )
+    }
+
+    @ViewBuilder
+    private func controlSection<Content: View>(
+        titleKey: String.LocalizationValue,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(String(localized: titleKey, bundle: .module))
+                .font(Tokens.Typography.caption)
+                .foregroundStyle(Tokens.Colors.ink.opacity(0.7))
+                .textCase(.uppercase)
+            content()
+        }
     }
 
     private var pageReadout: some View {

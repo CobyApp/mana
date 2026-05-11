@@ -6,10 +6,16 @@ import UIKit
 public struct MangaToggle<Value: Hashable>: View {
     @Binding private var selection: Value
     private let options: [(value: Value, label: Text)]
+    private let showShadow: Bool
 
-    public init(selection: Binding<Value>, options: [(Value, Text)]) {
+    public init(
+        selection: Binding<Value>,
+        options: [(Value, Text)],
+        showShadow: Bool = true
+    ) {
         self._selection = selection
         self.options = options.map { (value: $0.0, label: $0.1) }
+        self.showShadow = showShadow
     }
 
     public var body: some View {
@@ -27,9 +33,13 @@ public struct MangaToggle<Value: Hashable>: View {
             Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.regular)
         )
         .background(
-            Rectangle()
-                .fill(Tokens.Colors.ink)
-                .offset(x: 3, y: 4)
+            Group {
+                if showShadow {
+                    Rectangle()
+                        .fill(Tokens.Colors.ink)
+                        .offset(x: 3, y: 4)
+                }
+            }
         )
     }
 

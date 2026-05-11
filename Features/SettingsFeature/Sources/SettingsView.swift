@@ -5,16 +5,22 @@ import DesignSystem
 
 public struct SettingsView: View {
     @Bindable public var store: StoreOf<SettingsFeature>
-    @State private var showingRestartAlert = false
+    @Environment(\.dismiss) private var dismiss
 
     public init(store: StoreOf<SettingsFeature>) { self.store = store }
 
     public var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Tokens.Spacing.l) {
-                header
+        VStack(spacing: 0) {
+            backHeader
+                .padding(.horizontal, Tokens.Spacing.l)
+                .padding(.top, Tokens.Spacing.s)
+                .padding(.bottom, Tokens.Spacing.s)
 
-                section(titleKey: "settings.general") {
+            ScrollView {
+                VStack(alignment: .leading, spacing: Tokens.Spacing.l) {
+                    header
+
+                    section(titleKey: "settings.general") {
                     settingRow("settings.default_mode") {
                         MangaToggle(
                             selection: Binding(
@@ -41,14 +47,27 @@ public struct SettingsView: View {
                         )
                     }
 
+                    settingRow(
+                        "settings.first_page_solo",
+                        footerKey: "settings.first_page_solo_footer"
+                    ) {
+                        MangaToggle(
+                            selection: Binding(
+                                get: { store.defaultPageOffset },
+                                set: { store.send(.defaultPageOffsetChanged($0)) }
+                            ),
+                            options: [
+                                (false, Text("settings.first_page_solo.off", bundle: .module)),
+                                (true,  Text("settings.first_page_solo.on",  bundle: .module))
+                            ]
+                        )
+                    }
+
                     settingRow("settings.app_language") {
                         MangaToggle(
                             selection: Binding(
                                 get: { store.appLanguage },
-                                set: {
-                                    store.send(.appLanguageChanged($0))
-                                    showingRestartAlert = true
-                                }
+                                set: { store.send(.appLanguageChanged($0)) }
                             ),
                             options: [
                                 (AppLanguage.ko, Text("language.ko", bundle: .module)),
@@ -81,8 +100,9 @@ public struct SettingsView: View {
                         .font(Tokens.Typography.caption)
                         .foregroundStyle(Tokens.Colors.ink.opacity(0.7))
                 }
+                }
+                .padding(Tokens.Spacing.l)
             }
-            .padding(Tokens.Spacing.l)
         }
         .background(
             ZStack {
@@ -91,22 +111,25 @@ public struct SettingsView: View {
             }
             .ignoresSafeArea()
         )
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Tokens.Colors.paper, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbar(.hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden(true)
         .task { await store.send(.task).finish() }
-        .alert(Text("settings.restart_title", bundle: .module), isPresented: $showingRestartAlert) {
-            Button(role: .cancel) {} label: { Text("settings.ok", bundle: .module) }
-        } message: {
-            Text("settings.restart_required", bundle: .module)
-        }
         .alert($store.scope(state: \.resetAlert, action: \.resetAlert))
+    }
+
+    private var backHeader: some View {
+        HStack(spacing: Tokens.Spacing.s) {
+            Button { dismiss() } label: {
+                MangaIconBadge(systemName: "chevron.left")
+            }
+            .buttonStyle(.plain)
+            Spacer()
+        }
     }
 
     private var header: some View {
         SoundEffectText(
-            "SETTINGS",
+            String(localized: "settings.title", bundle: .module).uppercased(),
             font: Tokens.Typography.displayL,
             fill: Tokens.Colors.accent,
             stroke: Tokens.Colors.ink,
@@ -150,6 +173,7 @@ public struct SettingsView: View {
     @ViewBuilder
     private func settingRow<Content: View>(
         _ titleKey: String.LocalizationValue,
+        footerKey: String.LocalizationValue? = nil,
         @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -158,6 +182,12 @@ public struct SettingsView: View {
                 .foregroundStyle(Tokens.Colors.ink.opacity(0.7))
                 .textCase(.uppercase)
             content()
+            if let footerKey {
+                Text(String(localized: footerKey, bundle: .module))
+                    .font(Tokens.Typography.caption)
+                    .foregroundStyle(Tokens.Colors.ink.opacity(0.6))
+                    .padding(.top, 2)
+            }
         }
     }
 }

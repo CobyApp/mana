@@ -55,8 +55,12 @@ public struct LibraryFeature {
         public var selectedComicIds: Set<UUID> = []
         public var bulkMoveSheet: BulkMoveSheet.State?
         @Presents public var alert: AlertState<Action.Alert>?
-        @Presents public var folderDeleteAlert: AlertState<Action.FolderDeleteAlert>?
-        @Presents public var bulkDeleteAlert: AlertState<Action.BulkDeleteAlert>?
+        public var confirmDialog: ConfirmDialog?
+
+        public enum ConfirmDialog: Equatable, Sendable {
+            case folderDelete(folderId: UUID, folderName: String, comicCount: Int)
+            case bulkDelete(count: Int)
+        }
 
         public init(
             comics: IdentifiedArrayOf<ComicItem> = [],
@@ -129,8 +133,9 @@ public struct LibraryFeature {
         case folderCreated(Folder)
         case folderDeleteConfirmationRequested(UUID)
         case folderDeleteRequested(UUID)
-        case folderDeleteAlert(PresentationAction<FolderDeleteAlert>)
         case folderDeleted(UUID)
+        case confirmDialogDismissed
+        case confirmDialogConfirmed
         case renameFolderRequested(UUID)
         case renameFolderSheetDismissed
         case renameFolderNameChanged(String)
@@ -151,20 +156,11 @@ public struct LibraryFeature {
         case comicSelectionToggled(UUID)
         case selectAllToggled
         case bulkDeleteRequested
-        case bulkDeleteAlert(PresentationAction<BulkDeleteAlert>)
         case bulkMoveRequested
         case bulkMoveDestinationChosen(folderId: UUID?)
         case bulkMoveSheetDismissed
 
         public enum Alert: Equatable {}
-
-        public enum FolderDeleteAlert: Equatable, Sendable {
-            case confirm(folderId: UUID)
-        }
-
-        public enum BulkDeleteAlert: Equatable, Sendable {
-            case confirm
-        }
     }
 
     @Dependency(\.comicRepository) var repo
@@ -319,40 +315,11 @@ public struct LibraryFeature {
             case let .folderDeleteConfirmationRequested(folderId):
                 guard let folder = state.folders[id: folderId] else { return .none }
                 let count = state.comics.filter { $0.folderId == folderId }.count
-                state.folderDeleteAlert = AlertState {
-                    TextState("library.delete_folder_title", bundle: .module)
-                } actions: {
-                    ButtonState(role: .destructive, action: .confirm(folderId: folderId)) {
-                        TextState("library.delete_folder_confirm", bundle: .module)
-                    }
-                    ButtonState(role: .cancel) {
-                        TextState("library.cancel", bundle: .module)
-                    }
-                } message: {
-                    TextState(verbatim: String(
-                        format: String(localized: "library.delete_folder_message", bundle: .module),
-                        folder.name, count
-                    ))
-                }
-                return .none
-
-            case let .folderDeleteAlert(.presented(.confirm(folderId))):
-                let comicsToDelete = state.comics.filter { $0.folderId == folderId }
-                for comic in comicsToDelete { state.comics.remove(id: comic.id) }
-                state.folders.remove(id: folderId)
-                if state.currentFolderId == folderId { state.currentFolderId = nil }
-                let repo = self.repo
-                let folderRepo = self.folderRepo
-                return .run { send in
-                    for comic in comicsToDelete {
-                        Self.deleteComicFile(at: comic.url)
-                        try? await repo.delete(comic.id)
-                    }
-                    try? await folderRepo.delete(folderId)
-                    await send(.folderDeleted(folderId))
-                }
-
-            case .folderDeleteAlert:
+                state.confirmDialog = .folderDelete(
+                    folderId: folderId,
+                    folderName: folder.name,
+                    comicCount: count
+                )
                 return .none
 
             case let .folderDeleteRequested(id):
@@ -403,6 +370,15 @@ public struct LibraryFeature {
                     folderId: folderId, pageProgressionDirection: existing.pageProgressionDirection
                 )
                 state.comics.updateOrAppend(updated)
+                // If this drop happened in selection mode, drop the moved id from
+                // the selection set; once nothing's left, leave selection mode so
+                // the bottom action bar dismisses.
+                if state.isSelecting {
+                    state.selectedComicIds.remove(comicId)
+                    if state.selectedComicIds.isEmpty {
+                        state.isSelecting = false
+                    }
+                }
                 let repo = self.repo
                 return .run { send in
                     try? await repo.upsert(updated)
@@ -523,39 +499,46 @@ public struct LibraryFeature {
 
             case .bulkDeleteRequested:
                 guard !state.selectedComicIds.isEmpty else { return .none }
-                let count = state.selectedComicIds.count
-                state.bulkDeleteAlert = AlertState {
-                    TextState("library.bulk_delete_title", bundle: .module)
-                } actions: {
-                    ButtonState(role: .destructive, action: .confirm) {
-                        TextState("library.delete", bundle: .module)
-                    }
-                    ButtonState(role: .cancel) {
-                        TextState("library.cancel", bundle: .module)
-                    }
-                } message: {
-                    TextState(verbatim: String(
-                        format: String(localized: "library.bulk_delete_message", bundle: .module),
-                        count
-                    ))
-                }
+                state.confirmDialog = .bulkDelete(count: state.selectedComicIds.count)
                 return .none
 
-            case .bulkDeleteAlert(.presented(.confirm)):
-                let toDelete = state.comics.filter { state.selectedComicIds.contains($0.id) }
-                for id in state.selectedComicIds { state.comics.remove(id: id) }
-                state.selectedComicIds = []
-                state.isSelecting = false
-                let repo = self.repo
-                return .run { _ in
-                    for comic in toDelete {
-                        Self.deleteComicFile(at: comic.url)
-                        try? await repo.delete(comic.id)
+            case .confirmDialogDismissed:
+                state.confirmDialog = nil
+                return .none
+
+            case .confirmDialogConfirmed:
+                guard let dialog = state.confirmDialog else { return .none }
+                state.confirmDialog = nil
+                switch dialog {
+                case let .folderDelete(folderId, _, _):
+                    let comicsToDelete = state.comics.filter { $0.folderId == folderId }
+                    for comic in comicsToDelete { state.comics.remove(id: comic.id) }
+                    state.folders.remove(id: folderId)
+                    if state.currentFolderId == folderId { state.currentFolderId = nil }
+                    let repo = self.repo
+                    let folderRepo = self.folderRepo
+                    return .run { send in
+                        for comic in comicsToDelete {
+                            Self.deleteComicFile(at: comic.url)
+                            try? await repo.delete(comic.id)
+                        }
+                        try? await folderRepo.delete(folderId)
+                        await send(.folderDeleted(folderId))
+                    }
+
+                case .bulkDelete:
+                    let toDelete = state.comics.filter { state.selectedComicIds.contains($0.id) }
+                    for id in state.selectedComicIds { state.comics.remove(id: id) }
+                    state.selectedComicIds = []
+                    state.isSelecting = false
+                    let repo = self.repo
+                    return .run { _ in
+                        for comic in toDelete {
+                            Self.deleteComicFile(at: comic.url)
+                            try? await repo.delete(comic.id)
+                        }
                     }
                 }
-
-            case .bulkDeleteAlert:
-                return .none
 
             case .bulkMoveRequested:
                 guard !state.selectedComicIds.isEmpty else { return .none }
@@ -597,8 +580,6 @@ public struct LibraryFeature {
             }
         }
         .ifLet(\.$alert, action: \.alert)
-        .ifLet(\.$folderDeleteAlert, action: \.folderDeleteAlert)
-        .ifLet(\.$bulkDeleteAlert, action: \.bulkDeleteAlert)
     }
 
     private static func deleteComicFile(at url: URL) {

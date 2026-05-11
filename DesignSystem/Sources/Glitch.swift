@@ -13,31 +13,28 @@ public struct Glitch<Trigger: Equatable>: ViewModifier {
 
     public func body(content: Content) -> some View {
         ZStack {
-            // Red ghost — allowsHitTesting(false) so the duplicated view
-            // never interferes with the original's gestures, scroll, etc.
+            // Red ghost — `allowsHitTesting(false)` so the duplicated views
+            // never interfere with the original's gestures/scroll.
             // NOTE: do not apply this modifier to heavy stateful views
-            // (UIViewRepresentable, UIScrollView wrappers) — the content
-            // is instantiated three times.
+            // (UIViewRepresentable, UIScrollView wrappers).
+            // No blend mode — `.plusLighter` left a bright halo on light
+            // (paper) backgrounds when the burst played.
             content
                 .foregroundStyle(Tokens.Colors.glitchRed)
-                .blendMode(.plusLighter)
                 .offset(x: isBursting ? -intensity * 1.6 - phase : 0,
                         y: isBursting ? -phase * 0.6 : 0)
-                .opacity(isBursting ? 0.85 : 0)
+                .opacity(isBursting ? 0.7 : 0)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
 
-            // Cyan ghost
             content
                 .foregroundStyle(Tokens.Colors.glitchCyan)
-                .blendMode(.plusLighter)
                 .offset(x: isBursting ? intensity * 1.6 + phase : 0,
                         y: isBursting ? phase * 0.6 : 0)
-                .opacity(isBursting ? 0.85 : 0)
+                .opacity(isBursting ? 0.7 : 0)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
 
-            // Original — also shakes a touch
             content
                 .offset(x: isBursting ? phase : 0)
         }

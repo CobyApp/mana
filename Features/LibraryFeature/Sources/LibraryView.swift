@@ -7,6 +7,9 @@ import UniformTypeIdentifiers
 public struct LibraryView: View {
     @Bindable public var store: StoreOf<LibraryFeature>
     @State private var showImporter = false
+    @State private var activePopover: ActivePopover? = nil
+
+    private enum ActivePopover: Equatable { case sort }
 
     private let columns = [
         GridItem(.adaptive(minimum: 140), spacing: 16, alignment: .top)
@@ -19,13 +22,13 @@ public struct LibraryView: View {
     public var body: some View {
         contentBody
             .background(Tokens.Colors.paper.ignoresSafeArea())
-            .toolbarBackground(Tokens.Colors.paper, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarColorScheme(nil, for: .navigationBar)
+            .toolbar(.hidden, for: .navigationBar)
+            .overlay { popoverOverlay }
+            .overlay(alignment: .topTrailing) { popoverPanelOverlay }
+            .animation(.easeOut(duration: 0.12), value: activePopover)
+            .overlay { confirmDialogOverlay }
+            .animation(.easeOut(duration: 0.18), value: store.confirmDialog)
             .overlay { if store.isImporting { importingOverlay } }
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { libraryToolbar }
             .fileImporter(
                 isPresented: $showImporter,
                 allowedContentTypes: importContentTypes,
@@ -63,24 +66,12 @@ public struct LibraryView: View {
         return true
     }
 
-    @ToolbarContentBuilder
-    private var libraryToolbar: some ToolbarContent {
-        ToolbarItem(placement: .navigation) {
-            if store.currentFolderId != nil {
-                Button { store.send(.backToRoot) } label: {
-                    MangaIconBadge(systemName: "chevron.left")
-                }
-                .buttonStyle(.plain)
-            } else {
-                Button { store.send(.settingsTapped) } label: {
-                    MangaIconBadge(systemName: "gearshape.fill")
-                }
-                .buttonStyle(.plain)
-            }
-        }
-
-        if !store.displayedComics.isEmpty {
-            ToolbarItem(placement: .primaryAction) {
+    @ViewBuilder
+    private var headerBar: some View {
+        HStack(spacing: Tokens.Spacing.s) {
+            leadingButton
+            Spacer(minLength: 0)
+            if !store.displayedComics.isEmpty || !store.displayedFolders.isEmpty {
                 Button { store.send(.selectionModeToggled) } label: {
                     MangaTextBadge(
                         text: Text(store.isSelecting
@@ -91,21 +82,11 @@ public struct LibraryView: View {
                 }
                 .buttonStyle(.plain)
             }
-        }
-
-        folderActionToolbarItems
-    }
-
-    @ToolbarContentBuilder
-    private var folderActionToolbarItems: some ToolbarContent {
-        if let folderId = store.currentFolderId, !store.isSelecting {
-            ToolbarItem(placement: .primaryAction) {
+            if let folderId = store.currentFolderId, !store.isSelecting {
                 Button { store.send(.renameFolderRequested(folderId)) } label: {
                     MangaIconBadge(systemName: "pencil")
                 }
                 .buttonStyle(.plain)
-            }
-            ToolbarItem(placement: .primaryAction) {
                 Button(role: .destructive) {
                     store.send(.folderDeleteConfirmationRequested(folderId))
                 } label: {
@@ -114,32 +95,26 @@ public struct LibraryView: View {
                 .buttonStyle(.plain)
             }
         }
+        .padding(.horizontal, Tokens.Spacing.m)
+        .padding(.top, Tokens.Spacing.s)
+        .padding(.bottom, Tokens.Spacing.xs)
     }
 
-    // Root-level actions (new folder / import / sort / filter) live in the
-    // in-page action row below the big header — not in the toolbar.
-
-    private var sortPicker: some View {
-        Picker(selection: Binding(
-            get: { store.sort },
-            set: { store.send(.sortChanged($0)) }
-        ), label: Text("library.sort", bundle: .module)) {
-            ForEach(LibrarySortOrder.allCases, id: \.self) {
-                Text(LocalizedStringKey($0.localizationKey), bundle: .module).tag($0)
+    @ViewBuilder
+    private var leadingButton: some View {
+        if store.currentFolderId != nil {
+            Button { store.send(.backToRoot) } label: {
+                MangaIconBadge(systemName: "chevron.left")
             }
+            .buttonStyle(.plain)
+        } else {
+            Button { store.send(.settingsTapped) } label: {
+                MangaIconBadge(systemName: "gearshape.fill")
+            }
+            .buttonStyle(.plain)
         }
     }
 
-    private var filterPicker: some View {
-        Picker(selection: Binding(
-            get: { store.filter },
-            set: { store.send(.filterChanged($0)) }
-        ), label: Text("library.filter", bundle: .module)) {
-            ForEach(LibraryFilter.allCases, id: \.self) {
-                Text(LocalizedStringKey($0.localizationKey), bundle: .module).tag($0)
-            }
-        }
-    }
 
     private var selectionActionBar: some View {
         HStack(spacing: Tokens.Spacing.m) {
@@ -226,6 +201,27 @@ public struct LibraryView: View {
 
     @ViewBuilder
     private var contentBody: some View {
+        VStack(spacing: 0) {
+            headerBar
+            innerContent
+        }
+    }
+
+    @ViewBuilder
+    private var innerContent: some View {
+        VStack(alignment: .leading, spacing: Tokens.Spacing.m) {
+            bigHeader
+                .padding(.horizontal, Tokens.Spacing.m)
+            if showsActionRow {
+                actionRow
+                    .padding(.horizontal, Tokens.Spacing.m)
+            }
+            grid
+        }
+    }
+
+    @ViewBuilder
+    private var grid: some View {
         if isLibraryEmpty {
             emptyLibraryState
         } else if isFolderEmpty {
@@ -233,8 +229,6 @@ public struct LibraryView: View {
         } else {
             ScrollView {
                 VStack(alignment: .leading, spacing: Tokens.Spacing.l) {
-                    bigHeader
-                    if showsActionRow { actionRow }
                     LazyVGrid(columns: columns, spacing: Tokens.Spacing.l) {
                     if store.currentFolderId == nil {
                         ForEach(store.displayedFolders) { folder in
@@ -331,7 +325,7 @@ public struct LibraryView: View {
     }
 
     private var showsActionRow: Bool {
-        store.currentFolderId == nil && !store.isSelecting
+        !store.isSelecting
     }
 
     @ViewBuilder
@@ -356,29 +350,110 @@ public struct LibraryView: View {
 
             Spacer(minLength: 0)
 
-            Menu {
-                sortPicker
-            } label: {
+            Button { activePopover = (activePopover == .sort) ? nil : .sort } label: {
                 MangaActionChip(
                     systemName: "arrow.up.arrow.down",
                     title: Text("library.sort", bundle: .module)
                 )
             }
-            .menuStyle(.button)
-            .buttonStyle(.plain)
-
-            Menu {
-                filterPicker
-            } label: {
-                MangaActionChip(
-                    systemName: "line.3.horizontal.decrease",
-                    title: Text("library.filter", bundle: .module)
-                )
-            }
-            .menuStyle(.button)
             .buttonStyle(.plain)
         }
         .padding(.horizontal, Tokens.Spacing.s)
+    }
+
+    private var sortPopover: some View {
+        popoverPanel {
+            ForEach(Array(LibrarySortOrder.allCases.enumerated()), id: \.offset) { index, sort in
+                popoverRow(
+                    title: Text(LocalizedStringKey(sort.localizationKey), bundle: .module),
+                    isSelected: store.sort == sort
+                ) {
+                    store.send(.sortChanged(sort))
+                    activePopover = nil
+                }
+                if index < LibrarySortOrder.allCases.count - 1 {
+                    Rectangle().fill(Tokens.Colors.ink).frame(height: 1)
+                }
+            }
+        }
+        .frame(width: 240)
+    }
+
+    @ViewBuilder
+    private func popoverPanel<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            content()
+        }
+        .background(Tokens.Colors.paper)
+        .overlay(
+            Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.regular)
+        )
+        .background(
+            Rectangle()
+                .fill(Tokens.Colors.ink)
+                .offset(x: 4, y: 5)
+        )
+    }
+
+    @ViewBuilder
+    private var popoverOverlay: some View {
+        if activePopover != nil {
+            Color.black.opacity(0.0001)
+                .ignoresSafeArea()
+                .onTapGesture { activePopover = nil }
+        }
+    }
+
+    @ViewBuilder
+    private var confirmDialogOverlay: some View {
+        if let dialog = store.confirmDialog {
+            ZStack {
+                Tokens.Colors.ink.opacity(0.45)
+                    .ignoresSafeArea()
+                    .onTapGesture { store.send(.confirmDialogDismissed) }
+
+                ConfirmDialogPanel(
+                    dialog: dialog,
+                    onCancel: { store.send(.confirmDialogDismissed) },
+                    onConfirm: { store.send(.confirmDialogConfirmed) }
+                )
+                .padding(Tokens.Spacing.l)
+                .transition(.scale(scale: 0.92).combined(with: .opacity))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var popoverPanelOverlay: some View {
+        if activePopover == .sort {
+            sortPopover
+                .padding(.trailing, Tokens.Spacing.l)
+                .padding(.top, 210)
+                .transition(.opacity)
+        }
+    }
+
+    @ViewBuilder
+    private func popoverRow(title: Text, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: Tokens.Spacing.s) {
+                title
+                    .font(Tokens.Typography.subtitle)
+                    .foregroundStyle(isSelected ? Tokens.Colors.paper : Tokens.Colors.ink)
+                Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 14, weight: .black))
+                        .foregroundStyle(Tokens.Colors.paper)
+                }
+            }
+            .padding(.horizontal, Tokens.Spacing.m)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(isSelected ? Tokens.Colors.accent : Tokens.Colors.paper)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var headerSubtitle: String {
@@ -393,7 +468,7 @@ public struct LibraryView: View {
 
     private var emptyLibraryState: some View {
         ZStack {
-            HalftoneBackground().ignoresSafeArea()
+            HalftoneBackground()
             VStack(spacing: Tokens.Spacing.l) {
                 SoundEffectText(
                     "EMPTY!",
@@ -435,7 +510,7 @@ public struct LibraryView: View {
 
     private var emptyFolderState: some View {
         ZStack {
-            HalftoneBackground().ignoresSafeArea()
+            HalftoneBackground()
             VStack(spacing: Tokens.Spacing.m) {
                 SoundEffectText(
                     "…SHIIN",
@@ -462,33 +537,34 @@ public struct LibraryView: View {
             ZStack {
                 if count > 2 {
                     dragCard(for: comic)
-                        .rotationEffect(.degrees(-7))
-                        .offset(x: -10, y: -6)
-                        .opacity(0.8)
+                        .rotationEffect(.degrees(-14))
+                        .offset(x: -22, y: -12)
+                        .opacity(0.85)
                 }
                 if count > 1 {
                     dragCard(for: comic)
-                        .rotationEffect(.degrees(5))
-                        .offset(x: 8, y: 4)
-                        .opacity(0.9)
+                        .rotationEffect(.degrees(10))
+                        .offset(x: 18, y: 8)
+                        .opacity(0.92)
                 }
                 dragCard(for: comic)
             }
+            .frame(width: 130, height: 186)
+            .padding(36)
 
             if count > 1 {
                 Text("×\(count)")
-                    .font(Tokens.Typography.mono)
+                    .font(Tokens.Typography.monoLarge)
                     .foregroundStyle(Tokens.Colors.paper)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
                     .background(Tokens.Colors.accent)
                     .overlay(
-                        Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.regular)
+                        Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.bold)
                     )
-                    .offset(x: 14, y: -10)
+                    .offset(x: -8, y: 8)
             }
         }
-        .frame(width: 120, height: 170)
     }
 
     @ViewBuilder
@@ -502,13 +578,18 @@ public struct LibraryView: View {
                     .clipped()
             } else {
                 Image(systemName: "book.closed.fill")
-                    .font(.system(size: 28, weight: .black))
+                    .font(.system(size: 32, weight: .black))
                     .foregroundStyle(Tokens.Colors.ink)
             }
         }
-        .frame(width: 110, height: 158)
+        .frame(width: 130, height: 186)
         .overlay(
             Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.panel)
+        )
+        .background(
+            Rectangle()
+                .fill(Tokens.Colors.ink)
+                .offset(x: 4, y: 5)
         )
     }
 
@@ -545,6 +626,97 @@ public struct LibraryView: View {
     }
 }
 
+// MARK: - Confirm Dialog
+
+private struct ConfirmDialogPanel: View {
+    let dialog: LibraryFeature.State.ConfirmDialog
+    let onCancel: () -> Void
+    let onConfirm: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Tokens.Spacing.l) {
+            SoundEffectText(
+                titleText.uppercased(),
+                font: Tokens.Typography.displayM,
+                fill: Tokens.Colors.accent,
+                stroke: Tokens.Colors.ink,
+                strokeWidth: 4,
+                tilt: -3,
+                shadowOffset: .init(width: 3, height: 4)
+            )
+
+            Text(messageText)
+                .font(Tokens.Typography.body)
+                .foregroundStyle(Tokens.Colors.ink)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: Tokens.Spacing.m) {
+                Button(action: onCancel) {
+                    Text("library.cancel", bundle: .module)
+                        .font(Tokens.Typography.title)
+                        .foregroundStyle(Tokens.Colors.ink)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Tokens.Colors.paper)
+                        .overlay(Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.regular))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                Button(action: onConfirm) {
+                    Text("library.delete", bundle: .module)
+                        .font(Tokens.Typography.title)
+                        .foregroundStyle(Tokens.Colors.paper)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Tokens.Colors.accent)
+                        .overlay(Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.regular))
+                        .background(
+                            Rectangle()
+                                .fill(Tokens.Colors.ink)
+                                .offset(x: 4, y: 5)
+                        )
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(Tokens.Spacing.l)
+        .frame(maxWidth: 400)
+        .background(Tokens.Colors.paper)
+        .overlay(Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.regular))
+        .background(
+            Rectangle()
+                .fill(Tokens.Colors.ink)
+                .offset(x: 6, y: 7)
+        )
+    }
+
+    private var titleText: String {
+        switch dialog {
+        case .folderDelete:
+            return Bundle.module.localizedString(forKey: "library.delete_folder_title", value: nil, table: nil)
+        case .bulkDelete:
+            return Bundle.module.localizedString(forKey: "library.bulk_delete_title", value: nil, table: nil)
+        }
+    }
+
+    private var messageText: String {
+        switch dialog {
+        case let .folderDelete(_, folderName, comicCount):
+            return String(
+                format: String(localized: "library.delete_folder_message", bundle: .module),
+                folderName, comicCount
+            )
+        case let .bulkDelete(count):
+            return String(
+                format: String(localized: "library.bulk_delete_message", bundle: .module),
+                count
+            )
+        }
+    }
+}
+
 // MARK: - Sheets and Alerts
 
 private struct LibrarySheetsAndAlerts: ViewModifier {
@@ -553,8 +725,6 @@ private struct LibrarySheetsAndAlerts: ViewModifier {
     func body(content: Content) -> some View {
         content
             .alert($store.scope(state: \.alert, action: \.alert))
-            .alert($store.scope(state: \.folderDeleteAlert, action: \.folderDeleteAlert))
-            .alert($store.scope(state: \.bulkDeleteAlert, action: \.bulkDeleteAlert))
             .sheet(isPresented: newFolderBinding) {
                 if let sheet = store.newFolderSheet {
                     NewFolderSheetView(

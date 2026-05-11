@@ -10,3 +10,5 @@
 "direction.ltr"            = "Left to Right";
 "direction.rtl"            = "Right to Left";
 "reader.controls.page_offset" = "First page solo";
+"reader.controls.page_offset.off" = "Off";
+"reader.controls.page_offset.on"  = "On";

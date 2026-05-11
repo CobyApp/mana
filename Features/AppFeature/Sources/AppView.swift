@@ -22,5 +22,7 @@ public struct AppView: View {
                 SettingsView(store: settingsStore)
             }
         }
+        .environment(\.locale, Locale(identifier: store.appLanguage.rawValue))
+        .task { await store.send(.task).finish() }
     }
 }

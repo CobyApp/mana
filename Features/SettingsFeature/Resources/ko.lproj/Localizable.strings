@@ -3,6 +3,10 @@
 "settings.gestures"        = "리더 제스처";
 "settings.default_mode"    = "기본 읽기 모드";
 "settings.default_direction" = "기본 페이지 방향";
+"settings.first_page_solo" = "첫 페이지 단독";
+"settings.first_page_solo.off" = "끄기";
+"settings.first_page_solo.on"  = "켜기";
+"settings.first_page_solo_footer" = "두 페이지 모드에서 표지(첫 페이지)를 한 장으로 보여주고 이후부터 두 페이지씩 펼쳐 묶어줍니다. 만화처럼 좌·우 페이지가 짝을 이루는 책에 유용합니다.";
 "settings.app_language"    = "앱 언어";
 "settings.tap_zones"       = "탭으로 페이지 넘기기";
 "settings.swipe"           = "스와이프로 페이지 넘기기";
@@ -11,9 +15,6 @@
 "settings.auto_hide.5"     = "5초";
 "settings.auto_hide.10"    = "10초";
 "settings.auto_hide.off"   = "끄기";
-"settings.restart_required" = "언어 변경을 적용하려면 Mana를 다시 시작하세요.";
-"settings.restart_title"   = "Mana 다시 시작";
-"settings.ok"              = "확인";
 "language.system"          = "시스템";
 "language.en"              = "English";
 "language.ko"              = "한국어";

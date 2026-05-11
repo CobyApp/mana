@@ -3,7 +3,7 @@ import DesignSystem
 
 /// Boot intro: glitchy onomatopoeia title that hangs for a beat then fades.
 /// Self-driving — fires once on appear and notifies completion via `onFinish`.
-struct ManaSplash: View {
+struct NOIZSplash: View {
     let onFinish: () -> Void
 
     @State private var glitchTick: Int = 0
@@ -20,7 +20,7 @@ struct ManaSplash: View {
             VStack(spacing: Tokens.Spacing.l) {
                 if titleVisible {
                     SoundEffectText(
-                        "MANA",
+                        "NOIZ",
                         font: Tokens.Typography.displayXL,
                         fill: Tokens.Colors.accent,
                         stroke: Tokens.Colors.ink,

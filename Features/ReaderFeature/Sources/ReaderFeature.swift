@@ -74,26 +74,37 @@ public struct ReaderFeature {
         Reduce { state, action in
             switch action {
             case .task:
+                // The effect parks until it's cancelled (i.e. the reader view
+                // is dismissed and SwiftUI tears down its `.task`). Closing
+                // the archive in the same effect avoids dispatching an
+                // `.onDisappear` action after the navigation stack has already
+                // popped this element (which trips TCA's "missing element"
+                // forEach guard).
                 let comic = state.comic
                 let router = self.router
                 let progress = self.progress
                 return .run { send in
-                    do {
-                        let url = comic.url
-                        let didStart = url.startAccessingSecurityScopedResource()
-                        do {
-                            let reader = router.reader(for: comic.format)
-                            let handle = try await reader.openArchive(at: url)
-                            let pageCount = await reader.pageCount(handle)
-                            let saved = await progress.load(comicId: comic.id)
-                            let savedLastPage: Int? = saved.map { min(max(0, $0.lastPageIndex), max(0, pageCount - 1)) }
-                            await send(.opened(handle: handle, pageCount: pageCount, savedLastPage: savedLastPage))
-                            await send(.prefetchHint(savedLastPage ?? 0))
-                            if didStart { await send(.startedSecurityScope(url)) }
-                        } catch {
-                            if didStart { url.stopAccessingSecurityScopedResource() }
-                            throw error
+                    let url = comic.url
+                    let didStart = url.startAccessingSecurityScopedResource()
+                    let reader = router.reader(for: comic.format)
+                    var openedHandle: ArchiveHandle?
+                    defer {
+                        if let handle = openedHandle {
+                            Task.detached { await reader.closeArchive(handle) }
                         }
+                        if didStart { url.stopAccessingSecurityScopedResource() }
+                    }
+                    do {
+                        let handle = try await reader.openArchive(at: url)
+                        openedHandle = handle
+                        let pageCount = await reader.pageCount(handle)
+                        let saved = await progress.load(comicId: comic.id)
+                        let savedLastPage: Int? = saved.map { min(max(0, $0.lastPageIndex), max(0, pageCount - 1)) }
+                        await send(.opened(handle: handle, pageCount: pageCount, savedLastPage: savedLastPage))
+                        await send(.prefetchHint(savedLastPage ?? 0))
+                        try await Task.sleep(nanoseconds: .max)
+                    } catch is CancellationError {
+                        // Expected when the reader view is dismissed.
                     } catch {
                         await send(.openFailed(error.localizedDescription))
                     }
@@ -118,7 +129,15 @@ public struct ReaderFeature {
                     resolvedDirection = .leftToRight
                 }
                 state.pageProgressionDirection = resolvedDirection
-                state.pageOffset = state.comic.pageOffset
+                // Page-offset preference: prefer the per-comic value once any progress
+                // has been recorded; otherwise fall back to the user's app-wide default.
+                if savedLastPage == nil,
+                   let raw = userDefaults.string(forKey: SettingsFeature.pageOffsetKey),
+                   raw == "true" {
+                    state.pageOffset = true
+                } else {
+                    state.pageOffset = state.comic.pageOffset
+                }
                 state.pageIndex = savedLastPage ?? 0
                 return .none
 

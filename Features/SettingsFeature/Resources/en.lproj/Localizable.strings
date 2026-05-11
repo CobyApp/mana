@@ -3,6 +3,10 @@
 "settings.gestures"        = "Reader Gestures";
 "settings.default_mode"    = "Default reading mode";
 "settings.default_direction" = "Default page direction";
+"settings.first_page_solo" = "First page solo";
+"settings.first_page_solo.off" = "Off";
+"settings.first_page_solo.on"  = "On";
+"settings.first_page_solo_footer" = "In two-page mode, show the cover (first page) on its own and pair every subsequent page two at a time. Useful for manga and books where left/right pages are designed as spreads.";
 "settings.app_language"    = "App language";
 "settings.tap_zones"       = "Tap zones to turn pages";
 "settings.swipe"           = "Swipe to turn pages";
@@ -11,9 +15,6 @@
 "settings.auto_hide.5"     = "5 sec";
 "settings.auto_hide.10"    = "10 sec";
 "settings.auto_hide.off"   = "Off";
-"settings.restart_required" = "Restart Mana to apply the language change.";
-"settings.restart_title"   = "Restart Mana";
-"settings.ok"              = "OK";
 "language.system"          = "System";
 "language.en"              = "EN";
 "language.ko"              = "한국어";

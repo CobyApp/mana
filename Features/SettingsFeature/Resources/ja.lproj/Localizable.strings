@@ -3,6 +3,10 @@
 "settings.gestures"        = "リーダージェスチャ";
 "settings.default_mode"    = "既定の読み取りモード";
 "settings.default_direction" = "既定のページ方向";
+"settings.first_page_solo" = "最初のページを単独表示";
+"settings.first_page_solo.off" = "オフ";
+"settings.first_page_solo.on"  = "オン";
+"settings.first_page_solo_footer" = "見開きモードで表紙（最初のページ）を1ページ単独で表示し、以降を2ページずつ並べます。左右ページが対になっているマンガに便利です。";
 "settings.app_language"    = "アプリの言語";
 "settings.tap_zones"       = "タップでページめくり";
 "settings.swipe"           = "スワイプでページめくり";
@@ -11,9 +15,6 @@
 "settings.auto_hide.5"     = "5秒";
 "settings.auto_hide.10"    = "10秒";
 "settings.auto_hide.off"   = "オフ";
-"settings.restart_required" = "言語変更を反映するためMana を再起動してください。";
-"settings.restart_title"   = "Mana を再起動";
-"settings.ok"              = "OK";
 "language.system"          = "システム";
 "language.en"              = "English";
 "language.ko"              = "한국어";

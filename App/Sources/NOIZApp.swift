@@ -3,7 +3,7 @@ import ComposableArchitecture
 import AppFeature
 
 @main
-struct ManaApp: App {
+struct NOIZApp: App {
     init() {
         LiveDependencies.register()
     }
@@ -31,7 +31,7 @@ private struct RootContainer: View {
             AppView(store: store)
 
             if !splashFinished {
-                ManaSplash { splashFinished = true }
+                NOIZSplash { splashFinished = true }
                     .transition(.opacity)
                     .zIndex(10)
                     .allowsHitTesting(false)

@@ -10,3 +10,5 @@
 "direction.ltr"            = "左から右";
 "direction.rtl"            = "右から左";
 "reader.controls.page_offset" = "最初のページを単独表示";
+"reader.controls.page_offset.off" = "オフ";
+"reader.controls.page_offset.on"  = "オン";

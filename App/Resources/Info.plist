@@ -9,7 +9,7 @@
   <key>CFBundleExecutable</key>
   <string>$(EXECUTABLE_NAME)</string>
   <key>CFBundleDisplayName</key>
-  <string>Mana</string>
+  <string>NOIZ</string>
   <key>CFBundleShortVersionString</key>
   <string>1.0.0</string>
   <key>CFBundleVersion</key>
@@ -33,5 +33,20 @@
   <true/>
   <key>LSSupportsOpeningDocumentsInPlace</key>
   <true/>
+  <key>UTExportedTypeDeclarations</key>
+  <array>
+    <dict>
+      <key>UTTypeIdentifier</key>
+      <string>com.coby.mana.comic-drag-payload</string>
+      <key>UTTypeDescription</key>
+      <string>Comic Drag Payload</string>
+      <key>UTTypeConformsTo</key>
+      <array>
+        <string>public.data</string>
+      </array>
+      <key>UTTypeTagSpecification</key>
+      <dict/>
+    </dict>
+  </array>
 </dict>
 </plist>
