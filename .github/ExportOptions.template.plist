@@ -17,11 +17,6 @@
     <key>stripSwiftSymbols</key>
     <true/>
     <key>signingStyle</key>
-    <string>manual</string>
-    <key>provisioningProfiles</key>
-    <dict>
-        <key>__BUNDLE_ID__</key>
-        <string>__PROFILE_NAME__</string>
-    </dict>
+    <string>automatic</string>
 </dict>
 </plist>
