@@ -91,21 +91,21 @@ public struct LibraryCell: View {
     @ViewBuilder
     private var progressIndicator: some View {
         if let ratio = progressRatio {
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Rectangle()
-                        .fill(Tokens.Colors.ink.opacity(0.7))
-                    Rectangle()
-                        .fill(Tokens.Colors.accent)
-                        .frame(width: geo.size.width * CGFloat(ratio))
+            Rectangle()
+                .fill(Tokens.Colors.ink.opacity(0.7))
+                .frame(height: 4)
+                .overlay(alignment: .leading) {
+                    GeometryReader { geo in
+                        Rectangle()
+                            .fill(Tokens.Colors.accent)
+                            .frame(width: max(0, geo.size.width * CGFloat(ratio)))
+                    }
                 }
-            }
-            .frame(height: 4)
-            .overlay(alignment: .top) {
-                Rectangle()
-                    .fill(Tokens.Colors.paper.opacity(0.5))
-                    .frame(height: 1)
-            }
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(Tokens.Colors.paper.opacity(0.5))
+                        .frame(height: 1)
+                }
         }
     }
 

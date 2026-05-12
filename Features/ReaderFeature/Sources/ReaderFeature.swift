@@ -194,12 +194,17 @@ public struct ReaderFeature {
                     updatedAt: Date()
                 )
                 let progress = self.progress
-                let mainQueue = self.mainQueue
+                // Spawn a detached task so the save survives the reader's
+                // reducer scope being cancelled mid-flight (e.g. user flips
+                // pages then taps back immediately). The previous 1-second
+                // debounce was getting cancelled before it could fire,
+                // which is why progress sometimes wasn't reaching disk.
                 return .run { _ in
-                    try? await progress.save(p)
-                    NotificationCenter.default.post(name: .manaProgressUpdated, object: nil)
+                    Task.detached(priority: .utility) {
+                        try? await progress.save(p)
+                        NotificationCenter.default.post(name: .manaProgressUpdated, object: nil)
+                    }
                 }
-                .debounce(id: PersistDebounce(), for: .seconds(1), scheduler: mainQueue)
 
             case let .modeChanged(mode):
                 state.mode = mode
