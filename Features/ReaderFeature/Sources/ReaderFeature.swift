@@ -197,6 +197,7 @@ public struct ReaderFeature {
                 let mainQueue = self.mainQueue
                 return .run { _ in
                     try? await progress.save(p)
+                    NotificationCenter.default.post(name: .manaProgressUpdated, object: nil)
                 }
                 .debounce(id: PersistDebounce(), for: .seconds(1), scheduler: mainQueue)
 
@@ -289,15 +290,6 @@ private struct LiveArchiveReaderRouterPlaceholder: ArchiveReaderRouter {
     }
 }
 
-private enum ProgressRepositoryKey: DependencyKey {
-    static let liveValue: any ProgressRepository = LiveProgressRepositoryPlaceholder()
-}
-
-private struct LiveProgressRepositoryPlaceholder: ProgressRepository {
-    func load(comicId: UUID) async -> ReadingProgress? { nil }
-    func save(_ progress: ReadingProgress) async throws {}
-}
-
 private enum ImageCacheKey: DependencyKey {
     static let liveValue: ImageCache = ImageCache.inMemoryOnly()
 }
@@ -306,10 +298,6 @@ extension DependencyValues {
     public var archiveReaderRouter: any ArchiveReaderRouter {
         get { self[ArchiveReaderRouterKey.self] }
         set { self[ArchiveReaderRouterKey.self] = newValue }
-    }
-    public var progressRepository: any ProgressRepository {
-        get { self[ProgressRepositoryKey.self] }
-        set { self[ProgressRepositoryKey.self] = newValue }
     }
     public var imageCache: ImageCache {
         get { self[ImageCacheKey.self] }

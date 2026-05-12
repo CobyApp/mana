@@ -4,11 +4,18 @@ import DesignSystem
 
 public struct LibraryCell: View {
     let comic: ComicItem
+    let progress: ReadingProgress?
     let isSelectionMode: Bool
     let isSelected: Bool
 
-    public init(comic: ComicItem, isSelectionMode: Bool = false, isSelected: Bool = false) {
+    public init(
+        comic: ComicItem,
+        progress: ReadingProgress? = nil,
+        isSelectionMode: Bool = false,
+        isSelected: Bool = false
+    ) {
         self.comic = comic
+        self.progress = progress
         self.isSelectionMode = isSelectionMode
         self.isSelected = isSelected
     }
@@ -60,21 +67,54 @@ public struct LibraryCell: View {
 
     @ViewBuilder
     private var cover: some View {
-        if let data = comic.coverThumbnail, let img = UIImage(data: data) {
-            Image(uiImage: img)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .clipped()
-        } else {
-            ZStack {
-                Tokens.Colors.paper
-                HalftoneBackground(spacing: Tokens.Halftone.denseDotSpacing,
-                                   radius: Tokens.Halftone.denseDotRadius)
-                Image(systemName: "book.closed.fill")
-                    .font(.system(size: 36, weight: .black))
-                    .foregroundStyle(Tokens.Colors.ink)
+        ZStack(alignment: .bottom) {
+            if let data = comic.coverThumbnail, let img = UIImage(data: data) {
+                Image(uiImage: img)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .clipped()
+            } else {
+                ZStack {
+                    Tokens.Colors.paper
+                    HalftoneBackground(spacing: Tokens.Halftone.denseDotSpacing,
+                                       radius: Tokens.Halftone.denseDotRadius)
+                    Image(systemName: "book.closed.fill")
+                        .font(.system(size: 36, weight: .black))
+                        .foregroundStyle(Tokens.Colors.ink)
+                }
+            }
+            progressIndicator
+        }
+    }
+
+    @ViewBuilder
+    private var progressIndicator: some View {
+        if let ratio = progressRatio {
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Rectangle()
+                        .fill(Tokens.Colors.ink.opacity(0.7))
+                    Rectangle()
+                        .fill(Tokens.Colors.accent)
+                        .frame(width: geo.size.width * CGFloat(ratio))
+                }
+            }
+            .frame(height: 4)
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(Tokens.Colors.paper.opacity(0.5))
+                    .frame(height: 1)
             }
         }
+    }
+
+    /// Returns the progress fraction (0…1) if the comic has been opened past the
+    /// cover, otherwise `nil`. We skip page 0 so a brief glance at the very
+    /// first page doesn't permanently stamp every cover with a tiny sliver.
+    private var progressRatio: Double? {
+        guard let p = progress, p.totalPages > 0, p.lastPageIndex > 0 else { return nil }
+        return min(1.0, Double(p.lastPageIndex + 1) / Double(p.totalPages))
     }
 
     private var selectionBadge: some View {

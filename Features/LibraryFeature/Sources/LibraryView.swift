@@ -253,6 +253,7 @@ public struct LibraryView: View {
                         } label: {
                             LibraryCell(
                                 comic: comic,
+                                progress: store.progresses[comic.id],
                                 isSelectionMode: store.isSelecting,
                                 isSelected: store.selectedComicIds.contains(comic.id)
                             )

@@ -227,6 +227,7 @@ actor InMemoryProgressRepo: ProgressRepository {
     init(initial: [ReadingProgress]) {
         self.store = Dictionary(uniqueKeysWithValues: initial.map { ($0.comicId, $0) })
     }
+    func all() async -> [ReadingProgress] { Array(store.values) }
     func load(comicId: UUID) async -> ReadingProgress? { store[comicId] }
     func save(_ progress: ReadingProgress) async throws { store[progress.comicId] = progress }
 }

@@ -10,6 +10,9 @@ public extension Notification.Name {
     /// Posted once the on-disk library has been reconciled with the catalog at
     /// app launch. The library view listens for this and reloads.
     static let manaLibraryReconciled = Notification.Name("com.coby.mana.libraryReconciled")
+    /// Posted by the reader whenever a comic's reading progress is persisted.
+    /// The library listens for this so the per-cover progress bar stays fresh.
+    static let manaProgressUpdated = Notification.Name("com.coby.mana.progressUpdated")
 }
 
 @Reducer
@@ -50,6 +53,7 @@ public struct LibraryFeature {
     public struct State: Equatable {
         public var comics: IdentifiedArrayOf<ComicItem> = []
         public var folders: IdentifiedArrayOf<Folder> = []
+        public var progresses: [UUID: ReadingProgress] = [:]
         public var currentFolderId: UUID?
         public var isImporting: Bool = false
         public var sort: LibrarySortOrder = .dateAddedDesc
@@ -120,6 +124,7 @@ public struct LibraryFeature {
         case task
         case refreshed([ComicItem])
         case foldersRefreshed([Folder])
+        case progressesRefreshed([ReadingProgress])
         case importTapped
         case importPicked([URL])
         case droppedURLs([URL])
@@ -171,6 +176,7 @@ public struct LibraryFeature {
 
     @Dependency(\.comicRepository) var repo
     @Dependency(\.folderRepository) var folderRepo
+    @Dependency(\.progressRepository) var progressRepo
     @Dependency(\.libraryImporter) var importer
     @Dependency(\.uuid) var uuid
     @Dependency(\.date.now) var now
@@ -181,6 +187,7 @@ public struct LibraryFeature {
             case .task:
                 let repo = self.repo
                 let folderRepo = self.folderRepo
+                let progressRepo = self.progressRepo
                 return .merge(
                     .run { send in
                         await loadComics(repo: repo, send: send)
@@ -191,6 +198,12 @@ public struct LibraryFeature {
                     .run { send in
                         let folders = await folderRepo.all()
                         await send(.foldersRefreshed(folders))
+                    },
+                    .run { send in
+                        await send(.progressesRefreshed(await progressRepo.all()))
+                        for await _ in NotificationCenter.default.notifications(named: .manaProgressUpdated).map({ _ in () }) {
+                            await send(.progressesRefreshed(await progressRepo.all()))
+                        }
                     }
                 )
 
@@ -200,6 +213,10 @@ public struct LibraryFeature {
 
             case let .foldersRefreshed(folders):
                 state.folders = IdentifiedArray(uniqueElements: folders)
+                return .none
+
+            case let .progressesRefreshed(items):
+                state.progresses = Dictionary(uniqueKeysWithValues: items.map { ($0.comicId, $0) })
                 return .none
 
             case .importTapped:
@@ -646,6 +663,16 @@ private struct LiveImporterPlaceholder: LibraryImporter {
     func importFiles(_ urls: [URL], folderId: UUID?) async throws -> [ComicItem] { [] }
 }
 
+private enum ProgressRepositoryKey: DependencyKey {
+    static let liveValue: any ProgressRepository = LiveProgressRepositoryPlaceholder()
+}
+
+private struct LiveProgressRepositoryPlaceholder: ProgressRepository {
+    func all() async -> [ReadingProgress] { [] }
+    func load(comicId: UUID) async -> ReadingProgress? { nil }
+    func save(_ progress: ReadingProgress) async throws {}
+}
+
 private func loadComics(
     repo: any ComicRepository,
     send: Send<LibraryFeature.Action>
@@ -679,5 +706,9 @@ extension DependencyValues {
     public var libraryImporter: any LibraryImporter {
         get { self[LibraryImporterKey.self] }
         set { self[LibraryImporterKey.self] = newValue }
+    }
+    public var progressRepository: any ProgressRepository {
+        get { self[ProgressRepositoryKey.self] }
+        set { self[ProgressRepositoryKey.self] = newValue }
     }
 }

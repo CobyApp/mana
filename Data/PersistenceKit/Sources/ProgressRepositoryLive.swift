@@ -11,6 +11,12 @@ public actor ProgressRepositoryLive: ProgressRepository {
 
     private func ctx() -> ModelContext { ModelContext(stack.container) }
 
+    public func all() async -> [ReadingProgress] {
+        let context = ctx()
+        let descriptor = FetchDescriptor<ReadingProgressEntity>()
+        return ((try? context.fetch(descriptor)) ?? []).map { $0.toModel() }
+    }
+
     public func load(comicId: UUID) async -> ReadingProgress? {
         let context = ctx()
         let descriptor = FetchDescriptor<ReadingProgressEntity>(predicate: #Predicate { $0.comicId == comicId })
