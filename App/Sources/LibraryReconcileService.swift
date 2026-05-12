@@ -90,10 +90,22 @@ public struct LibraryReconcileService: Sendable {
 
     private func importNewFiles(libraryDir: URL, fm: FileManager) async {
         let onDisk = (try? fm.contentsOfDirectory(at: libraryDir, includingPropertiesForKeys: nil)) ?? []
-        let cataloged = Set(await repo.all().map { $0.url.standardizedFileURL.path })
-        let unknown = onDisk.filter { !cataloged.contains($0.standardizedFileURL.path) }
+        // The library is a single flat directory, so the file name is enough
+        // to identify a comic. Comparing absolute paths is fragile because
+        // iOS sometimes hands us /var paths and sometimes /private/var paths
+        // for the same file, and because external importers can supply NFD
+        // filenames while APFS reports NFC ones. Either mismatch made
+        // reconcile re-import every comic on launch.
+        let catalogedNames: Set<String> = Set(
+            await repo.all().map { Self.canonicalName($0.url) }
+        )
+        let unknown = onDisk.filter { !catalogedNames.contains(Self.canonicalName($0)) }
         guard !unknown.isEmpty else { return }
         _ = try? await importer.importFiles(unknown, folderId: nil)
+    }
+
+    private static func canonicalName(_ url: URL) -> String {
+        url.lastPathComponent.precomposedStringWithCanonicalMapping
     }
 }
 

@@ -74,8 +74,14 @@ public struct LibraryImporterLive: LibraryImporter {
         try? fm.createDirectory(at: libraryDir, withIntermediateDirectories: true)
 
         // Reconcile passes files already inside the library directory; treat
-        // those as no-ops so reindexing doesn't duplicate or fail.
-        if source.standardizedFileURL.deletingLastPathComponent() == libraryDir.standardizedFileURL {
+        // those as no-ops so reindexing doesn't duplicate or fail. Compare
+        // resolved (symlink-followed) paths so /var vs /private/var doesn't
+        // trip us up on iOS.
+        let resolvedSourceParent = source.resolvingSymlinksInPath()
+            .deletingLastPathComponent()
+            .standardizedFileURL
+        let resolvedLibrary = libraryDir.resolvingSymlinksInPath().standardizedFileURL
+        if resolvedSourceParent.path == resolvedLibrary.path {
             return source
         }
 
