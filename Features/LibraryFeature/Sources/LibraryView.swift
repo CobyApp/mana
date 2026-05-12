@@ -505,6 +505,7 @@ public struct LibraryView: View {
                 }
                 .buttonStyle(.plain)
             }
+            .padding(.bottom, 140)
         }
     }
 
