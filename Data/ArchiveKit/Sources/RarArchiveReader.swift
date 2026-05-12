@@ -15,9 +15,10 @@ public struct RarArchiveReader: ArchiveReader {
             }
             let allNames: [String] = try archive.listFilenames()
             let imageNames = allNames
-                .filter {
-                    let ext = ($0 as NSString).pathExtension.lowercased()
-                    return Self.imageExtensions.contains(ext)
+                .filter { name in
+                    let ext = (name as NSString).pathExtension.lowercased()
+                    guard Self.imageExtensions.contains(ext) else { return false }
+                    return ZipArchiveReader.isReadableImagePath(name)
                 }
                 .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
             let id = await RarSessionStore.shared.register(archive, entryNames: imageNames)
