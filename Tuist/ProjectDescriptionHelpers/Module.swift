@@ -29,7 +29,7 @@ public struct Module {
     public func project() -> Project {
         let bundleId = "com.coby.mana.\(name.lowercased())"
         let externalDeps: [TargetDependency] = externalDependencies.map { .external(name: $0) }
-        let deploymentTargets: DeploymentTargets = .iOS("26.0")
+        let deploymentTargets: DeploymentTargets = .iOS("17.0")
         let frameworkSettings: Settings = .settings(base: [
             "CODE_SIGN_STYLE": "Automatic",
             "DEVELOPMENT_TEAM": "3Y8YH8GWMM",

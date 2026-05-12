@@ -23,7 +23,7 @@ let project = Project(
             destinations: .iOS,
             product: .app,
             bundleId: "com.coby.mana",
-            deploymentTargets: .iOS("26.0"),
+            deploymentTargets: .iOS("17.0"),
             infoPlist: .file(path: "Resources/Info.plist"),
             sources: ["Sources/**"],
             resources: [
@@ -49,7 +49,7 @@ let project = Project(
             destinations: .iOS,
             product: .unitTests,
             bundleId: "com.coby.mana.tests",
-            deploymentTargets: .iOS("26.0"),
+            deploymentTargets: .iOS("17.0"),
             sources: ["Tests/**"],
             resources: ["Tests/Resources/**"],
             dependencies: [

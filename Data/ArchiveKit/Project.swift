@@ -4,7 +4,7 @@ import ProjectDescriptionHelpers
 // ArchiveKit uses a custom project definition so that the test bundle includes
 // the binary fixture (Tests/Resources/sample.cbz) needed by ZipArchiveReaderTests.
 private let bundleId = "com.coby.mana.archivekit"
-private let deploymentTargets: DeploymentTargets = .iOS("26.0")
+private let deploymentTargets: DeploymentTargets = .iOS("17.0")
 
 private let externalDeps: [TargetDependency] = [.external(name: "ZIPFoundation"), .external(name: "UnrarKit")]
 private let domainDep: TargetDependency = .project(target: "Domain", path: "../../Domain")

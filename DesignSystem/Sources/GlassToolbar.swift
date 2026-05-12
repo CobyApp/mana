@@ -16,6 +16,18 @@ public struct GlassToolbar<Content: View>: View {
         }
         .padding(.horizontal, Tokens.Spacing.m)
         .padding(.vertical, Tokens.Spacing.s)
-        .glassEffect(in: .capsule)
+        .modifier(GlassEffectModifier())
+    }
+}
+
+private struct GlassEffectModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.glassEffect(in: .capsule)
+        } else {
+            content
+                .background(.ultraThinMaterial, in: Capsule())
+                .overlay(Capsule().strokeBorder(Color.white.opacity(0.18), lineWidth: 0.5))
+        }
     }
 }
