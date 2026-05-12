@@ -1,0 +1,1 @@
+comic,manga,reader,viewer,zip,rar,pdf,cbz,cbr,reading,book,comicbook

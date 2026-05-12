@@ -1,0 +1,22 @@
+NOIZ — a noisy, paper-textured comic reader.
+
+Read the ZIP, RAR, and PDF comics you already own in a single, unified library. A manga / glitch-toned design turns every page-turn into a small event.
+
+Highlights
+• ZIP / RAR / PDF together — the same library, the same reader, regardless of format.
+• Single or dual-page view, left-to-right or right-to-left progression, and a cover-alone option.
+• Organize with folders, bulk move or delete with multi-select, and drag-and-drop.
+• Auto reconcile — your library lives in Application Support, so reinstalling the app brings your books straight back.
+• Resume where you left off — the reader returns to the last page you read, and every cover in the library shows a progress bar.
+• Pinch with two fingers to zoom, tap the left or right edge to flip pages.
+• Haptics on, sound off — the silence of reading is respected.
+• Manga / glitch UI tokens — halftone backgrounds, bold ink borders, speed lines.
+
+Requirements
+• iOS / iPadOS 17.0 or later
+• iPad Pro recommended
+
+Languages
+The in-app UI ships in English, 한국어, and 日本語. Open Settings → App Language and choose "Match system" to follow the device.
+
+NOIZ has no ads and no tracking. Read the books you own, on the device you own.
