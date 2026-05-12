@@ -252,3 +252,6 @@ main {
 html[lang="ja"] [data-lang="ja"] { display: revert; }
 html[lang="ko"] [data-lang="ko"] { display: revert; }
 html[lang="en"] [data-lang="en"] { display: revert; }
+/* Language-switcher buttons must always remain visible, regardless of
+   the currently selected language. */
+.lang-switcher [data-lang] { display: inline-flex !important; }
