@@ -53,13 +53,8 @@ public struct ZoomableImageView: UIViewRepresentable {
             imageView.heightAnchor.constraint(equalTo: scrollView.heightAnchor)
         ])
 
-        let doubleTap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleDoubleTap(_:)))
-        doubleTap.numberOfTapsRequired = 2
-        scrollView.addGestureRecognizer(doubleTap)
-
         let singleTap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleSingleTap(_:)))
         singleTap.numberOfTapsRequired = 1
-        singleTap.require(toFail: doubleTap)
         scrollView.addGestureRecognizer(singleTap)
 
         context.coordinator.parent = self
@@ -84,15 +79,6 @@ public struct ZoomableImageView: UIViewRepresentable {
             scrollView.viewWithTag(1)
         }
 
-        @objc func handleDoubleTap(_ recognizer: UITapGestureRecognizer) {
-            guard let scrollView = recognizer.view as? UIScrollView else { return }
-            if scrollView.zoomScale > scrollView.minimumZoomScale {
-                scrollView.setZoomScale(scrollView.minimumZoomScale, animated: true)
-            } else {
-                scrollView.setZoomScale(scrollView.maximumZoomScale * 0.5, animated: true)
-            }
-        }
-
         @objc func handleSingleTap(_ recognizer: UITapGestureRecognizer) {
             guard let scrollView = recognizer.view as? UIScrollView,
                   let parent else { return }
@@ -102,8 +88,8 @@ public struct ZoomableImageView: UIViewRepresentable {
             let x = recognizer.location(in: scrollView).x
             let leftMax = width * parent.leftZoneRatio
             let rightMin = width * (1 - parent.rightZoneRatio)
-            // While zoomed in, treat every single tap as a center tap so navigation
-            // doesn't fight panning. Double tap still zooms out.
+            // While zoomed in, treat every tap as a center tap so navigation
+            // doesn't fight panning.
             if zoomed {
                 parent.onCenterTap?()
             } else if x < leftMax {
