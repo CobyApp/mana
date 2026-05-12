@@ -18,7 +18,7 @@ public struct SettingsFeature {
             defaultMode: ReadingMode = .single,
             defaultPageProgressionDirection: PageProgressionDirection = .leftToRight,
             defaultPageOffset: Bool = false,
-            appLanguage: AppLanguage = .ko
+            appLanguage: AppLanguage = .system
         ) {
             self.defaultMode = defaultMode
             self.defaultPageProgressionDirection = defaultPageProgressionDirection
@@ -125,21 +125,10 @@ public struct SettingsFeature {
 }
 
 public enum AppLanguage: String, Sendable, Equatable, CaseIterable {
+    case system
     case ko
     case ja
     case en
-
-    /// Falls back to English when the system locale isn't Korean or Japanese.
-    public static var systemDefault: AppLanguage {
-        let preferred = Bundle.main.preferredLocalizations.first
-            ?? Locale.current.language.languageCode?.identifier
-            ?? "en"
-        switch preferred.lowercased().prefix(2) {
-        case "ko": return .ko
-        case "ja": return .ja
-        default:   return .en
-        }
-    }
 }
 
 public protocol UserDefaultsClient: Sendable {

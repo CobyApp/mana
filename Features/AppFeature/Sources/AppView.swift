@@ -22,7 +22,14 @@ public struct AppView: View {
                 SettingsView(store: settingsStore)
             }
         }
-        .environment(\.locale, Locale(identifier: store.appLanguage.rawValue))
+        .environment(\.locale, locale(for: store.appLanguage))
         .task { await store.send(.task).finish() }
+    }
+
+    private func locale(for language: AppLanguage) -> Locale {
+        switch language {
+        case .system: return .autoupdatingCurrent
+        case .ko, .ja, .en: return Locale(identifier: language.rawValue)
+        }
     }
 }

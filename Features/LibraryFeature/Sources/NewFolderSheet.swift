@@ -1,6 +1,19 @@
 import SwiftUI
 import DesignSystem
 
+extension Bundle {
+    /// Looks up a localized string honoring a SwiftUI environment `Locale`,
+    /// independent of `Bundle.preferredLocalizations`.
+    func localized(_ key: String, for locale: Locale) -> String {
+        let langCode = locale.language.languageCode?.identifier ?? "en"
+        if let path = path(forResource: langCode, ofType: "lproj"),
+           let bundle = Bundle(path: path) {
+            return bundle.localizedString(forKey: key, value: nil, table: nil)
+        }
+        return localizedString(forKey: key, value: nil, table: nil)
+    }
+}
+
 public struct NewFolderSheetView: View {
     @Binding var name: String
     let titleKey: String
@@ -10,6 +23,7 @@ public struct NewFolderSheetView: View {
     var onCancel: () -> Void
 
     @FocusState private var fieldFocused: Bool
+    @Environment(\.locale) private var locale
 
     public init(
         name: Binding<String>,
@@ -59,18 +73,18 @@ public struct NewFolderSheetView: View {
     }
 
     private var sheetTitle: String {
-        Bundle.module.localizedString(forKey: titleKey, value: nil, table: nil)
+        Bundle.module.localized(titleKey, for: locale)
     }
 
     private var fieldBlock: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(String(localized: "library.folder_name", bundle: .module))
+            Text("library.folder_name", bundle: .module)
                 .font(Tokens.Typography.caption)
                 .foregroundStyle(Tokens.Colors.ink.opacity(0.7))
                 .textCase(.uppercase)
 
             TextField(
-                Bundle.module.localizedString(forKey: placeholderKey, value: nil, table: nil),
+                Bundle.module.localized(placeholderKey, for: locale),
                 text: $name
             )
             .focused($fieldFocused)

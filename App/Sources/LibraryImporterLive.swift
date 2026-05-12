@@ -70,8 +70,14 @@ public struct LibraryImporterLive: LibraryImporter {
 
     private func copyToLocalLibrary(source: URL) throws -> URL {
         let fm = FileManager.default
-        let libraryDir = URL.documentsDirectory.appending(path: "Mana Library")
+        let libraryDir = LibraryStorage.libraryDirectory
         try? fm.createDirectory(at: libraryDir, withIntermediateDirectories: true)
+
+        // Reconcile passes files already inside the library directory; treat
+        // those as no-ops so reindexing doesn't duplicate or fail.
+        if source.standardizedFileURL.deletingLastPathComponent() == libraryDir.standardizedFileURL {
+            return source
+        }
 
         var dest = libraryDir.appending(path: source.lastPathComponent)
         var counter = 2
@@ -84,5 +90,20 @@ public struct LibraryImporterLive: LibraryImporter {
         }
         try fm.copyItem(at: source, to: dest)
         return dest
+    }
+}
+
+public enum LibraryStorage {
+    /// Canonical on-disk location for imported comic files. Lives under
+    /// Application Support so it shares the SwiftData store's lifecycle and
+    /// stays out of Files.app.
+    public static var libraryDirectory: URL {
+        URL.applicationSupportDirectory.appending(path: "Mana Library")
+    }
+
+    /// Pre-`Mana Library` location under Documents. Kept only for migration
+    /// at app startup.
+    public static var legacyLibraryDirectory: URL {
+        URL.documentsDirectory.appending(path: "Mana Library")
     }
 }

@@ -6,6 +6,12 @@ public protocol LibraryImporter: Sendable {
     func importFiles(_ urls: [URL], folderId: UUID?) async throws -> [ComicItem]
 }
 
+public extension Notification.Name {
+    /// Posted once the on-disk library has been reconciled with the catalog at
+    /// app launch. The library view listens for this and reloads.
+    static let manaLibraryReconciled = Notification.Name("com.coby.mana.libraryReconciled")
+}
+
 @Reducer
 public struct LibraryFeature {
     public init() {}
@@ -177,21 +183,10 @@ public struct LibraryFeature {
                 let folderRepo = self.folderRepo
                 return .merge(
                     .run { send in
-                        var items = await repo.all()
-                        let fm = FileManager.default
-                        var orphanIds: [UUID] = []
-                        for comic in items {
-                            if !fm.fileExists(atPath: comic.url.path) {
-                                orphanIds.append(comic.id)
-                            }
+                        await loadComics(repo: repo, send: send)
+                        for await _ in NotificationCenter.default.notifications(named: .manaLibraryReconciled).map({ _ in () }) {
+                            await loadComics(repo: repo, send: send)
                         }
-                        if !orphanIds.isEmpty {
-                            for id in orphanIds {
-                                try? await repo.delete(id)
-                            }
-                            items = items.filter { !orphanIds.contains($0.id) }
-                        }
-                        await send(.refreshed(items))
                     },
                     .run { send in
                         let folders = await folderRepo.all()
@@ -649,6 +644,27 @@ private enum LibraryImporterKey: DependencyKey {
 
 private struct LiveImporterPlaceholder: LibraryImporter {
     func importFiles(_ urls: [URL], folderId: UUID?) async throws -> [ComicItem] { [] }
+}
+
+private func loadComics(
+    repo: any ComicRepository,
+    send: Send<LibraryFeature.Action>
+) async {
+    var items = await repo.all()
+    let fm = FileManager.default
+    var orphanIds: [UUID] = []
+    for comic in items {
+        if !fm.fileExists(atPath: comic.url.path) {
+            orphanIds.append(comic.id)
+        }
+    }
+    if !orphanIds.isEmpty {
+        for id in orphanIds {
+            try? await repo.delete(id)
+        }
+        items = items.filter { !orphanIds.contains($0.id) }
+    }
+    await send(.refreshed(items))
 }
 
 extension DependencyValues {

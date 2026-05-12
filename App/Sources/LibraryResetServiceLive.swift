@@ -31,7 +31,7 @@ public struct LibraryResetServiceLive: LibraryResetService {
         for folder in allFolders {
             try? await folderRepo.delete(folder.id)
         }
-        let localDir = URL.documentsDirectory.appending(path: "Mana Library")
+        let localDir = LibraryStorage.libraryDirectory
         try? FileManager.default.removeItem(at: localDir)
         try? FileManager.default.createDirectory(at: localDir, withIntermediateDirectories: true)
         await imageCache.evictMemory()

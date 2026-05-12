@@ -16,7 +16,7 @@
 "settings.auto_hide.10"    = "10 sec";
 "settings.auto_hide.off"   = "Off";
 "language.system"          = "System";
-"language.en"              = "EN";
+"language.en"              = "English";
 "language.ko"              = "한국어";
 "language.ja"              = "日本語";
 "settings.reset_library"   = "Reset library";

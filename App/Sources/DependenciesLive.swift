@@ -46,5 +46,10 @@ enum LiveDependencies {
             $0.userDefaults = LiveUserDefaultsClient()
             $0.libraryResetService = libraryReset
         }
+
+        let reconcile = LibraryReconcileService(repo: comicRepo, importer: importer)
+        Task.detached(priority: .utility) {
+            await reconcile.reconcile()
+        }
     }
 }

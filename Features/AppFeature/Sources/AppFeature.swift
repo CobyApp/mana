@@ -24,7 +24,7 @@ public struct AppFeature {
         public init(
             library: LibraryFeature.State = LibraryFeature.State(),
             path: StackState<Path.State> = StackState(),
-            appLanguage: AppLanguage = .systemDefault
+            appLanguage: AppLanguage = .system
         ) {
             self.library = library
             self.path = path
@@ -48,11 +48,19 @@ public struct AppFeature {
         Reduce { state, action in
             switch action {
             case .task:
+                // Pre-`.system` builds auto-saved a concrete language (often "en")
+                // when the main bundle had no advertised localizations. Clear that
+                // stale value once so users land on `.system` by default.
+                let migrationKey = "mana.appLanguage.migrated_to_system_v1"
+                if userDefaults.string(forKey: migrationKey) == nil {
+                    userDefaults.removeObject(forKey: SettingsFeature.languageKey)
+                    userDefaults.set("1", forKey: migrationKey)
+                }
                 if let raw = userDefaults.string(forKey: SettingsFeature.languageKey),
                    let lang = AppLanguage(rawValue: raw) {
                     state.appLanguage = lang
                 } else {
-                    state.appLanguage = .systemDefault
+                    state.appLanguage = .system
                 }
                 return .none
 

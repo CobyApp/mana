@@ -6,10 +6,24 @@ import DesignSystem
 import SharedUI
 import UIKit
 
+private extension Bundle {
+    /// Looks up a localized string honoring a SwiftUI environment `Locale`,
+    /// independent of `Bundle.preferredLocalizations`.
+    func localized(_ key: String, for locale: Locale) -> String {
+        let langCode = locale.language.languageCode?.identifier ?? "en"
+        if let path = path(forResource: langCode, ofType: "lproj"),
+           let bundle = Bundle(path: path) {
+            return bundle.localizedString(forKey: key, value: nil, table: nil)
+        }
+        return localizedString(forKey: key, value: nil, table: nil)
+    }
+}
+
 public struct ReaderView: View {
     @Bindable public var store: StoreOf<ReaderFeature>
     @Dependency(\.imageCache) private var imageCache
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.locale) private var locale
 
     @State private var showControlsPopover: Bool = false
 
@@ -18,7 +32,7 @@ public struct ReaderView: View {
     }
 
     public var body: some View {
-        ZStack {
+        ZStack(alignment: .bottomTrailing) {
             Color.black.ignoresSafeArea()
 
             if store.pageCount > 0 {
@@ -36,13 +50,13 @@ public struct ReaderView: View {
                 Color.black.opacity(0.0001)
                     .ignoresSafeArea()
                     .onTapGesture { showControlsPopover = false }
-            }
-        }
-        .overlay(alignment: .bottomTrailing) {
-            if showControlsPopover {
+
                 controlsPopover
+                    .frame(width: 320)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                     .padding(.trailing, Tokens.Spacing.m)
                     .padding(.bottom, 130)
+                    .allowsHitTesting(true)
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
@@ -200,50 +214,49 @@ public struct ReaderView: View {
 
     private var controlsPopover: some View {
         VStack(alignment: .leading, spacing: Tokens.Spacing.l) {
-            controlSection(titleKey: "reader.controls.mode") {
+            controlSection(title: localized("reader.controls.mode")) {
                 MangaToggle(
                     selection: Binding(
                         get: { store.mode },
                         set: { store.send(.modeChanged($0)) }
                     ),
                     options: [
-                        (ReadingMode.single, Text("mode.single", bundle: .module)),
-                        (ReadingMode.dual,   Text("mode.dual",   bundle: .module))
+                        (ReadingMode.single, Text(verbatim: localized("mode.single"))),
+                        (ReadingMode.dual,   Text(verbatim: localized("mode.dual")))
                     ],
                     showShadow: false
                 )
             }
 
-            controlSection(titleKey: "reader.controls.direction") {
+            controlSection(title: localized("reader.controls.direction")) {
                 MangaToggle(
                     selection: Binding(
                         get: { store.pageProgressionDirection },
                         set: { store.send(.progressionDirectionChanged($0)) }
                     ),
                     options: [
-                        (PageProgressionDirection.leftToRight, Text("direction.ltr", bundle: .module)),
-                        (PageProgressionDirection.rightToLeft, Text("direction.rtl", bundle: .module))
+                        (PageProgressionDirection.leftToRight, Text(verbatim: localized("direction.ltr"))),
+                        (PageProgressionDirection.rightToLeft, Text(verbatim: localized("direction.rtl")))
                     ],
                     showShadow: false
                 )
             }
 
-            controlSection(titleKey: "reader.controls.page_offset") {
+            controlSection(title: localized("reader.controls.page_offset")) {
                 MangaToggle(
                     selection: Binding(
                         get: { store.pageOffset },
                         set: { store.send(.pageOffsetChanged($0)) }
                     ),
                     options: [
-                        (false, Text("reader.controls.page_offset.off", bundle: .module)),
-                        (true,  Text("reader.controls.page_offset.on",  bundle: .module))
+                        (false, Text(verbatim: localized("reader.controls.page_offset.off"))),
+                        (true,  Text(verbatim: localized("reader.controls.page_offset.on")))
                     ],
                     showShadow: false
                 )
             }
         }
         .padding(Tokens.Spacing.l)
-        .frame(width: 320)
         .background(Tokens.Colors.paper)
         .overlay(
             Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.regular)
@@ -255,13 +268,17 @@ public struct ReaderView: View {
         )
     }
 
+    private func localized(_ key: String) -> String {
+        Bundle.module.localized(key, for: locale)
+    }
+
     @ViewBuilder
     private func controlSection<Content: View>(
-        titleKey: String.LocalizationValue,
+        title: String,
         @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(String(localized: titleKey, bundle: .module))
+            Text(verbatim: title)
                 .font(Tokens.Typography.caption)
                 .foregroundStyle(Tokens.Colors.ink.opacity(0.7))
                 .textCase(.uppercase)

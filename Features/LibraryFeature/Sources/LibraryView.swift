@@ -8,6 +8,7 @@ public struct LibraryView: View {
     @Bindable public var store: StoreOf<LibraryFeature>
     @State private var showImporter = false
     @State private var activePopover: ActivePopover? = nil
+    @Environment(\.locale) private var locale
 
     private enum ActivePopover: Equatable { case sort }
 
@@ -74,9 +75,7 @@ public struct LibraryView: View {
             if !store.displayedComics.isEmpty || !store.displayedFolders.isEmpty {
                 Button { store.send(.selectionModeToggled) } label: {
                     MangaTextBadge(
-                        text: Text(store.isSelecting
-                                   ? Bundle.module.localizedString(forKey: "library.done", value: nil, table: nil)
-                                   : Bundle.module.localizedString(forKey: "library.select", value: nil, table: nil)),
+                        text: Text(store.isSelecting ? "library.done" : "library.select", bundle: .module),
                         isActive: store.isSelecting
                     )
                 }
@@ -119,7 +118,7 @@ public struct LibraryView: View {
     private var selectionActionBar: some View {
         HStack(spacing: Tokens.Spacing.m) {
             Text(verbatim: String(
-                format: Bundle.module.localizedString(forKey: "library.selected_count", value: nil, table: nil),
+                format: Bundle.module.localized("library.selected_count", for: locale),
                 store.selectedComicIds.count
             ))
             .font(Tokens.Typography.mono)
@@ -301,7 +300,7 @@ public struct LibraryView: View {
 
     @ViewBuilder
     private var bigHeader: some View {
-        let title: String = store.currentFolder?.name ?? String(localized: "library.title", bundle: .module)
+        let title: String = store.currentFolder?.name ?? Bundle.module.localized("library.title", for: locale)
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 4) {
                 SoundEffectText(
@@ -632,6 +631,7 @@ private struct ConfirmDialogPanel: View {
     let dialog: LibraryFeature.State.ConfirmDialog
     let onCancel: () -> Void
     let onConfirm: () -> Void
+    @Environment(\.locale) private var locale
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Spacing.l) {
@@ -695,9 +695,9 @@ private struct ConfirmDialogPanel: View {
     private var titleText: String {
         switch dialog {
         case .folderDelete:
-            return Bundle.module.localizedString(forKey: "library.delete_folder_title", value: nil, table: nil)
+            return Bundle.module.localized("library.delete_folder_title", for: locale)
         case .bulkDelete:
-            return Bundle.module.localizedString(forKey: "library.bulk_delete_title", value: nil, table: nil)
+            return Bundle.module.localized("library.bulk_delete_title", for: locale)
         }
     }
 
@@ -705,12 +705,12 @@ private struct ConfirmDialogPanel: View {
         switch dialog {
         case let .folderDelete(_, folderName, comicCount):
             return String(
-                format: String(localized: "library.delete_folder_message", bundle: .module),
+                format: Bundle.module.localized("library.delete_folder_message", for: locale),
                 folderName, comicCount
             )
         case let .bulkDelete(count):
             return String(
-                format: String(localized: "library.bulk_delete_message", bundle: .module),
+                format: Bundle.module.localized("library.bulk_delete_message", for: locale),
                 count
             )
         }

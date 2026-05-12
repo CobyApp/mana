@@ -3,9 +3,25 @@ import ComposableArchitecture
 import Domain
 import DesignSystem
 
+private extension Bundle {
+    /// Looks up a localized string for a specific `Locale` by loading the matching
+    /// `.lproj` sub-bundle directly. Use this when the SwiftUI environment locale
+    /// needs to drive strings resolution but you can't pass a `Text` (e.g. when the
+    /// consumer requires a plain `String`).
+    func localized(_ key: String, for locale: Locale) -> String {
+        let langCode = locale.language.languageCode?.identifier ?? "en"
+        if let path = path(forResource: langCode, ofType: "lproj"),
+           let bundle = Bundle(path: path) {
+            return bundle.localizedString(forKey: key, value: nil, table: nil)
+        }
+        return localizedString(forKey: key, value: nil, table: nil)
+    }
+}
+
 public struct SettingsView: View {
     @Bindable public var store: StoreOf<SettingsFeature>
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.locale) private var locale
 
     public init(store: StoreOf<SettingsFeature>) { self.store = store }
 
@@ -20,36 +36,36 @@ public struct SettingsView: View {
                 VStack(alignment: .leading, spacing: Tokens.Spacing.l) {
                     header
 
-                    section(titleKey: "settings.general") {
-                    settingRow("settings.default_mode") {
+                    section(title: localized("settings.general")) {
+                    settingRow(title: localized("settings.default_mode")) {
                         MangaToggle(
                             selection: Binding(
                                 get: { store.defaultMode },
                                 set: { store.send(.defaultModeChanged($0)) }
                             ),
                             options: [
-                                (ReadingMode.single, Text("mode.single", bundle: .module)),
-                                (ReadingMode.dual,   Text("mode.dual",   bundle: .module))
+                                (ReadingMode.single, Text(verbatim: localized("mode.single"))),
+                                (ReadingMode.dual,   Text(verbatim: localized("mode.dual")))
                             ]
                         )
                     }
 
-                    settingRow("settings.default_direction") {
+                    settingRow(title: localized("settings.default_direction")) {
                         MangaToggle(
                             selection: Binding(
                                 get: { store.defaultPageProgressionDirection },
                                 set: { store.send(.defaultDirectionChanged($0)) }
                             ),
                             options: [
-                                (PageProgressionDirection.leftToRight, Text("direction.ltr", bundle: .module)),
-                                (PageProgressionDirection.rightToLeft, Text("direction.rtl", bundle: .module))
+                                (PageProgressionDirection.leftToRight, Text(verbatim: localized("direction.ltr"))),
+                                (PageProgressionDirection.rightToLeft, Text(verbatim: localized("direction.rtl")))
                             ]
                         )
                     }
 
                     settingRow(
-                        "settings.first_page_solo",
-                        footerKey: "settings.first_page_solo_footer"
+                        title: localized("settings.first_page_solo"),
+                        footer: localized("settings.first_page_solo_footer")
                     ) {
                         MangaToggle(
                             selection: Binding(
@@ -57,28 +73,29 @@ public struct SettingsView: View {
                                 set: { store.send(.defaultPageOffsetChanged($0)) }
                             ),
                             options: [
-                                (false, Text("settings.first_page_solo.off", bundle: .module)),
-                                (true,  Text("settings.first_page_solo.on",  bundle: .module))
+                                (false, Text(verbatim: localized("settings.first_page_solo.off"))),
+                                (true,  Text(verbatim: localized("settings.first_page_solo.on")))
                             ]
                         )
                     }
 
-                    settingRow("settings.app_language") {
+                    settingRow(title: localized("settings.app_language")) {
                         MangaToggle(
                             selection: Binding(
                                 get: { store.appLanguage },
                                 set: { store.send(.appLanguageChanged($0)) }
                             ),
                             options: [
-                                (AppLanguage.ko, Text("language.ko", bundle: .module)),
-                                (AppLanguage.ja, Text("language.ja", bundle: .module)),
-                                (AppLanguage.en, Text("language.en", bundle: .module))
+                                (AppLanguage.system, Text(verbatim: localized("language.system"))),
+                                (AppLanguage.ko, Text(verbatim: localized("language.ko"))),
+                                (AppLanguage.ja, Text(verbatim: localized("language.ja"))),
+                                (AppLanguage.en, Text(verbatim: localized("language.en")))
                             ]
                         )
                     }
                 }
 
-                section(titleKey: "settings.danger_zone", accent: Tokens.Colors.accent) {
+                section(title: localized("settings.danger_zone"), accent: Tokens.Colors.accent) {
                     Button(role: .destructive) {
                         store.send(.resetLibraryRequested)
                     } label: {
@@ -129,7 +146,7 @@ public struct SettingsView: View {
 
     private var header: some View {
         SoundEffectText(
-            String(localized: "settings.title", bundle: .module).uppercased(),
+            Bundle.module.localized("settings.title", for: locale).uppercased(),
             font: Tokens.Typography.displayL,
             fill: Tokens.Colors.accent,
             stroke: Tokens.Colors.ink,
@@ -140,9 +157,13 @@ public struct SettingsView: View {
         .padding(.bottom, Tokens.Spacing.s)
     }
 
+    private func localized(_ key: String) -> String {
+        Bundle.module.localized(key, for: locale)
+    }
+
     @ViewBuilder
     private func section<Content: View>(
-        titleKey: String.LocalizationValue,
+        title: String,
         accent: Color = Tokens.Colors.ink,
         @ViewBuilder content: () -> Content
     ) -> some View {
@@ -151,7 +172,7 @@ public struct SettingsView: View {
                 Rectangle()
                     .fill(accent)
                     .frame(width: 14, height: 14)
-                Text(String(localized: titleKey, bundle: .module))
+                Text(verbatim: title)
                     .font(Tokens.Typography.subtitle)
                     .foregroundStyle(Tokens.Colors.ink)
                     .textCase(.uppercase)
@@ -172,18 +193,18 @@ public struct SettingsView: View {
 
     @ViewBuilder
     private func settingRow<Content: View>(
-        _ titleKey: String.LocalizationValue,
-        footerKey: String.LocalizationValue? = nil,
+        title: String,
+        footer: String? = nil,
         @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(String(localized: titleKey, bundle: .module))
+            Text(verbatim: title)
                 .font(Tokens.Typography.caption)
                 .foregroundStyle(Tokens.Colors.ink.opacity(0.7))
                 .textCase(.uppercase)
             content()
-            if let footerKey {
-                Text(String(localized: footerKey, bundle: .module))
+            if let footer {
+                Text(verbatim: footer)
                     .font(Tokens.Typography.caption)
                     .foregroundStyle(Tokens.Colors.ink.opacity(0.6))
                     .padding(.top, 2)
