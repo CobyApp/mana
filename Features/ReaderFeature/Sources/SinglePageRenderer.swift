@@ -41,16 +41,14 @@ public struct SinglePageRenderer: View, PageRenderer {
     public var body: some View {
         ZStack {
             if let image {
-                ZoomableImageView(image: image)
+                ZoomableImageView(
+                    image: image,
+                    onLeftTap: tapZonesEnabled ? { handleLeftTap() } : nil,
+                    onCenterTap: tapZonesEnabled ? { onCenterTap() } : nil,
+                    onRightTap: tapZonesEnabled ? { handleRightTap() } : nil
+                )
             } else {
                 ProgressView()
-            }
-            if tapZonesEnabled {
-                TapZoneOverlay(
-                    onLeftTap: { handleLeftTap() },
-                    onCenterTap: { onCenterTap() },
-                    onRightTap: { handleRightTap() }
-                )
             }
         }
         .gesture(swipeEnabled ? swipeGesture : nil)

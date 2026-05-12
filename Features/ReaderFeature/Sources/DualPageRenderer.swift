@@ -62,16 +62,14 @@ public struct DualPageRenderer: View, PageRenderer {
     public var body: some View {
         ZStack {
             if let spreadImage {
-                ZoomableImageView(image: spreadImage)
+                ZoomableImageView(
+                    image: spreadImage,
+                    onLeftTap: tapZonesEnabled ? { applyDelta(.left) } : nil,
+                    onCenterTap: tapZonesEnabled ? { onCenterTap() } : nil,
+                    onRightTap: tapZonesEnabled ? { applyDelta(.right) } : nil
+                )
             } else {
                 ProgressView().tint(.white)
-            }
-            if tapZonesEnabled {
-                TapZoneOverlay(
-                    onLeftTap: { applyDelta(.left) },
-                    onCenterTap: { onCenterTap() },
-                    onRightTap: { applyDelta(.right) }
-                )
             }
         }
         .gesture(swipeEnabled ? swipeGesture : nil)
