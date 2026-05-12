@@ -42,7 +42,7 @@ public struct LibraryCell: View {
                 if !isSelectionMode {
                     pageBadge
                         .padding(.horizontal, 6)
-                        .padding(.bottom, 6)
+                        .padding(.bottom, 18)
                 }
             }
             .opacity(isSelectionMode && !isSelected ? 0.55 : 1.0)
@@ -92,29 +92,32 @@ public struct LibraryCell: View {
     private var progressIndicator: some View {
         if let ratio = progressRatio {
             Rectangle()
-                .fill(Tokens.Colors.ink.opacity(0.7))
-                .frame(height: 4)
+                .fill(Tokens.Colors.ink.opacity(0.85))
+                .frame(height: 12)
                 .overlay(alignment: .leading) {
                     GeometryReader { geo in
                         Rectangle()
                             .fill(Tokens.Colors.accent)
-                            .frame(width: max(0, geo.size.width * CGFloat(ratio)))
+                            // Guarantee a visible sliver even when the ratio
+                            // resolves to a couple of percent on long comics.
+                            .frame(width: max(14, geo.size.width * CGFloat(ratio)))
                     }
                 }
                 .overlay(alignment: .top) {
                     Rectangle()
-                        .fill(Tokens.Colors.paper.opacity(0.5))
+                        .fill(Tokens.Colors.paper.opacity(0.7))
                         .frame(height: 1)
                 }
         }
     }
 
-    /// Returns the progress fraction (0…1) if the comic has been opened past the
-    /// cover, otherwise `nil`. We skip page 0 so a brief glance at the very
-    /// first page doesn't permanently stamp every cover with a tiny sliver.
+    /// Any persisted progress means the comic is in progress — the reader
+    /// only writes a ReadingProgress row after the user actually flips a
+    /// page, so the mere presence of a row is the signal we want.
     private var progressRatio: Double? {
-        guard let p = progress, p.totalPages > 0, p.lastPageIndex > 0 else { return nil }
-        return min(1.0, Double(p.lastPageIndex + 1) / Double(p.totalPages))
+        guard let p = progress, p.totalPages > 0 else { return nil }
+        let raw = Double(p.lastPageIndex + 1) / Double(p.totalPages)
+        return min(1.0, max(0.0, raw))
     }
 
     private var selectionBadge: some View {

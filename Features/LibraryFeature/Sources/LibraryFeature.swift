@@ -122,6 +122,7 @@ public struct LibraryFeature {
 
     public enum Action {
         case task
+        case onAppear
         case refreshed([ComicItem])
         case foldersRefreshed([Folder])
         case progressesRefreshed([ReadingProgress])
@@ -206,6 +207,17 @@ public struct LibraryFeature {
                         }
                     }
                 )
+
+            case .onAppear:
+                // Defensive refresh whenever the library view comes back into
+                // focus (e.g. after popping the reader). The NotificationCenter
+                // subscription in `.task` should cover this too, but in case
+                // SwiftUI cancels the root view's `.task` during a push we
+                // still want progress to land.
+                let progressRepo = self.progressRepo
+                return .run { send in
+                    await send(.progressesRefreshed(await progressRepo.all()))
+                }
 
             case let .refreshed(items):
                 state.comics = IdentifiedArray(uniqueElements: items)

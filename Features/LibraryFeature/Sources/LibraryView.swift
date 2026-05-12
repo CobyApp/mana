@@ -38,6 +38,7 @@ public struct LibraryView: View {
             )
             .dropDestination(for: URL.self, action: handleDrop)
             .task { await store.send(.task).finish() }
+            .onAppear { store.send(.onAppear) }
             .modifier(LibrarySheetsAndAlerts(store: store))
             .safeAreaInset(edge: .bottom) {
                 if store.isSelecting && !store.selectedComicIds.isEmpty {

@@ -4,12 +4,23 @@ import Domain
 
 public actor ProgressRepositoryLive: ProgressRepository {
     private let stack: SwiftDataStack
+    private var _context: ModelContext?
 
     public init(stack: SwiftDataStack) {
         self.stack = stack
     }
 
-    private func ctx() -> ModelContext { ModelContext(stack.container) }
+    /// Reuse a single ModelContext per actor so writes are immediately
+    /// visible to subsequent reads. Building a fresh context each call was
+    /// allowing the new context to load a stale snapshot in some cases —
+    /// the library would fetch right after the reader saved and still see
+    /// the pre-save state.
+    private func ctx() -> ModelContext {
+        if let _context { return _context }
+        let context = ModelContext(stack.container)
+        _context = context
+        return context
+    }
 
     public func all() async -> [ReadingProgress] {
         let context = ctx()
