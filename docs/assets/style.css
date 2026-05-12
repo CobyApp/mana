@@ -1,0 +1,244 @@
+/* NOIZ — Manga / Glitch landing styles. Mirrors the in-app Tokens. */
+
+:root {
+  --paper: #f4ead2;
+  --ink: #0a0a0a;
+  --ink-dim: rgba(10, 10, 10, 0.65);
+  --accent: #ff2766;
+  --halftone: rgba(10, 10, 10, 0.06);
+  --stroke: 1.5px;
+  --stroke-bold: 3px;
+  --shadow: 6px 8px 0 var(--ink);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Pretendard", "Noto Sans JP", "Noto Sans KR", -apple-system, BlinkMacSystemFont, "SF Pro", "Helvetica Neue", sans-serif;
+  font-weight: 500;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background-image:
+    radial-gradient(var(--halftone) 1.2px, transparent 1.2px);
+  background-size: 14px 14px;
+  background-position: 0 0;
+}
+
+a { color: var(--ink); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+a:hover { color: var(--accent); }
+
+/* ── Header ─────────────────────────────── */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--paper);
+  border-bottom: var(--stroke) solid var(--ink);
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.site-header .brand {
+  font-weight: 900;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+}
+
+.lang-switcher {
+  display: inline-flex;
+  border: var(--stroke) solid var(--ink);
+}
+.lang-switcher button {
+  appearance: none;
+  background: var(--paper);
+  border: 0;
+  border-right: var(--stroke) solid var(--ink);
+  color: var(--ink);
+  cursor: pointer;
+  font: 700 13px/1 "Pretendard", "Noto Sans JP", system-ui, sans-serif;
+  letter-spacing: 0.06em;
+  padding: 8px 12px;
+  text-transform: uppercase;
+}
+.lang-switcher button:last-child { border-right: 0; }
+.lang-switcher button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--paper);
+}
+
+/* ── Layout ─────────────────────────────── */
+main {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 56px 24px 96px;
+}
+
+.hero {
+  border: var(--stroke-bold) solid var(--ink);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  padding: 56px 36px 48px;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0 3px,
+      rgba(10, 10, 10, 0.04) 3px 4px
+    );
+  pointer-events: none;
+}
+.hero h1 {
+  font-size: clamp(64px, 12vw, 124px);
+  margin: 0 0 12px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 0.9;
+  color: var(--accent);
+  -webkit-text-stroke: 3px var(--ink);
+  paint-order: stroke fill;
+  transform: rotate(-2deg);
+  display: inline-block;
+  text-shadow: 5px 6px 0 var(--ink);
+}
+.hero .tag {
+  display: inline-block;
+  font: 700 13px/1 "Pretendard", "Noto Sans JP", system-ui, sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 6px 10px;
+  margin-bottom: 18px;
+}
+.hero p.lede {
+  font-size: clamp(18px, 2.2vw, 22px);
+  margin: 0 0 28px;
+  max-width: 640px;
+  line-height: 1.55;
+}
+
+.cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  background: var(--accent);
+  color: var(--paper);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  border: var(--stroke-bold) solid var(--ink);
+  box-shadow: 4px 5px 0 var(--ink);
+  text-decoration: none;
+  text-transform: uppercase;
+  font-size: 14px;
+}
+.cta.secondary { background: var(--paper); color: var(--ink); }
+.cta:hover { transform: translate(2px, 2px); box-shadow: 2px 3px 0 var(--ink); }
+
+/* ── Section heading ────────────────────── */
+.section { margin-top: 72px; }
+.section h2 {
+  font-size: clamp(28px, 4vw, 40px);
+  margin: 0 0 24px;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  position: relative;
+  padding-bottom: 8px;
+}
+.section h2::after {
+  content: "";
+  display: block;
+  height: 4px;
+  background: var(--ink);
+  margin-top: 12px;
+}
+
+/* ── Feature grid ───────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+}
+.card {
+  border: var(--stroke-bold) solid var(--ink);
+  background: var(--paper);
+  padding: 20px 22px;
+  box-shadow: 4px 5px 0 var(--ink);
+  position: relative;
+}
+.card h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.card p { margin: 0; line-height: 1.55; color: var(--ink-dim); }
+
+/* ── Long-form prose (privacy / support) ─ */
+.prose {
+  border: var(--stroke-bold) solid var(--ink);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  padding: 40px 36px;
+}
+.prose h1 {
+  font-size: clamp(36px, 6vw, 56px);
+  margin: 0 0 24px;
+  letter-spacing: -0.02em;
+}
+.prose h2 {
+  margin-top: 32px;
+  margin-bottom: 12px;
+  font-size: 22px;
+  text-transform: uppercase;
+}
+.prose p, .prose li { line-height: 1.7; font-size: 16px; }
+.prose ul { padding-left: 22px; }
+.prose .meta {
+  display: inline-block;
+  font: 700 12px/1 "Pretendard", system-ui, sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 6px 10px;
+  margin-bottom: 20px;
+}
+
+/* ── Footer ─────────────────────────────── */
+.site-footer {
+  border-top: var(--stroke) solid var(--ink);
+  padding: 28px 24px;
+  font-size: 13px;
+  color: var(--ink-dim);
+  text-align: center;
+}
+.site-footer a { margin: 0 8px; }
+
+/* ── i18n visibility ────────────────────── */
+[data-lang] { display: none; }
+html[lang="ja"] [data-lang="ja"] { display: revert; }
+html[lang="ko"] [data-lang="ko"] { display: revert; }
+html[lang="en"] [data-lang="en"] { display: revert; }

@@ -1,24 +1,49 @@
-# Mana
+<div align="center">
 
-iPad comic reader (TCA + SwiftUI + Tuist + SwiftData).
+# NOIZ
 
-## Setup
+**ノイズの効いた、紙のような漫画リーダー。**
 
-After cloning:
+iPad / iPhone のための ZIP・RAR・PDF コミックビューア。
+マンガ／グリッチ調のデザインで「読む」を演出します。
+
+[日本語](README.md) · [한국어](README.ko.md) · [English](README.en.md)
+
+[公式サイト](https://cobyapp.github.io/mana/) · [プライバシーポリシー](https://cobyapp.github.io/mana/privacy/) · [サポート](https://cobyapp.github.io/mana/support/)
+
+</div>
+
+---
+
+## ✦ 特長
+
+- **ZIP / RAR / PDF** をそのまま開ける統一ライブラリ。
+- **シングル / デュアルページ** 表示、**左→右 / 右→左** の進行方向、**表紙単独表示** に対応。
+- フォルダで整理、複数選択して一括移動／削除、ドラッグ＆ドロップ。
+- 端末再インストールでも作品が消えないよう、ライブラリは Application Support に保存しつつ起動時に自動再同期。
+- ハプティクス（バイブ）あり、音は鳴らさない。読書中の静けさを尊重。
+- マンガ／グリッチ調の UI トークン（ハーフトーン背景、太字インクボーダー、スピードライン）。
+
+## ✦ システム要件
+
+- iOS / iPadOS **17.0 以上**
+- iPhone / iPad（iPad Pro 推奨）
+
+## ✦ 言語
+
+アプリ内 UI は **日本語 / 한국어 / English** に対応。設定 → アプリ言語で「システムに従う」を選ぶと、デバイスの言語を自動追従します。
+
+## ✦ 開発
+
+Tuist でモジュール分割した SwiftUI + The Composable Architecture プロジェクトです。
 
 ```bash
-./Scripts/setup.sh
+bash Scripts/setup.sh
+open Mana.xcworkspace
 ```
 
-This runs `tuist install`, applies a fix to UnrarKit's bundled `Package.swift` (the upstream
-fork `ZHK1024/UnrarKit-Swift-Package` 2.10.1 ships an incomplete manifest — see
-`Patches/UnrarKit-Package-fixed.swift` for the corrected version), then runs `tuist generate`.
+詳細は [`docs/DEPLOY.md`](docs/DEPLOY.md)（TestFlight 自動配信）を参照。
 
-Once the workspace is generated, open `Mana.xcworkspace`.
+## ✦ ライセンス
 
-## Architecture
-
-- **TCA** (The Composable Architecture) for state management
-- **Tuist** for project generation
-- **SwiftData** for persistence
-- Feature modules: `LibraryFeature`, `ReaderFeature`, `BookmarksFeature`, `SettingsFeature`, `AppFeature`
+このリポジトリは個人プロジェクトです。アプリ内で使用しているライブラリのライセンスは各プロジェクトに従います。
