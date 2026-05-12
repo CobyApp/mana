@@ -32,7 +32,7 @@ public struct ReaderView: View {
     }
 
     public var body: some View {
-        ZStack(alignment: .bottomTrailing) {
+        ZStack {
             Color.black.ignoresSafeArea()
 
             if store.pageCount > 0 {
@@ -45,22 +45,10 @@ public struct ReaderView: View {
             if store.isControlsVisible {
                 controlsOverlay
             }
-
-            if showControlsPopover {
-                Color.black.opacity(0.0001)
-                    .ignoresSafeArea()
-                    .onTapGesture { showControlsPopover = false }
-
-                controlsPopover
-                    .frame(width: 320)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                    .padding(.trailing, Tokens.Spacing.m)
-                    .padding(.bottom, 130)
-                    .allowsHitTesting(true)
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
-            }
         }
-        .animation(.easeOut(duration: 0.18), value: showControlsPopover)
+        .overlay { popoverDim }
+        .overlay(alignment: .bottomTrailing) { controlsPopoverOverlay }
+        .animation(.easeOut(duration: 0.12), value: showControlsPopover)
         .animation(.spring(duration: 0.35, bounce: 0.15), value: store.isControlsVisible)
         .toolbar(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(true)
@@ -73,6 +61,25 @@ public struct ReaderView: View {
             store.send(.toggleControls)
         }
         .alert($store.scope(state: \.alert, action: \.alert))
+    }
+
+    @ViewBuilder
+    private var popoverDim: some View {
+        if showControlsPopover {
+            Color.black.opacity(0.0001)
+                .ignoresSafeArea()
+                .onTapGesture { showControlsPopover = false }
+        }
+    }
+
+    @ViewBuilder
+    private var controlsPopoverOverlay: some View {
+        if showControlsPopover {
+            controlsPopover
+                .padding(.trailing, Tokens.Spacing.m)
+                .padding(.bottom, 130)
+                .transition(.opacity)
+        }
     }
 
     @ViewBuilder
@@ -213,50 +220,43 @@ public struct ReaderView: View {
     }
 
     private var controlsPopover: some View {
-        VStack(alignment: .leading, spacing: Tokens.Spacing.l) {
-            controlSection(title: localized("reader.controls.mode")) {
-                MangaToggle(
-                    selection: Binding(
-                        get: { store.mode },
-                        set: { store.send(.modeChanged($0)) }
-                    ),
-                    options: [
-                        (ReadingMode.single, Text(verbatim: localized("mode.single"))),
-                        (ReadingMode.dual,   Text(verbatim: localized("mode.dual")))
-                    ],
-                    showShadow: false
-                )
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader(localized("reader.controls.mode"))
+            optionRow(localized("mode.single"),
+                      isSelected: store.mode == .single) {
+                store.send(.modeChanged(.single))
+            }
+            divider
+            optionRow(localized("mode.dual"),
+                      isSelected: store.mode == .dual) {
+                store.send(.modeChanged(.dual))
             }
 
-            controlSection(title: localized("reader.controls.direction")) {
-                MangaToggle(
-                    selection: Binding(
-                        get: { store.pageProgressionDirection },
-                        set: { store.send(.progressionDirectionChanged($0)) }
-                    ),
-                    options: [
-                        (PageProgressionDirection.leftToRight, Text(verbatim: localized("direction.ltr"))),
-                        (PageProgressionDirection.rightToLeft, Text(verbatim: localized("direction.rtl")))
-                    ],
-                    showShadow: false
-                )
+            sectionDivider
+            sectionHeader(localized("reader.controls.direction"))
+            optionRow(localized("direction.ltr"),
+                      isSelected: store.pageProgressionDirection == .leftToRight) {
+                store.send(.progressionDirectionChanged(.leftToRight))
+            }
+            divider
+            optionRow(localized("direction.rtl"),
+                      isSelected: store.pageProgressionDirection == .rightToLeft) {
+                store.send(.progressionDirectionChanged(.rightToLeft))
             }
 
-            controlSection(title: localized("reader.controls.page_offset")) {
-                MangaToggle(
-                    selection: Binding(
-                        get: { store.pageOffset },
-                        set: { store.send(.pageOffsetChanged($0)) }
-                    ),
-                    options: [
-                        (false, Text(verbatim: localized("reader.controls.page_offset.off"))),
-                        (true,  Text(verbatim: localized("reader.controls.page_offset.on")))
-                    ],
-                    showShadow: false
-                )
+            sectionDivider
+            sectionHeader(localized("reader.controls.page_offset"))
+            optionRow(localized("reader.controls.page_offset.off"),
+                      isSelected: !store.pageOffset) {
+                store.send(.pageOffsetChanged(false))
+            }
+            divider
+            optionRow(localized("reader.controls.page_offset.on"),
+                      isSelected: store.pageOffset) {
+                store.send(.pageOffsetChanged(true))
             }
         }
-        .padding(Tokens.Spacing.l)
+        .frame(width: 260)
         .background(Tokens.Colors.paper)
         .overlay(
             Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.regular)
@@ -268,23 +268,60 @@ public struct ReaderView: View {
         )
     }
 
+    @ViewBuilder
+    private func sectionHeader(_ title: String) -> some View {
+        Text(verbatim: title)
+            .font(Tokens.Typography.caption)
+            .foregroundStyle(Tokens.Colors.ink.opacity(0.55))
+            .textCase(.uppercase)
+            .padding(.horizontal, Tokens.Spacing.m)
+            .padding(.top, 10)
+            .padding(.bottom, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func optionRow(_ title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            action()
+        } label: {
+            HStack(spacing: Tokens.Spacing.s) {
+                Text(verbatim: title)
+                    .font(Tokens.Typography.subtitle)
+                    .foregroundStyle(isSelected ? Tokens.Colors.paper : Tokens.Colors.ink)
+                Spacer(minLength: 0)
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 13, weight: .black))
+                        .foregroundStyle(Tokens.Colors.paper)
+                }
+            }
+            .padding(.horizontal, Tokens.Spacing.m)
+            .padding(.vertical, 11)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(isSelected ? Tokens.Colors.accent : Tokens.Colors.paper)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var divider: some View {
+        Rectangle()
+            .fill(Tokens.Colors.ink.opacity(0.15))
+            .frame(height: 1)
+    }
+
+    private var sectionDivider: some View {
+        Rectangle()
+            .fill(Tokens.Colors.ink)
+            .frame(height: 1)
+    }
+
     private func localized(_ key: String) -> String {
         Bundle.module.localized(key, for: locale)
     }
 
-    @ViewBuilder
-    private func controlSection<Content: View>(
-        title: String,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(verbatim: title)
-                .font(Tokens.Typography.caption)
-                .foregroundStyle(Tokens.Colors.ink.opacity(0.7))
-                .textCase(.uppercase)
-            content()
-        }
-    }
 
     private var pageReadout: some View {
         HStack(spacing: 4) {
@@ -304,3 +341,4 @@ public struct ReaderView: View {
         .overlay(Rectangle().strokeBorder(Tokens.Colors.paper.opacity(0.4), lineWidth: 1))
     }
 }
+
