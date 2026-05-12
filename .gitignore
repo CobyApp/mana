@@ -12,3 +12,7 @@ xcuserdata/
 *.swp
 
 .claude/
+
+# Ruby/Bundler
+vendor/
+.bundle/
