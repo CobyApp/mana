@@ -30,3 +30,8 @@
 "mode.dual"                = "Two pages";
 "direction.ltr"            = "Left to Right";
 "direction.rtl"            = "Right to Left";
+"settings.translate.section" = "Auto translation";
+"settings.translate.toggle" = "Translate pages automatically";
+"settings.translate.on" = "On";
+"settings.translate.off" = "Off";
+"settings.translate.description" = "Available on supported devices.";

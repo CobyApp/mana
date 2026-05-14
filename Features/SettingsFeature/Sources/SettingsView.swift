@@ -95,6 +95,26 @@ public struct SettingsView: View {
                     }
                 }
 
+                if store.isIntelligenceAvailable {
+                    section(title: localized("settings.translate.section")) {
+                        settingRow(
+                            title: localized("settings.translate.toggle"),
+                            footer: localized("settings.translate.description")
+                        ) {
+                            MangaToggle(
+                                selection: Binding(
+                                    get: { store.autoTranslateEnabled },
+                                    set: { store.send(.autoTranslateChanged($0)) }
+                                ),
+                                options: [
+                                    (false, Text(verbatim: localized("settings.translate.off"))),
+                                    (true,  Text(verbatim: localized("settings.translate.on")))
+                                ]
+                            )
+                        }
+                    }
+                }
+
                 section(title: localized("settings.danger_zone"), accent: Tokens.Colors.accent) {
                     Button(role: .destructive) {
                         store.send(.resetLibraryRequested)

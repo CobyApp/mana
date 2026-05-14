@@ -30,3 +30,8 @@
 "mode.dual"                = "デュアル";
 "direction.ltr"            = "左から右";
 "direction.rtl"            = "右から左";
+"settings.translate.section" = "自動翻訳";
+"settings.translate.toggle" = "ページ自動翻訳";
+"settings.translate.on" = "オン";
+"settings.translate.off" = "オフ";
+"settings.translate.description" = "対応デバイスでのみ表示されます。";
