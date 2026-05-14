@@ -31,13 +31,14 @@ enum LiveDependencies {
         let importer = LibraryImporterLive(
             repo: comicRepo, router: router, cache: cache, thumbnails: thumbnails
         )
+        let translationCache = TranslationCacheLive(stack: stack)
         let libraryReset = LibraryResetServiceLive(
             comicRepo: comicRepo,
             folderRepo: folderRepo,
             progressRepo: progressRepo,
-            imageCache: cache
+            imageCache: cache,
+            translationCache: translationCache
         )
-        let translationCache = TranslationCacheLive(stack: stack)
 
         prepareDependencies {
             $0.archiveReaderRouter = router
