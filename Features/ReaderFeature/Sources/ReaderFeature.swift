@@ -2,6 +2,7 @@ import Foundation
 import ComposableArchitecture
 import Domain
 import ImageCacheKit
+import IntelligenceKit
 import LibraryFeature
 import SettingsFeature
 
@@ -84,6 +85,10 @@ public struct ReaderFeature {
         case startedSecurityScope(URL)
         case onDisappear
         case alert(PresentationAction<Alert>)
+        case translationToggleChanged(Bool)
+        case translatePage(Int)
+        case translationLoaded(pageIndex: Int, page: TranslatedPage, fromCache: Bool)
+        case translationFailed(pageIndex: Int)
 
         public enum Alert: Equatable {}
     }
@@ -94,11 +99,17 @@ public struct ReaderFeature {
     @Dependency(\.mainQueue) var mainQueue
     @Dependency(\.comicRepository) var comicRepo
     @Dependency(\.userDefaults) var userDefaults
+    @Dependency(\.pageTranslator) var pageTranslator
+    @Dependency(\.translationCache) var translationCache
 
     public var body: some ReducerOf<Self> {
         Reduce { state, action in
             switch action {
             case .task:
+                if state.translation.isIntelligenceAvailable,
+                   userDefaults.string(forKey: SettingsFeature.autoTranslateKey) == "true" {
+                    state.translation.isEnabled = true
+                }
                 // The effect parks until it's cancelled (i.e. the reader view
                 // is dismissed and SwiftUI tears down its `.task`). Closing
                 // the archive in the same effect avoids dispatching an
@@ -164,6 +175,14 @@ public struct ReaderFeature {
                     state.pageOffset = state.comic.pageOffset
                 }
                 state.pageIndex = savedLastPage ?? 0
+                if state.translation.isEnabled && state.translation.isIntelligenceAvailable {
+                    let idx = state.pageIndex
+                    return .merge(
+                        .send(.translatePage(idx - 1)),
+                        .send(.translatePage(idx)),
+                        .send(.translatePage(idx + 1))
+                    )
+                }
                 return .none
 
             case let .openFailed(message):
@@ -177,10 +196,16 @@ public struct ReaderFeature {
             case let .pageChanged(index):
                 guard index != state.pageIndex, index >= 0, index < state.pageCount else { return .none }
                 state.pageIndex = index
-                return .merge(
+                var effects: [Effect<Action>] = [
                     .send(.prefetchHint(index)),
                     .send(.persistProgress)
-                )
+                ]
+                if state.translation.isEnabled && state.translation.isIntelligenceAvailable {
+                    effects.append(.send(.translatePage(index - 1)))
+                    effects.append(.send(.translatePage(index)))
+                    effects.append(.send(.translatePage(index + 1)))
+                }
+                return .merge(effects)
 
             case let .prefetchHint(index):
                 guard let handle = state.handle else { return .none }
@@ -297,6 +322,87 @@ public struct ReaderFeature {
                     }
                     if let scopedURL { scopedURL.stopAccessingSecurityScopedResource() }
                 }
+
+            case let .translationToggleChanged(enabled):
+                state.translation.isEnabled = enabled
+                userDefaults.set(enabled ? "true" : "false", forKey: SettingsFeature.autoTranslateKey)
+                if enabled {
+                    let idx = state.pageIndex
+                    return .merge(
+                        .send(.translatePage(idx - 1)),
+                        .send(.translatePage(idx)),
+                        .send(.translatePage(idx + 1))
+                    )
+                }
+                return .none
+
+            case let .translatePage(idx):
+                guard
+                    state.translation.isEnabled,
+                    state.translation.isIntelligenceAvailable,
+                    idx >= 0, idx < state.pageCount,
+                    state.translation.pages[idx] == nil,
+                    !state.translation.pagesInFlight.contains(idx)
+                else { return .none }
+
+                state.translation.pagesInFlight.insert(idx)
+                let comicId = state.comic.id
+                let target = state.translation.targetLanguage
+                let format = state.comic.format
+                let cache = self.translationCache
+                let translator = self.pageTranslator
+                let router = self.router
+                let imageCache = self.imageCache
+                let handle = state.handle
+
+                return .run { send in
+                    // Cache lookup first.
+                    if let cached = await cache.load(comicId: comicId, pageIndex: idx, targetLanguage: target) {
+                        await send(.translationLoaded(pageIndex: idx, page: cached, fromCache: true))
+                        return
+                    }
+                    // Fetch image bytes (try cache, then archive).
+                    let key = PageKey(comicId: comicId, pageIndex: idx)
+                    var imageData = await imageCache.data(for: key)
+                    if imageData == nil, let handle {
+                        let reader = router.reader(for: format)
+                        do {
+                            let data = try await reader.pageData(handle, index: idx)
+                            await imageCache.store(data, for: key)
+                            imageData = data
+                        } catch {
+                            await send(.translationFailed(pageIndex: idx))
+                            return
+                        }
+                    }
+                    guard let imageData else {
+                        await send(.translationFailed(pageIndex: idx))
+                        return
+                    }
+                    do {
+                        let page = try await translator.translate(
+                            imageData: imageData, comicId: comicId, pageIndex: idx, targetLanguage: target
+                        )
+                        await send(.translationLoaded(pageIndex: idx, page: page, fromCache: false))
+                    } catch {
+                        await send(.translationFailed(pageIndex: idx))
+                    }
+                }
+
+            case let .translationLoaded(idx, page, fromCache):
+                state.translation.pages[idx] = page
+                state.translation.pagesInFlight.remove(idx)
+                if fromCache { return .none }
+                let cache = self.translationCache
+                return .run { _ in
+                    Task.detached(priority: .utility) {
+                        try? await cache.save(page)
+                    }
+                }
+
+            case let .translationFailed(idx):
+                state.translation.pagesInFlight.remove(idx)
+                return .none
 
             case .alert:
                 return .none

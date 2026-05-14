@@ -4,6 +4,7 @@ import ComposableArchitecture
 @testable import ReaderFeature
 import Domain
 import ImageCacheKit
+import IntelligenceKit
 import LibraryFeature
 import SettingsFeature
 
@@ -18,6 +19,29 @@ private func sampleComic() -> ComicItem {
         dateAdded: Date(timeIntervalSince1970: 0),
         fileSizeBytes: 0
     )
+}
+
+private func sampleComic(pageCount: Int) -> ComicItem {
+    ComicItem(
+        id: UUID(),
+        url: URL(fileURLWithPath: "/tmp/sample.cbz"),
+        format: .cbz,
+        title: "Sample",
+        pageCount: pageCount,
+        coverThumbnail: nil,
+        dateAdded: Date(timeIntervalSince1970: 0),
+        fileSizeBytes: 0
+    )
+}
+
+private struct FakePageTranslator: PageTranslator {
+    func translate(imageData: Data, comicId: UUID, pageIndex: Int, targetLanguage: String) async throws -> TranslatedPage {
+        TranslatedPage(
+            comicId: comicId, pageIndex: pageIndex,
+            sourceLanguage: "ja", targetLanguage: targetLanguage,
+            lines: [], createdAt: Date()
+        )
+    }
 }
 
 private struct StubReader: ArchiveReader {
@@ -136,6 +160,67 @@ private struct StubRouter: ArchiveReaderRouter {
         await store.receive(\.pageLoaded) {
             $0.loadedIndices.insert(3)
         }
+    }
+
+    @Test func toggleOnDispatchesNeighborTranslates() async {
+        let comic = sampleComic(pageCount: 10)
+        let translator = FakePageTranslator()
+        let cache = InMemoryTranslationCache()
+        let store = await TestStore(
+            initialState: ReaderFeature.State(
+                comic: comic,
+                pageIndex: 5,
+                pageCount: 10,
+                translation: ReaderFeature.TranslationState(
+                    isIntelligenceAvailable: true,
+                    isEnabled: false,
+                    targetLanguage: "ko"
+                )
+            )
+        ) {
+            ReaderFeature()
+        } withDependencies: {
+            $0.pageTranslator = translator
+            $0.translationCache = cache
+            $0.userDefaults = InMemoryUserDefaults()
+            $0.archiveReaderRouter = StubRouter(reader: StubReader(handle: ArchiveHandle(), pages: []))
+            $0.imageCache = ImageCache.inMemoryOnly()
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        await store.send(.translationToggleChanged(true)) {
+            $0.translation.isEnabled = true
+        }
+        // Three neighbor translatePage actions are fired (4, 5, 6).
+        await store.receive(\.translatePage)
+        await store.receive(\.translatePage)
+        await store.receive(\.translatePage)
+        await store.skipReceivedActions()
+        await store.finish()
+    }
+
+    @Test func translatePageGuardsOutOfRange() async {
+        let store = await TestStore(
+            initialState: ReaderFeature.State(
+                comic: sampleComic(pageCount: 3),
+                pageCount: 3,
+                translation: ReaderFeature.TranslationState(
+                    isIntelligenceAvailable: true,
+                    isEnabled: true
+                )
+            )
+        ) {
+            ReaderFeature()
+        } withDependencies: {
+            $0.pageTranslator = FakePageTranslator()
+            $0.translationCache = InMemoryTranslationCache()
+            $0.userDefaults = InMemoryUserDefaults()
+            $0.archiveReaderRouter = StubRouter(reader: StubReader(handle: ArchiveHandle(), pages: []))
+            $0.imageCache = ImageCache.inMemoryOnly()
+        }
+        await store.send(.translatePage(-1))
+        await store.send(.translatePage(99))
+        // No state mutation, no further actions.
     }
 }
 
