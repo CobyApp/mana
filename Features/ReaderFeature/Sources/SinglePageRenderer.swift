@@ -48,13 +48,9 @@ public struct SinglePageRenderer: View, PageRenderer {
                     image: image,
                     onLeftTap: tapZonesEnabled ? { handleLeftTap() } : nil,
                     onCenterTap: tapZonesEnabled ? { onCenterTap() } : nil,
-                    onRightTap: tapZonesEnabled ? { handleRightTap() } : nil
+                    onRightTap: tapZonesEnabled ? { handleRightTap() } : nil,
+                    overlayContent: pageOverlay.map { AnyView($0(current)) }
                 )
-                .overlay {
-                    if let pageOverlay {
-                        pageOverlay(current)
-                    }
-                }
             } else {
                 ProgressView()
             }

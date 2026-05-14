@@ -70,25 +70,25 @@ public struct DualPageRenderer: View, PageRenderer {
                     image: spreadImage,
                     onLeftTap: tapZonesEnabled ? { applyDelta(.left) } : nil,
                     onCenterTap: tapZonesEnabled ? { onCenterTap() } : nil,
-                    onRightTap: tapZonesEnabled ? { applyDelta(.right) } : nil
-                )
-                .overlay {
-                    if let pageOverlay {
-                        HStack(spacing: 0) {
-                            if let leftIdx = pair.0 {
-                                pageOverlay(leftIdx)
-                            } else {
-                                Color.clear
+                    onRightTap: tapZonesEnabled ? { applyDelta(.right) } : nil,
+                    overlayContent: pageOverlay.map { overlay in
+                        AnyView(
+                            HStack(spacing: 0) {
+                                if let leftIdx = pair.0 {
+                                    overlay(leftIdx)
+                                } else {
+                                    Color.clear
+                                }
+                                if let rightIdx = pair.1 {
+                                    overlay(rightIdx)
+                                } else {
+                                    Color.clear
+                                }
                             }
-                            if let rightIdx = pair.1 {
-                                pageOverlay(rightIdx)
-                            } else {
-                                Color.clear
-                            }
-                        }
-                        .allowsHitTesting(false)
+                            .allowsHitTesting(false)
+                        )
                     }
-                }
+                )
             } else {
                 ProgressView().tint(.white)
             }
