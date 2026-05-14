@@ -12,18 +12,24 @@ public struct SettingsFeature {
         public var defaultPageProgressionDirection: PageProgressionDirection
         public var defaultPageOffset: Bool
         public var appLanguage: AppLanguage
+        public var isIntelligenceAvailable: Bool
+        public var autoTranslateEnabled: Bool
         @Presents public var resetAlert: AlertState<Action.ResetAlert>?
 
         public init(
             defaultMode: ReadingMode = .single,
             defaultPageProgressionDirection: PageProgressionDirection = .leftToRight,
             defaultPageOffset: Bool = false,
-            appLanguage: AppLanguage = .system
+            appLanguage: AppLanguage = .system,
+            isIntelligenceAvailable: Bool = false,
+            autoTranslateEnabled: Bool = false
         ) {
             self.defaultMode = defaultMode
             self.defaultPageProgressionDirection = defaultPageProgressionDirection
             self.defaultPageOffset = defaultPageOffset
             self.appLanguage = appLanguage
+            self.isIntelligenceAvailable = isIntelligenceAvailable
+            self.autoTranslateEnabled = autoTranslateEnabled
         }
     }
 
@@ -33,6 +39,7 @@ public struct SettingsFeature {
         case defaultDirectionChanged(PageProgressionDirection)
         case defaultPageOffsetChanged(Bool)
         case appLanguageChanged(AppLanguage)
+        case autoTranslateChanged(Bool)
         case resetLibraryRequested
         case resetAlert(PresentationAction<ResetAlert>)
         case resetLibraryCompleted
@@ -62,6 +69,12 @@ public struct SettingsFeature {
                 }
                 // appLanguage is owned by AppFeature and injected on push;
                 // do not overwrite from UserDefaults here.
+                if state.isIntelligenceAvailable,
+                   let raw = defaults.string(forKey: Self.autoTranslateKey) {
+                    state.autoTranslateEnabled = (raw == "true")
+                } else {
+                    state.autoTranslateEnabled = false
+                }
                 return .none
 
             case let .defaultModeChanged(mode):
@@ -84,6 +97,11 @@ public struct SettingsFeature {
                 defaults.set(lang.rawValue, forKey: Self.languageKey)
                 // No AppleLanguages override; the live `\.locale` environment in AppView
                 // applies the new language immediately without an app restart.
+                return .none
+
+            case let .autoTranslateChanged(enabled):
+                state.autoTranslateEnabled = enabled
+                defaults.set(enabled ? "true" : "false", forKey: Self.autoTranslateKey)
                 return .none
 
             case .resetLibraryRequested:
@@ -122,6 +140,7 @@ public struct SettingsFeature {
     public static let directionKey = "mana.defaultPageProgressionDirection"
     public static let pageOffsetKey = "mana.defaultPageOffset"
     public static let languageKey = "mana.appLanguage"
+    public static let autoTranslateKey = "mana.autoTranslateEnabled"
 }
 
 public enum AppLanguage: String, Sendable, Equatable, CaseIterable {

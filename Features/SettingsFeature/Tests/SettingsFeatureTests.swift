@@ -71,4 +71,52 @@ import Domain
         #expect(defaults.string(forKey: "AppleLanguages") != nil)
     }
 
+    @Test func autoTranslateDefaultsToFalse() async {
+        let store = await TestStore(
+            initialState: SettingsFeature.State(isIntelligenceAvailable: true)
+        ) { SettingsFeature() } withDependencies: {
+            $0.userDefaults = InMemoryUserDefaults()
+        }
+        await store.send(.task)
+        #expect(store.state.autoTranslateEnabled == false)
+    }
+
+    @Test func autoTranslateLoadsPersistedTrue() async {
+        let defaults = InMemoryUserDefaults()
+        defaults.set("true", forKey: SettingsFeature.autoTranslateKey)
+        let store = await TestStore(
+            initialState: SettingsFeature.State(isIntelligenceAvailable: true)
+        ) { SettingsFeature() } withDependencies: {
+            $0.userDefaults = defaults
+        }
+        await store.send(.task) {
+            $0.autoTranslateEnabled = true
+        }
+    }
+
+    @Test func autoTranslateIgnoresPersistedValueWhenUnavailable() async {
+        let defaults = InMemoryUserDefaults()
+        defaults.set("true", forKey: SettingsFeature.autoTranslateKey)
+        let store = await TestStore(
+            initialState: SettingsFeature.State(isIntelligenceAvailable: false)
+        ) { SettingsFeature() } withDependencies: {
+            $0.userDefaults = defaults
+        }
+        await store.send(.task)
+        #expect(store.state.autoTranslateEnabled == false)
+    }
+
+    @Test func autoTranslateChangedPersists() async {
+        let defaults = InMemoryUserDefaults()
+        let store = await TestStore(
+            initialState: SettingsFeature.State(isIntelligenceAvailable: true)
+        ) { SettingsFeature() } withDependencies: {
+            $0.userDefaults = defaults
+        }
+        await store.send(.autoTranslateChanged(true)) {
+            $0.autoTranslateEnabled = true
+        }
+        #expect(defaults.string(forKey: SettingsFeature.autoTranslateKey) == "true")
+    }
+
 }
