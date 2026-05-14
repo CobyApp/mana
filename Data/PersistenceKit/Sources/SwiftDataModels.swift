@@ -122,3 +122,35 @@ public final class ReadingProgressEntity {
     }
 }
 
+@Model
+public final class TranslatedPageRecord {
+    @Attribute(.unique) public var key: String   // "<comicId>|<idx>|<target>"
+    public var comicId: UUID = UUID()
+    public var pageIndex: Int = 0
+    public var targetLanguage: String = ""
+    public var sourceLanguage: String = ""
+    public var linesJSON: Data = Data()
+    public var createdAt: Date = Date(timeIntervalSince1970: 0)
+
+    public init(
+        comicId: UUID,
+        pageIndex: Int,
+        targetLanguage: String,
+        sourceLanguage: String,
+        linesJSON: Data,
+        createdAt: Date
+    ) {
+        self.key = "\(comicId.uuidString)|\(pageIndex)|\(targetLanguage)"
+        self.comicId = comicId
+        self.pageIndex = pageIndex
+        self.targetLanguage = targetLanguage
+        self.sourceLanguage = sourceLanguage
+        self.linesJSON = linesJSON
+        self.createdAt = createdAt
+    }
+
+    public static func compositeKey(comicId: UUID, pageIndex: Int, targetLanguage: String) -> String {
+        "\(comicId.uuidString)|\(pageIndex)|\(targetLanguage)"
+    }
+}
+

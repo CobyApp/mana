@@ -11,7 +11,10 @@ public final class SwiftDataStack: @unchecked Sendable {
     public static func inMemory() throws -> SwiftDataStack {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(
-            for: ComicEntity.self, ReadingProgressEntity.self, FolderEntity.self,
+            for: ComicEntity.self,
+                ReadingProgressEntity.self,
+                FolderEntity.self,
+                TranslatedPageRecord.self,
             configurations: config
         )
         return SwiftDataStack(container: container)
@@ -20,7 +23,10 @@ public final class SwiftDataStack: @unchecked Sendable {
     public static func onDisk(url: URL) throws -> SwiftDataStack {
         let config = ModelConfiguration(url: url)
         let container = try ModelContainer(
-            for: ComicEntity.self, ReadingProgressEntity.self, FolderEntity.self,
+            for: ComicEntity.self,
+                ReadingProgressEntity.self,
+                FolderEntity.self,
+                TranslatedPageRecord.self,
             configurations: config
         )
         return SwiftDataStack(container: container)
