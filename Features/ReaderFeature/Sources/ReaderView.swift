@@ -268,6 +268,20 @@ public struct ReaderView: View {
                       isSelected: store.pageOffset) {
                 store.send(.pageOffsetChanged(true))
             }
+
+            if store.translation.isIntelligenceAvailable {
+                sectionDivider
+                sectionHeader(localized("reader.controls.translate"))
+                optionRow(localized("translate.off"),
+                          isSelected: !store.translation.isEnabled) {
+                    store.send(.translationToggleChanged(false))
+                }
+                divider
+                optionRow(localized("translate.on"),
+                          isSelected: store.translation.isEnabled) {
+                    store.send(.translationToggleChanged(true))
+                }
+            }
         }
         .frame(width: 260)
         .background(Tokens.Colors.paper)

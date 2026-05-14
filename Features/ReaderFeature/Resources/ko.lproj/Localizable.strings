@@ -12,3 +12,7 @@
 "reader.controls.page_offset" = "첫 페이지 단독";
 "reader.controls.page_offset.off" = "끄기";
 "reader.controls.page_offset.on"  = "켜기";
+
+"reader.controls.translate" = "번역";
+"translate.on" = "켜기";
+"translate.off" = "끄기";

@@ -12,3 +12,7 @@
 "reader.controls.page_offset" = "最初のページを単独表示";
 "reader.controls.page_offset.off" = "オフ";
 "reader.controls.page_offset.on"  = "オン";
+
+"reader.controls.translate" = "翻訳";
+"translate.on" = "オン";
+"translate.off" = "オフ";
