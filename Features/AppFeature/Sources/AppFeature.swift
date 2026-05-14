@@ -1,6 +1,7 @@
 import Foundation
 import ComposableArchitecture
 import Domain
+import IntelligenceKit
 import LibraryFeature
 import ReaderFeature
 import SettingsFeature
@@ -20,15 +21,18 @@ public struct AppFeature {
         public var library: LibraryFeature.State
         public var path: StackState<Path.State>
         public var appLanguage: AppLanguage
+        public var isIntelligenceAvailable: Bool
 
         public init(
             library: LibraryFeature.State = LibraryFeature.State(),
             path: StackState<Path.State> = StackState(),
-            appLanguage: AppLanguage = .system
+            appLanguage: AppLanguage = .system,
+            isIntelligenceAvailable: Bool = false
         ) {
             self.library = library
             self.path = path
             self.appLanguage = appLanguage
+            self.isIntelligenceAvailable = isIntelligenceAvailable
         }
     }
 
@@ -39,6 +43,7 @@ public struct AppFeature {
     }
 
     @Dependency(\.userDefaults) var userDefaults
+    @Dependency(\.intelligenceAvailability) var intelligenceAvailability
 
     public var body: some ReducerOf<Self> {
         Scope(state: \.library, action: \.library) {
@@ -48,6 +53,7 @@ public struct AppFeature {
         Reduce { state, action in
             switch action {
             case .task:
+                state.isIntelligenceAvailable = intelligenceAvailability.isAvailable
                 // Pre-`.system` builds auto-saved a concrete language (often "en")
                 // when the main bundle had no advertised localizations. Clear that
                 // stale value once so users land on `.system` by default.
@@ -65,11 +71,23 @@ public struct AppFeature {
                 return .none
 
             case let .library(.comicTapped(comic)):
-                state.path.append(.reader(ReaderFeature.State(comic: comic)))
+                let target = TargetLanguageResolver.resolve(appLanguageRawValue: state.appLanguage.rawValue)
+                let translation = ReaderFeature.TranslationState(
+                    isIntelligenceAvailable: state.isIntelligenceAvailable,
+                    targetLanguage: target
+                )
+                state.path.append(.reader(ReaderFeature.State(comic: comic, translation: translation)))
                 return .none
 
             case .library(.settingsTapped):
-                state.path.append(.settings(SettingsFeature.State(appLanguage: state.appLanguage)))
+                state.path.append(
+                    .settings(
+                        SettingsFeature.State(
+                            appLanguage: state.appLanguage,
+                            isIntelligenceAvailable: state.isIntelligenceAvailable
+                        )
+                    )
+                )
                 return .none
 
             case let .path(.element(id: _, action: .settings(.appLanguageChanged(lang)))):
@@ -85,3 +103,15 @@ public struct AppFeature {
 }
 
 extension AppFeature.Path.State: Equatable {}
+
+private enum IntelligenceAvailabilityKey: DependencyKey {
+    static let liveValue: any IntelligenceAvailability = UnavailableIntelligence()
+    static let testValue: any IntelligenceAvailability = UnavailableIntelligence()
+}
+
+extension DependencyValues {
+    public var intelligenceAvailability: any IntelligenceAvailability {
+        get { self[IntelligenceAvailabilityKey.self] }
+        set { self[IntelligenceAvailabilityKey.self] = newValue }
+    }
+}
