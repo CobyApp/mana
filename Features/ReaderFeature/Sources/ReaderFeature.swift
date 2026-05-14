@@ -9,6 +9,28 @@ import SettingsFeature
 public struct ReaderFeature {
     public init() {}
 
+    public struct TranslationState: Equatable, Sendable {
+        public var isIntelligenceAvailable: Bool
+        public var isEnabled: Bool
+        public var targetLanguage: String
+        public var pagesInFlight: Set<Int>
+        public var pages: [Int: TranslatedPage]
+
+        public init(
+            isIntelligenceAvailable: Bool = false,
+            isEnabled: Bool = false,
+            targetLanguage: String = "ko",
+            pagesInFlight: Set<Int> = [],
+            pages: [Int: TranslatedPage] = [:]
+        ) {
+            self.isIntelligenceAvailable = isIntelligenceAvailable
+            self.isEnabled = isEnabled
+            self.targetLanguage = targetLanguage
+            self.pagesInFlight = pagesInFlight
+            self.pages = pages
+        }
+    }
+
     @ObservableState
     public struct State: Equatable {
         public var comic: ComicItem
@@ -21,6 +43,7 @@ public struct ReaderFeature {
         public var isControlsVisible: Bool
         public var loadedIndices: Set<Int>
         public var securityScopedURL: URL?
+        public var translation: TranslationState
         @Presents public var alert: AlertState<Action.Alert>?
 
         public init(
@@ -31,7 +54,8 @@ public struct ReaderFeature {
             mode: ReadingMode = .single,
             isControlsVisible: Bool = false,
             loadedIndices: Set<Int> = [],
-            securityScopedURL: URL? = nil
+            securityScopedURL: URL? = nil,
+            translation: TranslationState = TranslationState()
         ) {
             self.comic = comic
             self.handle = handle
@@ -41,6 +65,7 @@ public struct ReaderFeature {
             self.isControlsVisible = isControlsVisible
             self.loadedIndices = loadedIndices
             self.securityScopedURL = securityScopedURL
+            self.translation = translation
         }
     }
 
