@@ -35,7 +35,8 @@ public struct Module {
             "DEVELOPMENT_TEAM": "3Y8YH8GWMM",
             "MARKETING_VERSION": "1.0.0",
             "CURRENT_PROJECT_VERSION": "1",
-            "SWIFT_VERSION": "6.0"
+            "SWIFT_VERSION": "6.0",
+            "SWIFT_PACKAGE_NAME": .string(name)
         ])
 
         // For modules with localized resources, explicitly declare available
