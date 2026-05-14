@@ -13,6 +13,7 @@ public struct DualPageRenderer: View, PageRenderer {
     let swipeEnabled: Bool
     let onCenterTap: () -> Void
     let pageOffset: Bool
+    let pageOverlay: ((Int) -> AnyView)?
 
     /// The two pages composited side-by-side into a single image, so they render flush
     /// (no gap) and the whole spread is zoomable as one unit via `ZoomableImageView`.
@@ -27,7 +28,8 @@ public struct DualPageRenderer: View, PageRenderer {
         tapZonesEnabled: Bool = true,
         swipeEnabled: Bool = true,
         onCenterTap: @escaping () -> Void = {},
-        pageOffset: Bool = false
+        pageOffset: Bool = false,
+        pageOverlay: ((Int) -> AnyView)? = nil
     ) {
         self.totalPages = totalPages
         self._current = current
@@ -38,6 +40,7 @@ public struct DualPageRenderer: View, PageRenderer {
         self.swipeEnabled = swipeEnabled
         self.onCenterTap = onCenterTap
         self.pageOffset = pageOffset
+        self.pageOverlay = pageOverlay
     }
 
     /// Returns (leftPageIndex, rightPageIndex) — visual pair.
@@ -62,12 +65,30 @@ public struct DualPageRenderer: View, PageRenderer {
     public var body: some View {
         ZStack {
             if let spreadImage {
+                let pair = logicalPair()
                 ZoomableImageView(
                     image: spreadImage,
                     onLeftTap: tapZonesEnabled ? { applyDelta(.left) } : nil,
                     onCenterTap: tapZonesEnabled ? { onCenterTap() } : nil,
                     onRightTap: tapZonesEnabled ? { applyDelta(.right) } : nil
                 )
+                .overlay {
+                    if let pageOverlay {
+                        HStack(spacing: 0) {
+                            if let leftIdx = pair.0 {
+                                pageOverlay(leftIdx)
+                            } else {
+                                Color.clear
+                            }
+                            if let rightIdx = pair.1 {
+                                pageOverlay(rightIdx)
+                            } else {
+                                Color.clear
+                            }
+                        }
+                        .allowsHitTesting(false)
+                    }
+                }
             } else {
                 ProgressView().tint(.white)
             }

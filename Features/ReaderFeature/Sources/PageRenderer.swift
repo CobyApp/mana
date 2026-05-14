@@ -12,6 +12,7 @@ public protocol PageRenderer: View {
         tapZonesEnabled: Bool,
         swipeEnabled: Bool,
         onCenterTap: @escaping () -> Void,
-        pageOffset: Bool
+        pageOffset: Bool,
+        pageOverlay: ((Int) -> AnyView)?
     )
 }

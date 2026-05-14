@@ -12,6 +12,7 @@ public struct SinglePageRenderer: View, PageRenderer {
     let tapZonesEnabled: Bool
     let swipeEnabled: Bool
     let onCenterTap: () -> Void
+    let pageOverlay: ((Int) -> AnyView)?
 
     @State private var image: UIImage?
     @State private var loadingIndex: Int?
@@ -25,7 +26,8 @@ public struct SinglePageRenderer: View, PageRenderer {
         tapZonesEnabled: Bool = true,
         swipeEnabled: Bool = true,
         onCenterTap: @escaping () -> Void = {},
-        pageOffset: Bool = false
+        pageOffset: Bool = false,
+        pageOverlay: ((Int) -> AnyView)? = nil
     ) {
         self.totalPages = totalPages
         self._current = current
@@ -36,6 +38,7 @@ public struct SinglePageRenderer: View, PageRenderer {
         self.swipeEnabled = swipeEnabled
         self.onCenterTap = onCenterTap
         _ = pageOffset
+        self.pageOverlay = pageOverlay
     }
 
     public var body: some View {
@@ -47,6 +50,11 @@ public struct SinglePageRenderer: View, PageRenderer {
                     onCenterTap: tapZonesEnabled ? { onCenterTap() } : nil,
                     onRightTap: tapZonesEnabled ? { handleRightTap() } : nil
                 )
+                .overlay {
+                    if let pageOverlay {
+                        pageOverlay(current)
+                    }
+                }
             } else {
                 ProgressView()
             }

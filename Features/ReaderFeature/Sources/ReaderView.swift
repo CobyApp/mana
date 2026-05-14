@@ -98,6 +98,17 @@ public struct ReaderView: View {
         let hint: (Int) -> Void = { idx in store.send(.prefetchHint(idx)) }
         let direction = store.pageProgressionDirection
         let centerTap: () -> Void = { store.send(.toggleControls) }
+        let translationState = store.translation
+        let pageOverlay: ((Int) -> AnyView)? = translationState.isIntelligenceAvailable
+            ? { idx in
+                AnyView(
+                    PageTranslationOverlay(
+                        page: translationState.pages[idx],
+                        isHidden: !translationState.isEnabled
+                    )
+                )
+              }
+            : nil
 
         switch store.mode {
         case .single:
@@ -110,7 +121,8 @@ public struct ReaderView: View {
                 tapZonesEnabled: true,
                 swipeEnabled: true,
                 onCenterTap: centerTap,
-                pageOffset: store.pageOffset
+                pageOffset: store.pageOffset,
+                pageOverlay: pageOverlay
             )
         case .dual:
             DualPageRenderer(
@@ -122,7 +134,8 @@ public struct ReaderView: View {
                 tapZonesEnabled: true,
                 swipeEnabled: true,
                 onCenterTap: centerTap,
-                pageOffset: store.pageOffset
+                pageOffset: store.pageOffset,
+                pageOverlay: pageOverlay
             )
         }
     }
