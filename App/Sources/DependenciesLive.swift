@@ -2,9 +2,11 @@ import Foundation
 import ComposableArchitecture
 import Domain
 import ArchiveKit
+import IntelligenceKit
 import PersistenceKit
 import ImageCacheKit
 import ThumbnailKit
+import AppFeature
 import LibraryFeature
 import ReaderFeature
 import SettingsFeature
@@ -35,6 +37,7 @@ enum LiveDependencies {
             progressRepo: progressRepo,
             imageCache: cache
         )
+        let translationCache = TranslationCacheLive(stack: stack)
 
         prepareDependencies {
             $0.archiveReaderRouter = router
@@ -45,6 +48,14 @@ enum LiveDependencies {
             $0.folderRepository = folderRepo
             $0.userDefaults = LiveUserDefaultsClient()
             $0.libraryResetService = libraryReset
+            $0.translationCache = translationCache
+            if #available(iOS 26.0, *) {
+                $0.intelligenceAvailability = IntelligenceAvailabilityLive()
+                $0.pageTranslator = PageTranslatorLive(llm: FoundationModelsTranslator())
+            } else {
+                $0.intelligenceAvailability = UnavailableIntelligence()
+                $0.pageTranslator = NoopPageTranslator()
+            }
         }
 
         let reconcile = LibraryReconcileService(repo: comicRepo, importer: importer)

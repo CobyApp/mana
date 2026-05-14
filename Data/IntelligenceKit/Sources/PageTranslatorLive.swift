@@ -10,7 +10,7 @@ public struct PageTranslatorLive: PageTranslator {
     private let sampler: BackgroundColorSampler
     private static let log = Logger(subsystem: "com.coby.mana", category: "translation")
 
-    package init(
+    public init(
         ocr: VisionTextRecognizer = VisionTextRecognizer(),
         detector: LanguageDetector = LanguageDetector(),
         sampler: BackgroundColorSampler = BackgroundColorSampler(),

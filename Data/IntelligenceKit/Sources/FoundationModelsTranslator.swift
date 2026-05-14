@@ -5,8 +5,8 @@ import FoundationModels
 #endif
 
 @available(iOS 26.0, *)
-package struct FoundationModelsTranslator: LLMTranslator {
-    package init() {}
+public struct FoundationModelsTranslator: LLMTranslator {
+    public init() {}
 
     // `fileprivate` instead of `private`: @Generable expands a top-level extension
     // conformance that requires at least fileprivate visibility.
@@ -15,7 +15,7 @@ package struct FoundationModelsTranslator: LLMTranslator {
         let lines: [String]
     }
 
-    package func translateLines(_ lines: [String], from source: String, to target: String) async throws -> [String] {
+    public func translateLines(_ lines: [String], from source: String, to target: String) async throws -> [String] {
         guard !lines.isEmpty else { return [] }
         let instructions = """
         You translate manga dialogue from \(humanReadable(source)) to \(humanReadable(target)).
