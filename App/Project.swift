@@ -61,7 +61,9 @@ let project = Project(
                 .project(target: "ImageCacheKit", path: "../Data/ImageCacheKit"),
                 .project(target: "ThumbnailKit", path: "../Data/ThumbnailKit"),
                 .project(target: "LibraryFeature", path: "../Features/LibraryFeature"),
-                .project(target: "SettingsFeature", path: "../Features/SettingsFeature")
+                .project(target: "SettingsFeature", path: "../Features/SettingsFeature"),
+                .project(target: "ReaderFeature", path: "../Features/ReaderFeature"),
+                .project(target: "IntelligenceKit", path: "../Data/IntelligenceKit")
             ],
             settings: .settings(base: [
                 "CODE_SIGN_STYLE": "Automatic",
