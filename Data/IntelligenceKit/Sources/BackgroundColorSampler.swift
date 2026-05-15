@@ -8,21 +8,6 @@ public struct BackgroundColorSampler: Sendable {
     /// be sampled — keeps the overlay readable instead of going transparent.
     public static let fallbackARGB: UInt32 = 0xFFF6F3EC
 
-    /// Tells whether a sampled background color looks like the inside of a
-    /// printed speech bubble: high luminance, low saturation. Used by
-    /// `PageTranslatorLive` to drop SFX / signage / artwork text before
-    /// invoking the LLM.
-    public static func isLikelyBubbleBackground(_ argb: UInt32) -> Bool {
-        let r = Double((argb >> 16) & 0xFF) / 255.0
-        let g = Double((argb >>  8) & 0xFF) / 255.0
-        let b = Double(argb         & 0xFF) / 255.0
-        let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
-        let maxC = max(r, g, b)
-        let minC = min(r, g, b)
-        let saturation = maxC > 0 ? (maxC - minC) / maxC : 0
-        return luminance > 0.82 && saturation < 0.18
-    }
-
     public init() {}
 
     /// Samples a single representative color from a thin ring just outside the

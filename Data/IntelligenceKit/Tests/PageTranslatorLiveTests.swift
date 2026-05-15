@@ -1,4 +1,3 @@
-// Data/IntelligenceKit/Tests/PageTranslatorLiveTests.swift
 import Testing
 import Foundation
 import CoreGraphics
@@ -36,7 +35,29 @@ import Domain
         }
     }
 
-    @Test func translatesWhenSourceDiffersFromTarget() async throws {
+    @Test func translatesEveryOCRLineAsJapanese() async throws {
+        let llm = FakeLLM()
+        let translator = PageTranslatorLive(llm: llm)
+        // Vision can reliably read English from synthesized PNGs; what matters
+        // for this test is that whatever OCR returns gets handed to the LLM
+        // verbatim, with source language hardcoded to "ja".
+        let data = textImagePNG("Hello")
+
+        let page = try await translator.translate(
+            imageData: data, comicId: UUID(), pageIndex: 0, targetLanguage: "ko"
+        )
+
+        #expect(!page.lines.isEmpty)
+        #expect(page.sourceLanguage == "ja")
+        #expect(page.targetLanguage == "ko")
+        #expect(llm.calls.count == 1)
+        #expect(llm.calls.first?.source == "ja")
+        #expect(llm.calls.first?.target == "ko")
+        // Every OCR line ends up in the LLM batch — no filtering.
+        #expect(llm.calls.first?.lines.count == page.lines.count)
+    }
+
+    @Test func skipsLLMWhenTargetIsJapanese() async throws {
         let llm = FakeLLM()
         let translator = PageTranslatorLive(llm: llm)
         let data = textImagePNG("Hello")
@@ -45,25 +66,8 @@ import Domain
             imageData: data, comicId: UUID(), pageIndex: 0, targetLanguage: "ja"
         )
 
-        #expect(!page.lines.isEmpty)
-        #expect(page.targetLanguage == "ja")
-        #expect(page.sourceLanguage == "en")
-        #expect(llm.calls.count == 1)
-        #expect(llm.calls.first?.target == "ja")
-        #expect(page.lines.first?.translated.hasPrefix("[T] ") == true)
-    }
-
-    @Test func skipsLLMWhenSourceEqualsTarget() async throws {
-        let llm = FakeLLM()
-        let translator = PageTranslatorLive(llm: llm)
-        let data = textImagePNG("Hello")
-
-        let page = try await translator.translate(
-            imageData: data, comicId: UUID(), pageIndex: 0, targetLanguage: "en"
-        )
-
         #expect(page.lines.isEmpty)
-        #expect(page.sourceLanguage == "en")
+        #expect(page.sourceLanguage == "ja")
         #expect(llm.calls.isEmpty)
     }
 
@@ -80,6 +84,7 @@ import Domain
             imageData: blank, comicId: UUID(), pageIndex: 0, targetLanguage: "ko"
         )
         #expect(page.lines.isEmpty)
+        #expect(page.sourceLanguage == "ja")
         #expect(llm.calls.isEmpty)
     }
 
@@ -91,7 +96,7 @@ import Domain
 
         do {
             _ = try await translator.translate(
-                imageData: data, comicId: UUID(), pageIndex: 0, targetLanguage: "ja"
+                imageData: data, comicId: UUID(), pageIndex: 0, targetLanguage: "ko"
             )
             Issue.record("expected silent failure")
         } catch PageTranslatorError.silentFailure {
@@ -99,45 +104,5 @@ import Domain
         } catch {
             Issue.record("unexpected error: \(error)")
         }
-    }
-
-    @Test func picksDominantLanguageByCharCount() async throws {
-        // Two short English lines + a long Japanese line. Even though "en" has more
-        // lines, "ja" has more total characters and should win.
-        // We can't reliably synthesize Japanese OCR in a unit test, so we verify the
-        // simpler case: a pure-English image still picks "en" as the dominant language,
-        // confirming the char-count path is wired end-to-end.
-        let llm = FakeLLM()
-        let data = textImagePNG("Hello World")
-        let translator = PageTranslatorLive(llm: llm)
-        _ = try await translator.translate(
-            imageData: data, comicId: UUID(), pageIndex: 0, targetLanguage: "ja"
-        )
-        #expect(llm.calls.first?.source == "en")
-    }
-
-    @Test func dropsLinesOnNonBubbleBackground() async throws {
-        // Synthesize text on a yellow background (typical SFX color).
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 400, height: 120))
-        let img = renderer.image { ctx in
-            UIColor(red: 1.0, green: 0.85, blue: 0.0, alpha: 1.0).setFill()
-            ctx.fill(CGRect(x: 0, y: 0, width: 400, height: 120))
-            let attrs: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 48, weight: .bold),
-                .foregroundColor: UIColor.black
-            ]
-            NSAttributedString(string: "BANG", attributes: attrs)
-                .draw(at: CGPoint(x: 20, y: 30))
-        }
-        let data = img.pngData()!
-
-        let llm = FakeLLM()
-        let translator = PageTranslatorLive(llm: llm)
-        let page = try await translator.translate(
-            imageData: data, comicId: UUID(), pageIndex: 0, targetLanguage: "ko"
-        )
-
-        #expect(page.lines.isEmpty)
-        #expect(llm.calls.isEmpty)  // never called LLM since 0 bubble lines
     }
 }
