@@ -1,5 +1,7 @@
 import Foundation
 import Vision
+import CoreImage
+import CoreImage.CIFilterBuiltins
 import UIKit
 import Domain
 
@@ -10,6 +12,11 @@ public struct VisionTextRecognizer: Sendable {
         guard let uiImage = UIImage(data: imageData), let cg = uiImage.cgImage else {
             return []
         }
+        // Pre-process the page to give Vision a fighting chance against
+        // hand-lettered manga Japanese: strip color so halftone bleed-through
+        // doesn't confuse character segmentation, and lift contrast so faint
+        // strokes don't fall under the recognizer's confidence floor.
+        let processed = Self.preprocess(cg) ?? cg
         return try await withCheckedThrowingContinuation { continuation in
             let request = VNRecognizeTextRequest { req, error in
                 if let error {
@@ -35,11 +42,24 @@ public struct VisionTextRecognizer: Sendable {
             request.recognitionLevel = .accurate
             request.usesLanguageCorrection = true
 
-            let handler = VNImageRequestHandler(cgImage: cg, options: [:])
+            let handler = VNImageRequestHandler(cgImage: processed, options: [:])
             DispatchQueue.global(qos: .userInitiated).async {
                 do { try handler.perform([request]) }
                 catch { continuation.resume(throwing: error) }
             }
         }
+    }
+
+    /// Desaturates and boosts contrast. Returns nil if Core Image can't render
+    /// (extreme image sizes, etc.) — caller falls back to the unprocessed image.
+    private static func preprocess(_ cg: CGImage) -> CGImage? {
+        let input = CIImage(cgImage: cg)
+        let filtered = input.applyingFilter("CIColorControls", parameters: [
+            kCIInputSaturationKey: 0.0,   // grayscale — keeps halftone dots from acting as colored noise
+            kCIInputContrastKey: 1.35,    // mild lift — too much crushes thin Japanese strokes
+            kCIInputBrightnessKey: 0.0
+        ])
+        let ctx = CIContext(options: [.useSoftwareRenderer: false])
+        return ctx.createCGImage(filtered, from: filtered.extent)
     }
 }
