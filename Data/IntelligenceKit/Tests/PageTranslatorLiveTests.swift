@@ -86,22 +86,26 @@ import Domain
         #expect(llm.calls.isEmpty)
     }
 
-    /// Per-line nil failures (safety guardrails) drop those lines but the
-    /// page still renders overlays for the lines that DID translate. This
-    /// is the central behavior change vs the old batch design.
-    @Test func nilTranslationsAreDroppedNotErrored() async throws {
+    /// When the LLM returns nil for every line (e.g. the Apple Translation
+    /// session hasn't attached yet), `PageTranslatorLive` throws
+    /// `silentFailure` instead of caching an empty page. This lets the
+    /// caller retry once the session becomes available.
+    @Test func allNilTranslationsThrowSilentFailure() async throws {
         let llm = FakeLLM()
-        llm.nextResponse = { _ in [nil] }  // every line "fails" safety
+        llm.nextResponse = { lines in Array(repeating: nil, count: lines.count) }
         let translator = PageTranslatorLive(llm: llm)
         let data = textImagePNG("Hello")
 
-        let page = try await translator.translate(
-            imageData: data, comicId: UUID(), pageIndex: 0, targetLanguage: "ko"
-        )
-
-        // No exception thrown, just an empty result.
-        #expect(page.lines.isEmpty)
-        #expect(llm.calls.count == 1)  // LLM was called, it just returned nils
+        do {
+            _ = try await translator.translate(
+                imageData: data, comicId: UUID(), pageIndex: 0, targetLanguage: "ko"
+            )
+            Issue.record("Expected silentFailure but got success")
+        } catch PageTranslatorError.silentFailure {
+            // Expected — all-nil from non-empty OCR is a recoverable failure.
+        }
+        #expect(llm.calls.count == 1)  // LLM was called; it just returned nils
     }
+
 
 }

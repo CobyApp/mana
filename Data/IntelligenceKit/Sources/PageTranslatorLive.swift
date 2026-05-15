@@ -68,6 +68,14 @@ public struct PageTranslatorLive: PageTranslator {
             let argb = sampler.sample(imageData: imageData, normalizedBox: box.boundingBox)
             return TranslatedLine(original: box, translated: t, backgroundColorARGB: argb)
         }
+
+        // If OCR found text but NO translations came through, treat as a recoverable
+        // failure rather than caching an empty page. This typically happens when the
+        // SwiftUI translation session hasn't attached yet — retry will succeed.
+        if lines.isEmpty && !boxes.isEmpty {
+            throw PageTranslatorError.silentFailure
+        }
+
         return TranslatedPage(
             comicId: comicId, pageIndex: pageIndex,
             sourceLanguage: Self.sourceLanguage, targetLanguage: targetLanguage,

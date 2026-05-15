@@ -86,6 +86,7 @@ public struct ReaderFeature {
         case onDisappear
         case alert(PresentationAction<Alert>)
         case translationToggleChanged(Bool)
+        case translationSessionReady
         case translatePage(Int)
         case translationLoaded(pageIndex: Int, page: TranslatedPage, fromCache: Bool)
         case translationFailed(pageIndex: Int)
@@ -335,6 +336,17 @@ public struct ReaderFeature {
                     )
                 }
                 return .none
+
+            case .translationSessionReady:
+                guard state.translation.isEnabled, state.translation.isIntelligenceAvailable else {
+                    return .none
+                }
+                let idx = state.pageIndex
+                return .merge(
+                    .send(.translatePage(idx - 1)),
+                    .send(.translatePage(idx)),
+                    .send(.translatePage(idx + 1))
+                )
 
             case let .translatePage(idx):
                 guard

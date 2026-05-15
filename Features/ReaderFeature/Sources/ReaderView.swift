@@ -2,9 +2,13 @@ import SwiftUI
 import ComposableArchitecture
 import Domain
 import ImageCacheKit
+import IntelligenceKit
 import DesignSystem
 import SharedUI
 import UIKit
+#if canImport(Translation)
+import Translation
+#endif
 
 private extension Bundle {
     /// Looks up a localized string honoring a SwiftUI environment `Locale`,
@@ -56,6 +60,11 @@ public struct ReaderView: View {
         .persistentSystemOverlays(.hidden)
         .background(SwipeBackBlocker())
         .task { await store.send(.task).finish() }
+        .modifier(TranslationSessionAttachment(
+            targetLanguage: store.translation.targetLanguage,
+            isAvailable: store.translation.isIntelligenceAvailable,
+            onSessionReady: { store.send(.translationSessionReady) }
+        ))
         .onLongPressGesture(minimumDuration: 0.4) {
             UIImpactFeedbackGenerator(style: .soft).impactOccurred()
             store.send(.toggleControls)
@@ -349,7 +358,6 @@ public struct ReaderView: View {
         Bundle.module.localized(key, for: locale)
     }
 
-
     private var pageReadout: some View {
         HStack(spacing: 4) {
             Text("\(store.pageIndex + 1)")
@@ -366,6 +374,54 @@ public struct ReaderView: View {
         .padding(.vertical, 4)
         .background(Tokens.Colors.ink)
         .overlay(Rectangle().strokeBorder(Tokens.Colors.paper.opacity(0.4), lineWidth: 1))
+    }
+}
+
+// MARK: - Translation session attachment
+
+/// Attaches a SwiftUI `.translationTask` to the host view when running on
+/// iOS 18.0+. Drives `TranslationSessionHolder.shared`.
+private struct TranslationSessionAttachment: ViewModifier {
+    let targetLanguage: String
+    let isAvailable: Bool
+    let onSessionReady: () -> Void
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *), isAvailable {
+            content.modifier(TranslationSessionAttachmentAvailable(
+                targetLanguage: targetLanguage,
+                onSessionReady: onSessionReady
+            ))
+        } else {
+            content
+        }
+    }
+}
+
+@available(iOS 18.0, *)
+private struct TranslationSessionAttachmentAvailable: ViewModifier {
+    let targetLanguage: String
+    let onSessionReady: () -> Void
+
+    @State private var config: TranslationSession.Configuration?
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear {
+                config = TranslationSession.Configuration(
+                    source: Locale.Language(identifier: "ja"),
+                    target: Locale.Language(identifier: targetLanguage)
+                )
+            }
+            .translationTask(config) { session in
+                await TranslationSessionHolder.shared.set(session)
+                onSessionReady()
+            }
+            .onDisappear {
+                Task { @MainActor in
+                    TranslationSessionHolder.shared.set(nil)
+                }
+            }
     }
 }
 

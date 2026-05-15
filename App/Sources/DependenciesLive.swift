@@ -50,9 +50,9 @@ enum LiveDependencies {
             $0.userDefaults = LiveUserDefaultsClient()
             $0.libraryResetService = libraryReset
             $0.translationCache = translationCache
-            if #available(iOS 26.0, *) {
+            if #available(iOS 18.0, *) {
                 $0.intelligenceAvailability = IntelligenceAvailabilityLive()
-                $0.pageTranslator = PageTranslatorLive(llm: FoundationModelsTranslator())
+                $0.pageTranslator = PageTranslatorLive(llm: AppleTranslator())
             } else {
                 $0.intelligenceAvailability = UnavailableIntelligence()
                 $0.pageTranslator = NoopPageTranslator()
