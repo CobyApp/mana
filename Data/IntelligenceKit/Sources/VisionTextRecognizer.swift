@@ -19,11 +19,14 @@ public struct VisionTextRecognizer: Sendable {
                 let observations = (req.results as? [VNRecognizedTextObservation]) ?? []
                 let lines: [TextLineBox] = observations.compactMap { obs in
                     guard let candidate = obs.topCandidates(1).first else { return nil }
+                    let bb = obs.boundingBox
+                    let isVertical = bb.height > bb.width * 1.5  // taller than 1.5x wider → likely vertical
                     return TextLineBox(
                         id: UUID(),
                         text: candidate.string,
-                        boundingBox: obs.boundingBox,  // Vision normalized, bottom-left origin
-                        confidence: candidate.confidence
+                        boundingBox: bb,  // Vision normalized, bottom-left origin
+                        confidence: candidate.confidence,
+                        isVertical: isVertical
                     )
                 }
                 continuation.resume(returning: lines)

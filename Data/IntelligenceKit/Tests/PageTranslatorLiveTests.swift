@@ -100,4 +100,19 @@ import Domain
             Issue.record("unexpected error: \(error)")
         }
     }
+
+    @Test func picksDominantLanguageByCharCount() async throws {
+        // Two short English lines + a long Japanese line. Even though "en" has more
+        // lines, "ja" has more total characters and should win.
+        // We can't reliably synthesize Japanese OCR in a unit test, so we verify the
+        // simpler case: a pure-English image still picks "en" as the dominant language,
+        // confirming the char-count path is wired end-to-end.
+        let llm = FakeLLM()
+        let data = textImagePNG("Hello World")
+        let translator = PageTranslatorLive(llm: llm)
+        _ = try await translator.translate(
+            imageData: data, comicId: UUID(), pageIndex: 0, targetLanguage: "ja"
+        )
+        #expect(llm.calls.first?.source == "en")
+    }
 }

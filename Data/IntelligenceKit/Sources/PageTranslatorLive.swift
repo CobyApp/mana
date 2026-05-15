@@ -44,10 +44,17 @@ public struct PageTranslatorLive: PageTranslator {
             )
         }
 
-        // 2) Language detection. Spec §6: if detection fails ("und"), treat as Japanese.
-        let joined = boxes.map(\.text).joined(separator: "\n")
-        let raw = detector.detect(joined)
-        let source = (raw == "und") ? "ja" : raw
+        // 2) Pick dominant language by total character count per language, across lines.
+        //    Each line is detected independently; weight by line.text.count.
+        //    "und" lines count toward Japanese — matches §6 fallback.
+        var charCounts: [String: Int] = [:]
+        for box in boxes {
+            let raw = detector.detect(box.text)
+            let lang = (raw == "und") ? "ja" : raw
+            charCounts[lang, default: 0] += box.text.count
+        }
+        let source = charCounts.max(by: { $0.value < $1.value })?.key ?? "ja"
+
         if source == targetLanguage {
             return TranslatedPage(
                 comicId: comicId, pageIndex: pageIndex,
