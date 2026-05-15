@@ -25,12 +25,12 @@ import Domain
 
     private final class FakeLLM: LLMTranslator, @unchecked Sendable {
         var calls: [(source: String, target: String, lines: [String])] = []
-        var nextResponse: ([String]) -> [String] = { $0.map { "[T] " + $0 } }
-        var nextError: LLMTranslatorError?
+        /// Per-line response. Return nil to simulate a per-line failure
+        /// (e.g. safety guardrail).
+        var nextResponse: ([String]) -> [String?] = { $0.map { "[T] " + $0 } }
 
-        func translateLines(_ lines: [String], from source: String, to target: String) async throws -> [String] {
+        func translateLines(_ lines: [String], from source: String, to target: String) async -> [String?] {
             calls.append((source, target, lines))
-            if let err = nextError { throw err }
             return nextResponse(lines)
         }
     }
@@ -38,9 +38,6 @@ import Domain
     @Test func translatesEveryOCRLineAsJapanese() async throws {
         let llm = FakeLLM()
         let translator = PageTranslatorLive(llm: llm)
-        // Vision can reliably read English from synthesized PNGs; what matters
-        // for this test is that whatever OCR returns gets handed to the LLM
-        // verbatim, with source language hardcoded to "ja".
         let data = textImagePNG("Hello")
 
         let page = try await translator.translate(
@@ -53,7 +50,8 @@ import Domain
         #expect(llm.calls.count == 1)
         #expect(llm.calls.first?.source == "ja")
         #expect(llm.calls.first?.target == "ko")
-        // Every OCR line ends up in the LLM batch — no filtering.
+        // Every OCR line was sent to the LLM and (since the fake returns
+        // non-nil for everything) every line round-trips back as an overlay.
         #expect(llm.calls.first?.lines.count == page.lines.count)
     }
 
@@ -88,21 +86,22 @@ import Domain
         #expect(llm.calls.isEmpty)
     }
 
-    @Test func llmFailureBubblesAsSilentFailure() async throws {
+    /// Per-line nil failures (safety guardrails) drop those lines but the
+    /// page still renders overlays for the lines that DID translate. This
+    /// is the central behavior change vs the old batch design.
+    @Test func nilTranslationsAreDroppedNotErrored() async throws {
         let llm = FakeLLM()
-        llm.nextError = .protocolViolation
+        llm.nextResponse = { _ in [nil] }  // every line "fails" safety
         let translator = PageTranslatorLive(llm: llm)
         let data = textImagePNG("Hello")
 
-        do {
-            _ = try await translator.translate(
-                imageData: data, comicId: UUID(), pageIndex: 0, targetLanguage: "ko"
-            )
-            Issue.record("expected silent failure")
-        } catch PageTranslatorError.silentFailure {
-            // expected
-        } catch {
-            Issue.record("unexpected error: \(error)")
-        }
+        let page = try await translator.translate(
+            imageData: data, comicId: UUID(), pageIndex: 0, targetLanguage: "ko"
+        )
+
+        // No exception thrown, just an empty result.
+        #expect(page.lines.isEmpty)
+        #expect(llm.calls.count == 1)  // LLM was called, it just returned nils
     }
+
 }

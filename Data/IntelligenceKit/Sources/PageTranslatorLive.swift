@@ -56,22 +56,15 @@ public struct PageTranslatorLive: PageTranslator {
             )
         }
 
-        // 3) Translate everything in one batch.
+        // 3) Translate per-line. The LLM returns `nil` for any line it couldn't
+        //    handle (safety guardrail, transient failure). We just skip those —
+        //    the page still renders an overlay for the lines that did translate.
         let inputs = boxes.map(\.text)
-        let translated: [String]
-        do {
-            translated = try await llm.translateLines(inputs, from: Self.sourceLanguage, to: targetLanguage)
-        } catch {
-            Self.log.error("LLM failure: \(error.localizedDescription, privacy: .public)")
-            throw PageTranslatorError.silentFailure
-        }
-        guard translated.count == boxes.count else {
-            throw PageTranslatorError.silentFailure
-        }
+        let translated = await llm.translateLines(inputs, from: Self.sourceLanguage, to: targetLanguage)
 
-        // 4) Sample a background color per line for the opaque overlay fill, then
-        //    assemble.
-        let lines: [TranslatedLine] = zip(boxes, translated).map { box, t in
+        // 4) Sample a background color per line and assemble — drop nil translations.
+        let lines: [TranslatedLine] = zip(boxes, translated).compactMap { box, t in
+            guard let t else { return nil }
             let argb = sampler.sample(imageData: imageData, normalizedBox: box.boundingBox)
             return TranslatedLine(original: box, translated: t, backgroundColorARGB: argb)
         }
