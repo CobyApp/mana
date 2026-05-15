@@ -48,4 +48,18 @@ import UIKit
         // Fallback is opaque off-white.
         #expect((argb >> 24) & 0xFF == 0xFF)
     }
+
+    @Test func classifiesPaperColorsAsBubble() {
+        #expect(BackgroundColorSampler.isLikelyBubbleBackground(0xFFFFFFFF)) // pure white
+        #expect(BackgroundColorSampler.isLikelyBubbleBackground(0xFFF6F3EC)) // paper fallback
+        #expect(BackgroundColorSampler.isLikelyBubbleBackground(0xFFEEEEEE)) // light gray
+    }
+
+    @Test func rejectsDarkOrColoredBackgrounds() {
+        #expect(!BackgroundColorSampler.isLikelyBubbleBackground(0xFF000000)) // black
+        #expect(!BackgroundColorSampler.isLikelyBubbleBackground(0xFFFF0000)) // red
+        #expect(!BackgroundColorSampler.isLikelyBubbleBackground(0xFFB0B0B0)) // halftone gray
+        #expect(!BackgroundColorSampler.isLikelyBubbleBackground(0xFFFFD400)) // yellow SFX
+        #expect(!BackgroundColorSampler.isLikelyBubbleBackground(0xFF404040)) // dark gray
+    }
 }

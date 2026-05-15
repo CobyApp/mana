@@ -115,4 +115,29 @@ import Domain
         )
         #expect(llm.calls.first?.source == "en")
     }
+
+    @Test func dropsLinesOnNonBubbleBackground() async throws {
+        // Synthesize text on a yellow background (typical SFX color).
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 400, height: 120))
+        let img = renderer.image { ctx in
+            UIColor(red: 1.0, green: 0.85, blue: 0.0, alpha: 1.0).setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: 400, height: 120))
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 48, weight: .bold),
+                .foregroundColor: UIColor.black
+            ]
+            NSAttributedString(string: "BANG", attributes: attrs)
+                .draw(at: CGPoint(x: 20, y: 30))
+        }
+        let data = img.pngData()!
+
+        let llm = FakeLLM()
+        let translator = PageTranslatorLive(llm: llm)
+        let page = try await translator.translate(
+            imageData: data, comicId: UUID(), pageIndex: 0, targetLanguage: "ko"
+        )
+
+        #expect(page.lines.isEmpty)
+        #expect(llm.calls.isEmpty)  // never called LLM since 0 bubble lines
+    }
 }
