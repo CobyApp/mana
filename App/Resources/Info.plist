@@ -29,6 +29,8 @@
   <!-- AdMob app ID (real, from the AdMob console). Publisher pub-1120202923997022. -->
   <key>GADApplicationIdentifier</key>
   <string>ca-app-pub-1120202923997022~1147432844</string>
+  <key>NSUserTrackingUsageDescription</key>
+  <string>맞춤 광고를 제공하기 위해 사용자의 활동을 추적하는 데 사용됩니다. 허용하지 않아도 광고는 표시되며, 맞춤형이 아닐 뿐입니다.</string>
   <key>SKAdNetworkItems</key>
   <array>
     <dict>
