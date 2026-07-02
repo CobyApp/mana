@@ -31,6 +31,17 @@ platform :ios do
 
     output_directory = ENV["RUNNER_TEMP"] || File.expand_path("../build", __dir__)
 
+    # App Store Connect API key auth passed to BOTH the archive and the export
+    # xcodebuild invocations, enabling cloud-managed signing. No local .p12 is
+    # imported; Xcode creates/reuses a managed Apple Distribution certificate and
+    # signs through Apple's servers, so certificates never need manual rotation.
+    auth_args = [
+      "-allowProvisioningUpdates",
+      "-authenticationKeyPath \"#{ENV.fetch("AUTH_KEY_PATH")}\"",
+      "-authenticationKeyID \"#{ENV.fetch("APPSTORE_KEY_ID")}\"",
+      "-authenticationKeyIssuerID \"#{ENV.fetch("APPSTORE_ISSUER_ID")}\""
+    ].join(" ")
+
     build_app(
       workspace: WORKSPACE,
       scheme: SCHEME,
@@ -38,20 +49,12 @@ platform :ios do
       export_method: "app-store",
       output_directory: output_directory,
       clean: true,
-      # Cloud-managed signing via the App Store Connect API key. No local .p12 is
-      # imported; Xcode creates/reuses a managed Apple Distribution certificate and
-      # signs through Apple's servers, so certificates never need manual rotation.
-      api_key: api_key,
       export_options: {
         signingStyle: "automatic",
         teamID: TEAM_ID
       },
-      xcargs: [
-        "CURRENT_PROJECT_VERSION=#{build_number}",
-        "CODE_SIGN_STYLE=Automatic",
-        "DEVELOPMENT_TEAM=#{TEAM_ID}",
-        "-allowProvisioningUpdates"
-      ].join(" ")
+      xcargs: "CURRENT_PROJECT_VERSION=#{build_number} CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=#{TEAM_ID} #{auth_args}",
+      export_xcargs: auth_args
     )
 
     upload_to_testflight(
