@@ -34,6 +34,7 @@ let project = Project(
                 .project(target: "LibraryFeature", path: "../Features/LibraryFeature"),
                 .project(target: "ReaderFeature", path: "../Features/ReaderFeature"),
                 .project(target: "SettingsFeature", path: "../Features/SettingsFeature"),
+                .project(target: "AdKit", path: "../Data/AdKit"),
                 .project(target: "ArchiveKit", path: "../Data/ArchiveKit"),
                 .project(target: "IntelligenceKit", path: "../Data/IntelligenceKit"),
                 .project(target: "PersistenceKit", path: "../Data/PersistenceKit"),

@@ -1,11 +1,13 @@
 import SwiftUI
 import ComposableArchitecture
 import AppFeature
+import AdKit
 
 @main
 struct NOIZApp: App {
     init() {
         LiveDependencies.register()
+        MobileAdsInitializer.start()
     }
 
     var body: some Scene {

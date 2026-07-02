@@ -6,7 +6,8 @@ let project = Module(
     kind: .feature,
     dependencies: [
         .project(target: "Domain", path: "../../Domain"),
-        .project(target: "DesignSystem", path: "../../DesignSystem")
+        .project(target: "DesignSystem", path: "../../DesignSystem"),
+        .project(target: "AdKit", path: "../../Data/AdKit")
     ],
     externalDependencies: ["ComposableArchitecture"],
     hasResources: true,
