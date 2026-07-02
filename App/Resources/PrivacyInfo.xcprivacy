@@ -2,13 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <!-- The app uses AdMob for personalized ads (IDFA via ATT) = tracking.
-       The ad SDK ships its own manifest declaring the ad/tracking domains,
-       which Apple aggregates with this one. -->
+  <!-- The app's own first-party code does not contact tracking domains; all
+       IDFA/cross-app tracking is performed by the GoogleMobileAds SDK, which
+       ships its own privacy manifest declaring NSPrivacyTracking=true and its
+       tracking domains. Apple aggregates that with this app manifest, so this
+       one stays false. (Apple rejects NSPrivacyTracking=true with an empty
+       NSPrivacyTrackingDomains — ITMS-91064.) -->
   <key>NSPrivacyTracking</key>
-  <true/>
-  <key>NSPrivacyTrackingDomains</key>
-  <array/>
+  <false/>
   <key>NSPrivacyCollectedDataTypes</key>
   <array/>
   <!-- Required-reason API declarations for APIs the app itself calls. -->
