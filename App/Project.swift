@@ -5,7 +5,7 @@ private let appBaseSettings: [String: SettingValue] = [
     "SUPPORTS_MACCATALYST": "NO",
     "CODE_SIGN_STYLE": "Automatic",
     "DEVELOPMENT_TEAM": "3Y8YH8GWMM",
-    "MARKETING_VERSION": "1.0.0",
+    "MARKETING_VERSION": "1.0.1",
     "CURRENT_PROJECT_VERSION": "1",
     "SWIFT_VERSION": "6.0"
 ]
@@ -34,6 +34,7 @@ let project = Project(
                 .project(target: "LibraryFeature", path: "../Features/LibraryFeature"),
                 .project(target: "ReaderFeature", path: "../Features/ReaderFeature"),
                 .project(target: "SettingsFeature", path: "../Features/SettingsFeature"),
+                .project(target: "AdKit", path: "../Data/AdKit"),
                 .project(target: "ArchiveKit", path: "../Data/ArchiveKit"),
                 .project(target: "IntelligenceKit", path: "../Data/IntelligenceKit"),
                 .project(target: "PersistenceKit", path: "../Data/PersistenceKit"),

@@ -21,11 +21,21 @@
   <key>CFBundleDisplayName</key>
   <string>NOIZ</string>
   <key>CFBundleShortVersionString</key>
-  <string>1.0.0</string>
+  <string>$(MARKETING_VERSION)</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>$(CURRENT_PROJECT_VERSION)</string>
   <key>ITSAppUsesNonExemptEncryption</key>
   <false/>
+  <!-- AdMob app ID (real, from the AdMob console). Publisher pub-1120202923997022. -->
+  <key>GADApplicationIdentifier</key>
+  <string>ca-app-pub-1120202923997022~1147432844</string>
+  <key>SKAdNetworkItems</key>
+  <array>
+    <dict>
+      <key>SKAdNetworkIdentifier</key>
+      <string>cstr6suwn9.skadnetwork</string>
+    </dict>
+  </array>
   <key>UILaunchScreen</key>
   <dict/>
   <key>UISupportedInterfaceOrientations</key>

@@ -9,6 +9,7 @@ let workspace = Workspace(
         "Features/ReaderFeature",
         "Features/SettingsFeature",
         "Domain",
+        "Data/AdKit",
         "Data/ArchiveKit",
         "Data/ImageCacheKit",
         "Data/IntelligenceKit",

@@ -2,6 +2,7 @@ import SwiftUI
 import ComposableArchitecture
 import Domain
 import DesignSystem
+import AdKit
 import UniformTypeIdentifiers
 
 public struct LibraryView: View {
@@ -43,6 +44,13 @@ public struct LibraryView: View {
             .safeAreaInset(edge: .bottom) {
                 if store.isSelecting && !store.selectedComicIds.isEmpty {
                     selectionActionBar
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                // Hide the banner while the selection action bar is up to avoid
+                // stacking two bars at the bottom of the screen.
+                if !(store.isSelecting && !store.selectedComicIds.isEmpty) {
+                    AdaptiveBannerView()
                 }
             }
     }
