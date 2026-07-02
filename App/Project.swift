@@ -5,7 +5,7 @@ private let appBaseSettings: [String: SettingValue] = [
     "SUPPORTS_MACCATALYST": "NO",
     "CODE_SIGN_STYLE": "Automatic",
     "DEVELOPMENT_TEAM": "3Y8YH8GWMM",
-    "MARKETING_VERSION": "1.0.0",
+    "MARKETING_VERSION": "1.0.1",
     "CURRENT_PROJECT_VERSION": "1",
     "SWIFT_VERSION": "6.0"
 ]
