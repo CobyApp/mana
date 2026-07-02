@@ -31,17 +31,12 @@ platform :ios do
 
     output_directory = ENV["RUNNER_TEMP"] || File.expand_path("../build", __dir__)
 
-    # App Store Connect API key auth passed to BOTH the archive and the export
-    # xcodebuild invocations, enabling cloud-managed signing. No local .p12 is
-    # imported; Xcode creates/reuses a managed Apple Distribution certificate and
-    # signs through Apple's servers, so certificates never need manual rotation.
-    auth_args = [
-      "-allowProvisioningUpdates",
-      "-authenticationKeyPath \"#{ENV.fetch("AUTH_KEY_PATH")}\"",
-      "-authenticationKeyID \"#{ENV.fetch("APPSTORE_KEY_ID")}\"",
-      "-authenticationKeyIssuerID \"#{ENV.fetch("APPSTORE_ISSUER_ID")}\""
-    ].join(" ")
-
+    # App Store Connect API key auth. gym forwards xcargs to BOTH the archive and
+    # the export xcodebuild invocations, so the auth flags are supplied once here
+    # (duplicating them via export_xcargs makes xcodebuild reject the run). Combined
+    # with export_options signingStyle=automatic and no local .p12, Xcode creates/
+    # reuses a cloud-managed Apple Distribution certificate and signs through Apple's
+    # servers — certificates never need manual rotation.
     build_app(
       workspace: WORKSPACE,
       scheme: SCHEME,
@@ -53,8 +48,15 @@ platform :ios do
         signingStyle: "automatic",
         teamID: TEAM_ID
       },
-      xcargs: "CURRENT_PROJECT_VERSION=#{build_number} CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=#{TEAM_ID} #{auth_args}",
-      export_xcargs: auth_args
+      xcargs: [
+        "CURRENT_PROJECT_VERSION=#{build_number}",
+        "CODE_SIGN_STYLE=Automatic",
+        "DEVELOPMENT_TEAM=#{TEAM_ID}",
+        "-allowProvisioningUpdates",
+        "-authenticationKeyPath \"#{ENV.fetch("AUTH_KEY_PATH")}\"",
+        "-authenticationKeyID \"#{ENV.fetch("APPSTORE_KEY_ID")}\"",
+        "-authenticationKeyIssuerID \"#{ENV.fetch("APPSTORE_ISSUER_ID")}\""
+      ].join(" ")
     )
 
     upload_to_testflight(
