@@ -13,6 +13,15 @@ import SettingsFeature
 
 enum LiveDependencies {
     static func register() {
+        // App-wide default reading settings for users who haven't changed them:
+        // right-to-left progression and cover-page-solo (first page on its own),
+        // matching how manga is normally read. register(defaults:) never
+        // overwrites a value the user has explicitly set.
+        UserDefaults.standard.register(defaults: [
+            SettingsFeature.directionKey: PageProgressionDirection.rightToLeft.rawValue,
+            SettingsFeature.pageOffsetKey: "true"
+        ])
+
         let stack = try! SwiftDataStack.onDisk(
             url: URL.applicationSupportDirectory.appending(path: "mana.store")
         )
@@ -50,13 +59,12 @@ enum LiveDependencies {
             $0.userDefaults = LiveUserDefaultsClient()
             $0.libraryResetService = libraryReset
             $0.translationCache = translationCache
-            if #available(iOS 18.0, *) {
-                $0.intelligenceAvailability = IntelligenceAvailabilityLive()
-                $0.pageTranslator = PageTranslatorLive(llm: AppleTranslator())
-            } else {
-                $0.intelligenceAvailability = UnavailableIntelligence()
-                $0.pageTranslator = NoopPageTranslator()
-            }
+            // Auto-translation feature removed from the app: keep intelligence
+            // unavailable so no translation UI, controls, overlays, or page
+            // translation run anywhere (Settings section and Reader controls are
+            // both gated on availability).
+            $0.intelligenceAvailability = UnavailableIntelligence()
+            $0.pageTranslator = NoopPageTranslator()
         }
 
         let reconcile = LibraryReconcileService(repo: comicRepo, importer: importer)
