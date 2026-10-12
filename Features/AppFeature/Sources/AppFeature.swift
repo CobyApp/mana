@@ -105,7 +105,7 @@ public struct AppFeature {
 extension AppFeature.Path.State: Equatable {}
 
 private enum IntelligenceAvailabilityKey: DependencyKey {
-    static let liveValue: any IntelligenceAvailability = UnavailableIntelligence()
+    static let liveValue: any IntelligenceAvailability = IntelligenceAvailabilityLive()
     static let testValue: any IntelligenceAvailability = UnavailableIntelligence()
 }
 

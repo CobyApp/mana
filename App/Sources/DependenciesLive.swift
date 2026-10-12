@@ -59,12 +59,11 @@ enum LiveDependencies {
             $0.userDefaults = LiveUserDefaultsClient()
             $0.libraryResetService = libraryReset
             $0.translationCache = translationCache
-            // Auto-translation feature removed from the app: keep intelligence
-            // unavailable so no translation UI, controls, overlays, or page
-            // translation run anywhere (Settings section and Reader controls are
-            // both gated on availability).
-            $0.intelligenceAvailability = UnavailableIntelligence()
-            $0.pageTranslator = NoopPageTranslator()
+            // On-device translation (OCR + Apple Translation framework, iOS 18+).
+            // Availability is gated on the OS version inside IntelligenceAvailabilityLive;
+            // on older systems the Settings section and Reader controls stay hidden.
+            $0.intelligenceAvailability = IntelligenceAvailabilityLive()
+            $0.pageTranslator = PageTranslatorLive(llm: AppleTranslator())
         }
 
         let reconcile = LibraryReconcileService(repo: comicRepo, importer: importer)
