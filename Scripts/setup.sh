@@ -19,3 +19,15 @@ if [ -f "$PATCH_TARGET" ] && [ -f "$PATCH_SOURCE" ]; then
 fi
 
 tuist generate --no-open
+
+# ComposableArchitecture needs an iOS 17 deployment target (its UIKit
+# NavigationStackController uses iOS 17-only APIs), but the rest of the
+# Point-Free ecosystem must stay at 16 — swift-perception's `Bindable`
+# backport is `obsoleted: 17` and won't compile at 17. Tuist derives external
+# package deployment targets from PackageSettings.baseSettings (16, set in
+# Tuist/Package.swift), so bump only TCA's generated project to 17 here.
+TCA_PBXPROJ="Tuist/.build/tuist-derived/Projects/swift-composable-architecture/swift-composable-architecture.xcodeproj/project.pbxproj"
+if [ -f "$TCA_PBXPROJ" ]; then
+    echo "Bumping ComposableArchitecture deployment target to iOS 17…"
+    perl -i -pe 's/(IPHONEOS_DEPLOYMENT_TARGET = )\d+(?:\.\d+)?;/${1}17.0;/' "$TCA_PBXPROJ"
+fi
