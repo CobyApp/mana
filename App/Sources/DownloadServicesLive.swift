@@ -102,6 +102,8 @@ public struct ChapterDownloaderLive: ChapterDownloader {
             pageProgressionDirection: comic.pageProgressionDirection, pageOffset: comic.pageOffset
         )
         try await comicRepo.upsert(titled)
+        // Let an open library pick up the new comic + series folder.
+        await MainActor.run { NotificationCenter.default.post(name: .manaLibraryReconciled, object: nil) }
         return titled
     }
 

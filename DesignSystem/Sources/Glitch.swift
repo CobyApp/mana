@@ -11,7 +11,13 @@ public struct Glitch<Trigger: Equatable>: ViewModifier {
     @State private var phase: CGFloat = 0
     @State private var isBursting: Bool = false
 
+    @Environment(\.manaLiteMode) private var manaLite
+
     public func body(content: Content) -> some View {
+        if manaLite { content } else { fullBody(content: content) }
+    }
+
+    @ViewBuilder private func fullBody(content: Content) -> some View {
         ZStack {
             // Red ghost — `allowsHitTesting(false)` so the duplicated views
             // never interfere with the original's gestures/scroll.
@@ -67,7 +73,13 @@ public struct GlitchPulse: ViewModifier {
     @State private var phase: CGFloat = 0
     @State private var splitOpacity: Double = 0
 
+    @Environment(\.manaLiteMode) private var manaLite
+
     public func body(content: Content) -> some View {
+        if manaLite { content } else { fullBody(content: content) }
+    }
+
+    @ViewBuilder private func fullBody(content: Content) -> some View {
         ZStack {
             content
                 .foregroundStyle(Tokens.Colors.glitchRed)

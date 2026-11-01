@@ -40,3 +40,5 @@
 "library.selected_count"       = "%lld個選択中";
 "library.bulk_delete_title"    = "選択したコミックを削除";
 "library.bulk_delete_message"  = "選択したコミック %lld 件を削除しますか？";
+
+"library.continue_reading" = "続きから読む";

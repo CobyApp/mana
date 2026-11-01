@@ -1,6 +1,7 @@
 import Foundation
 import ComposableArchitecture
 import Domain
+import DesignSystem
 
 @Reducer
 public struct SettingsFeature {
@@ -12,18 +13,22 @@ public struct SettingsFeature {
         public var defaultPageProgressionDirection: PageProgressionDirection
         public var defaultPageOffset: Bool
         public var appLanguage: AppLanguage
+        /// Flattens decorative effects (halftone, glitch, speed lines) for performance / e-ink.
+        public var liteMode: Bool
         @Presents public var resetAlert: AlertState<Action.ResetAlert>?
 
         public init(
             defaultMode: ReadingMode = .single,
             defaultPageProgressionDirection: PageProgressionDirection = .leftToRight,
             defaultPageOffset: Bool = false,
-            appLanguage: AppLanguage = .system
+            appLanguage: AppLanguage = .system,
+            liteMode: Bool = false
         ) {
             self.defaultMode = defaultMode
             self.defaultPageProgressionDirection = defaultPageProgressionDirection
             self.defaultPageOffset = defaultPageOffset
             self.appLanguage = appLanguage
+            self.liteMode = liteMode
         }
     }
 
@@ -33,6 +38,7 @@ public struct SettingsFeature {
         case defaultDirectionChanged(PageProgressionDirection)
         case defaultPageOffsetChanged(Bool)
         case appLanguageChanged(AppLanguage)
+        case liteModeChanged(Bool)
         case resetLibraryRequested
         case resetAlert(PresentationAction<ResetAlert>)
         case resetLibraryCompleted
@@ -60,6 +66,7 @@ public struct SettingsFeature {
                 if let raw = defaults.string(forKey: Self.pageOffsetKey) {
                     state.defaultPageOffset = (raw == "true")
                 }
+                state.liteMode = defaults.string(forKey: LiteMode.storageKey) == "true"
                 // appLanguage is owned by AppFeature and injected on push;
                 // do not overwrite from UserDefaults here.
                 return .none
@@ -84,6 +91,11 @@ public struct SettingsFeature {
                 defaults.set(lang.rawValue, forKey: Self.languageKey)
                 // No AppleLanguages override; the live `\.locale` environment in AppView
                 // applies the new language immediately without an app restart.
+                return .none
+
+            case let .liteModeChanged(enabled):
+                state.liteMode = enabled
+                defaults.set(enabled ? "true" : "false", forKey: LiteMode.storageKey)
                 return .none
 
             case .resetLibraryRequested:

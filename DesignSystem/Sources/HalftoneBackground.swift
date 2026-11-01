@@ -19,7 +19,13 @@ public struct HalftoneBackground: View {
         self.stagger = stagger
     }
 
+    @Environment(\.manaLiteMode) private var manaLite
+
     public var body: some View {
+        if manaLite { Color.clear.allowsHitTesting(false) } else { fullBody }
+    }
+
+    @ViewBuilder private var fullBody: some View {
         Canvas { ctx, size in
             let cols = Int(ceil(size.width / spacing)) + 2
             let rows = Int(ceil(size.height / spacing)) + 2

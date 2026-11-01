@@ -40,3 +40,5 @@
 "library.selected_count"       = "%lld개 선택됨";
 "library.bulk_delete_title"    = "선택한 만화 삭제";
 "library.bulk_delete_message"  = "선택한 만화 %lld개를 삭제하시겠습니까?";
+
+"library.continue_reading" = "이어보기";

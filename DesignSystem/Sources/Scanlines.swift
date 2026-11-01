@@ -21,7 +21,13 @@ public struct Scanlines: View {
         self.drift = drift
     }
 
+    @Environment(\.manaLiteMode) private var manaLite
+
     public var body: some View {
+        if manaLite { Color.clear.allowsHitTesting(false) } else { fullBody }
+    }
+
+    @ViewBuilder private var fullBody: some View {
         TimelineView(.animation(minimumInterval: drift ? 1.0 / 30.0 : 1.0)) { timeline in
             Canvas { ctx, size in
                 let t = timeline.date.timeIntervalSinceReferenceDate

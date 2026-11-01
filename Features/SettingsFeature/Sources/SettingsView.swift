@@ -96,6 +96,24 @@ public struct SettingsView: View {
                     }
                 }
 
+                section(title: localized("settings.display")) {
+                    settingRow(
+                        title: localized("settings.lite_mode"),
+                        footer: localized("settings.lite_mode.description")
+                    ) {
+                        MangaToggle(
+                            selection: Binding(
+                                get: { store.liteMode },
+                                set: { store.send(.liteModeChanged($0)) }
+                            ),
+                            options: [
+                                (false, Text(verbatim: localized("settings.off"))),
+                                (true,  Text(verbatim: localized("settings.on")))
+                            ]
+                        )
+                    }
+                }
+
                 section(title: localized("settings.danger_zone"), accent: Tokens.Colors.accent) {
                     Button(role: .destructive) {
                         store.send(.resetLibraryRequested)

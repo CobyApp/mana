@@ -40,3 +40,5 @@
 "library.selected_count"       = "%lld selected";
 "library.bulk_delete_title"    = "Delete selected comics";
 "library.bulk_delete_message"  = "Delete %lld selected comics?";
+
+"library.continue_reading" = "Continue reading";

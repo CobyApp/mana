@@ -23,7 +23,13 @@ public struct SpeedLines: View {
         self.intensity = intensity
     }
 
+    @Environment(\.manaLiteMode) private var manaLite
+
     public var body: some View {
+        if manaLite { Color.clear.allowsHitTesting(false) } else { fullBody }
+    }
+
+    @ViewBuilder private var fullBody: some View {
         Canvas { ctx, size in
             let center = CGPoint(x: size.width / 2, y: size.height / 2)
             let outerRadius = max(size.width, size.height)
