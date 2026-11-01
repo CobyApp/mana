@@ -28,6 +28,7 @@
 "settings.cancel"          = "キャンセル";
 "mode.single"              = "シングル";
 "mode.dual"                = "デュアル";
+"mode.webtoon"             = "縦読み";
 "direction.ltr"            = "左から右";
 "direction.rtl"            = "右から左";
 "settings.translate.section" = "自動翻訳";

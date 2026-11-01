@@ -28,6 +28,7 @@
 "settings.cancel"          = "Cancel";
 "mode.single"              = "Single page";
 "mode.dual"                = "Two pages";
+"mode.webtoon"             = "Webtoon";
 "direction.ltr"            = "Left to Right";
 "direction.rtl"            = "Right to Left";
 "settings.translate.section" = "Auto translation";

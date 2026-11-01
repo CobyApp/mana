@@ -16,3 +16,5 @@
 "reader.controls.translate" = "Translate";
 "translate.on" = "On";
 "translate.off" = "Off";
+"mode.webtoon"             = "Webtoon";
+"reader.next_chapter"      = "Next chapter";

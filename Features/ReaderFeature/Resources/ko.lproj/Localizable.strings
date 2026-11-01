@@ -16,3 +16,5 @@
 "reader.controls.translate" = "번역";
 "translate.on" = "켜기";
 "translate.off" = "끄기";
+"mode.webtoon"             = "웹툰";
+"reader.next_chapter"      = "다음 화";

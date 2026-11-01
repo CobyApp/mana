@@ -44,8 +44,9 @@ public struct SettingsView: View {
                                 set: { store.send(.defaultModeChanged($0)) }
                             ),
                             options: [
-                                (ReadingMode.single, Text(verbatim: localized("mode.single"))),
-                                (ReadingMode.dual,   Text(verbatim: localized("mode.dual")))
+                                (ReadingMode.single,  Text(verbatim: localized("mode.single"))),
+                                (ReadingMode.dual,    Text(verbatim: localized("mode.dual"))),
+                                (ReadingMode.webtoon, Text(verbatim: localized("mode.webtoon")))
                             ]
                         )
                     }
