@@ -2,13 +2,9 @@ import SwiftUI
 import ComposableArchitecture
 import Domain
 import ImageCacheKit
-import IntelligenceKit
 import DesignSystem
 import SharedUI
 import UIKit
-#if canImport(Translation)
-import Translation
-#endif
 
 private extension Bundle {
     /// Looks up a localized string honoring a SwiftUI environment `Locale`,
@@ -62,11 +58,6 @@ public struct ReaderView: View {
         .background(SwipeBackBlocker())
         .task { await store.send(.task).finish() }
         .onDisappear { store.send(.onDisappear) }
-        .modifier(TranslationSessionAttachment(
-            targetLanguage: store.translation.targetLanguage,
-            isAvailable: store.translation.isIntelligenceAvailable,
-            onSessionReady: { store.send(.translationSessionReady) }
-        ))
         .onLongPressGesture(minimumDuration: 0.4) {
             UIImpactFeedbackGenerator(style: .soft).impactOccurred()
             store.send(.toggleControls)
@@ -109,17 +100,7 @@ public struct ReaderView: View {
         let hint: (Int) -> Void = { idx in store.send(.prefetchHint(idx)) }
         let direction = store.pageProgressionDirection
         let centerTap: () -> Void = { store.send(.toggleControls) }
-        let translationState = store.translation
-        let pageOverlay: ((Int) -> AnyView)? = translationState.isIntelligenceAvailable
-            ? { idx in
-                AnyView(
-                    PageTranslationOverlay(
-                        page: translationState.pages[idx],
-                        isHidden: !translationState.isEnabled
-                    )
-                )
-              }
-            : nil
+        let pageOverlay: ((Int) -> AnyView)? = nil
 
         switch store.mode {
         case .single:
@@ -331,20 +312,6 @@ public struct ReaderView: View {
                       isSelected: store.pageOffset) {
                 store.send(.pageOffsetChanged(true))
             }
-
-            if store.translation.isIntelligenceAvailable {
-                sectionDivider
-                sectionHeader(localized("reader.controls.translate"))
-                optionRow(localized("translate.off"),
-                          isSelected: !store.translation.isEnabled) {
-                    store.send(.translationToggleChanged(false))
-                }
-                divider
-                optionRow(localized("translate.on"),
-                          isSelected: store.translation.isEnabled) {
-                    store.send(.translationToggleChanged(true))
-                }
-            }
         }
         .frame(width: 260)
         .background(Tokens.Colors.paper)
@@ -430,52 +397,3 @@ public struct ReaderView: View {
         .overlay(Rectangle().strokeBorder(Tokens.Colors.paper.opacity(0.4), lineWidth: 1))
     }
 }
-
-// MARK: - Translation session attachment
-
-/// Attaches a SwiftUI `.translationTask` to the host view when running on
-/// iOS 18.0+. Drives `TranslationSessionHolder.shared`.
-private struct TranslationSessionAttachment: ViewModifier {
-    let targetLanguage: String
-    let isAvailable: Bool
-    let onSessionReady: () -> Void
-
-    func body(content: Content) -> some View {
-        if #available(iOS 18.0, *), isAvailable {
-            content.modifier(TranslationSessionAttachmentAvailable(
-                targetLanguage: targetLanguage,
-                onSessionReady: onSessionReady
-            ))
-        } else {
-            content
-        }
-    }
-}
-
-@available(iOS 18.0, *)
-private struct TranslationSessionAttachmentAvailable: ViewModifier {
-    let targetLanguage: String
-    let onSessionReady: () -> Void
-
-    @State private var config: TranslationSession.Configuration?
-
-    func body(content: Content) -> some View {
-        content
-            .onAppear {
-                config = TranslationSession.Configuration(
-                    source: Locale.Language(identifier: "ja"),
-                    target: Locale.Language(identifier: targetLanguage)
-                )
-            }
-            .translationTask(config) { session in
-                await TranslationSessionHolder.shared.set(session)
-                onSessionReady()
-            }
-            .onDisappear {
-                Task { @MainActor in
-                    TranslationSessionHolder.shared.set(nil)
-                }
-            }
-    }
-}
-

@@ -13,7 +13,6 @@ let workspace = Workspace(
         "Data/AdKit",
         "Data/ArchiveKit",
         "Data/ImageCacheKit",
-        "Data/IntelligenceKit",
         "Data/PersistenceKit",
         "Data/SourceKit",
         "Data/ThumbnailKit",

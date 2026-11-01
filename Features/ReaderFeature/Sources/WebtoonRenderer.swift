@@ -86,7 +86,7 @@ public struct WebtoonRenderer: View {
 }
 
 /// One page in the webtoon strip: loads its image lazily, sizes to the container width at the
-/// image's aspect ratio, and overlays translation boxes scaled to the displayed page.
+/// image's aspect ratio, and applies an optional per-page overlay.
 private struct WebtoonPage: View {
     let index: Int
     let provider: (Int) async -> UIImage?

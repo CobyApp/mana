@@ -8,7 +8,6 @@ import PersistenceKit
 import ImageCacheKit
 import ThumbnailKit
 import LibraryFeature
-import IntelligenceKit
 import ReaderFeature
 import ComposableArchitecture
 import SettingsFeature
@@ -57,68 +56,6 @@ import SettingsFeature
         try? FileManager.default.removeItem(at: thumbDir)
     }
 
-    @MainActor
-    @Test func translationToggleOnPopulatesOverlay() async throws {
-        let comic = ComicItem(
-            id: UUID(),
-            url: URL(fileURLWithPath: "/tmp/x.cbz"),
-            format: .cbz,
-            title: "x",
-            pageCount: 3,
-            coverThumbnail: nil,
-            dateAdded: Date(),
-            fileSizeBytes: 0
-        )
-        let placeholder = makePlaceholderPNG()
-        let cache = ImageCache.inMemoryOnly()
-        for idx in 0..<3 {
-            await cache.store(placeholder, for: PageKey(comicId: comic.id, pageIndex: idx))
-        }
-
-        let store = await TestStore(
-            initialState: ReaderFeature.State(
-                comic: comic,
-                pageIndex: 1,
-                pageCount: 3,
-                translation: ReaderFeature.TranslationState(
-                    isIntelligenceAvailable: true,
-                    targetLanguage: "ko"
-                )
-            )
-        ) {
-            ReaderFeature()
-        } withDependencies: {
-            $0.pageTranslator = FixedPageTranslator()
-            $0.translationCache = InMemoryTranslationCache()
-            $0.userDefaults = InMemoryUserDefaults()
-            $0.imageCache = cache
-            $0.archiveReaderRouter = NoopArchiveReaderRouter()
-        }
-        store.exhaustivity = .off(showSkippedAssertions: false)
-
-        await store.send(.translationToggleChanged(true)) {
-            $0.translation.isEnabled = true
-        }
-        await store.skipReceivedActions()
-        await store.finish()
-        #expect(store.state.translation.pages.values.contains { !$0.lines.isEmpty })
-    }
-}
-
-private struct FixedPageTranslator: PageTranslator {
-    func translate(imageData: Data, comicId: UUID, pageIndex: Int, targetLanguage: String) async throws -> TranslatedPage {
-        let box = TextLineBox(
-            id: UUID(), text: "こんにちは",
-            boundingBox: CGRect(x: 0.1, y: 0.1, width: 0.3, height: 0.05),
-            confidence: 0.95
-        )
-        return TranslatedPage(
-            comicId: comicId, pageIndex: pageIndex,
-            sourceLanguage: "ja", targetLanguage: targetLanguage,
-            lines: [TranslatedLine(original: box, translated: "안녕", backgroundColorARGB: 0xFFFFFFFF)],
-            createdAt: Date()
-        )
-    }
 }
 
 private func makePlaceholderPNG() -> Data {

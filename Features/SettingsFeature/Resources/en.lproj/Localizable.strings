@@ -31,16 +31,3 @@
 "mode.webtoon"             = "Webtoon";
 "direction.ltr"            = "Left to Right";
 "direction.rtl"            = "Right to Left";
-"settings.translate.section" = "Auto translation";
-"settings.translate.toggle" = "Translate pages automatically";
-"settings.translate.on" = "On";
-"settings.translate.off" = "Off";
-"settings.translate.description" = "Available on supported devices.";
-"settings.translate.engine" = "Engine";
-"settings.translate.engine.description" = "Apple runs on-device. Gemini needs an API key and the internet, with higher quality.";
-"settings.translate.engine.apple" = "Apple";
-"settings.translate.engine.gemini" = "Gemini";
-"settings.translate.gemini_key" = "Gemini API key";
-"settings.translate.gemini_key.description" = "Stored only on this device. Get one from Google AI Studio.";
-"settings.translate.gemini_key.placeholder" = "AIza…";
-"settings.translate.gemini_model" = "Gemini model";

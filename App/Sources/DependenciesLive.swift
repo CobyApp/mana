@@ -2,7 +2,6 @@ import Foundation
 import ComposableArchitecture
 import Domain
 import ArchiveKit
-import IntelligenceKit
 import PersistenceKit
 import ImageCacheKit
 import ThumbnailKit
@@ -74,26 +73,6 @@ enum LiveDependencies {
             $0.folderRepository = folderRepo
             $0.userDefaults = LiveUserDefaultsClient()
             $0.libraryResetService = libraryReset
-            $0.translationCache = translationCache
-            // On-device translation (OCR + Apple Translation framework, iOS 18+).
-            // Availability is gated on the OS version inside IntelligenceAvailabilityLive;
-            // on older systems the Settings section and Reader controls stay hidden.
-            $0.intelligenceAvailability = IntelligenceAvailabilityLive()
-            // Engine chosen in Settings (Apple on-device vs Gemini cloud), read fresh per page so a
-            // change takes effect without relaunch. An optional build-time key (Info.plist
-            // `GeminiDefaultKey`) lets Gemini work before the user enters their own.
-            let bundledGeminiKey = (Bundle.main.object(forInfoDictionaryKey: "GeminiDefaultKey") as? String) ?? ""
-            let engineRouter = EngineRoutingTranslator(configProvider: {
-                let d = UserDefaults.standard
-                let engineRaw = d.string(forKey: SettingsFeature.translationEngineKey) ?? TranslationEngine.gemini.rawValue
-                return EngineRoutingTranslator.Config(
-                    engine: TranslationEngine(rawStringOrDefault: engineRaw),
-                    apiKey: d.string(forKey: SettingsFeature.geminiApiKeyKey) ?? "",
-                    model: d.string(forKey: SettingsFeature.geminiModelKey).flatMap { $0.isEmpty ? nil : $0 } ?? "gemini-flash-latest",
-                    defaultKey: bundledGeminiKey
-                )
-            })
-            $0.pageTranslator = PageTranslatorLive(llm: engineRouter)
             $0.sourceRegistry = sourceRegistry
             $0.downloadManager = downloadManager
             $0.readChapterRepository = readChapterRepo
