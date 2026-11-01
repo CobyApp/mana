@@ -80,6 +80,16 @@ public struct LibraryView: View {
     private var headerBar: some View {
         HStack(spacing: Tokens.Spacing.s) {
             leadingButton
+            if store.currentFolderId == nil, !store.isSelecting {
+                Button { store.send(.browseTapped) } label: {
+                    MangaIconBadge(systemName: "globe")
+                }
+                .buttonStyle(.plain)
+                Button { store.send(.downloadsTapped) } label: {
+                    MangaIconBadge(systemName: "arrow.down.circle.fill")
+                }
+                .buttonStyle(.plain)
+            }
             Spacer(minLength: 0)
             if !store.displayedComics.isEmpty || !store.displayedFolders.isEmpty {
                 Button { store.send(.selectionModeToggled) } label: {

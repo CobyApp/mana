@@ -1,0 +1,10 @@
+"browse.title" = "Browse";
+"browse.latest" = "Latest";
+"browse.genres" = "Genres";
+"browse.search.placeholder" = "Search titles…";
+"browse.empty" = "Nothing here";
+"browse.error" = "Couldn't load";
+"browse.retry" = "Retry";
+"detail.chapters" = "chapters";
+"detail.error" = "Couldn't load";
+"detail.retry" = "Retry";

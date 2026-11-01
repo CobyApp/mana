@@ -1,0 +1,10 @@
+"browse.title" = "さがす";
+"browse.latest" = "最新";
+"browse.genres" = "ジャンル";
+"browse.search.placeholder" = "タイトルを検索…";
+"browse.empty" = "何もありません";
+"browse.error" = "読み込めませんでした";
+"browse.retry" = "再試行";
+"detail.chapters" = "話";
+"detail.error" = "読み込めませんでした";
+"detail.retry" = "再試行";

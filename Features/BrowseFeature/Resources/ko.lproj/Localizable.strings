@@ -1,0 +1,10 @@
+"browse.title" = "둘러보기";
+"browse.latest" = "최신";
+"browse.genres" = "장르";
+"browse.search.placeholder" = "제목 검색…";
+"browse.empty" = "결과가 없어요";
+"browse.error" = "불러오지 못했어요";
+"browse.retry" = "다시 시도";
+"detail.chapters" = "화";
+"detail.error" = "불러오지 못했어요";
+"detail.retry" = "다시 시도";

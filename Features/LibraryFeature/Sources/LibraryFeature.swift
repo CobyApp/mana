@@ -133,6 +133,8 @@ public struct LibraryFeature {
         case importFailed(String)
         case comicTapped(ComicItem)
         case settingsTapped
+        case browseTapped
+        case downloadsTapped
         case delete(IndexSet)
         case sortChanged(LibrarySortOrder)
         case filterChanged(LibraryFilter)
@@ -280,6 +282,9 @@ public struct LibraryFeature {
                 return .none
 
             case .settingsTapped:
+                return .none
+
+            case .browseTapped, .downloadsTapped:
                 return .none
 
             case let .delete(indexSet):

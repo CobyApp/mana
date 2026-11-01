@@ -31,10 +31,12 @@ let project = Project(
             ],
             dependencies: [
                 .project(target: "AppFeature", path: "../Features/AppFeature"),
+                .project(target: "BrowseFeature", path: "../Features/BrowseFeature"),
                 .project(target: "LibraryFeature", path: "../Features/LibraryFeature"),
                 .project(target: "ReaderFeature", path: "../Features/ReaderFeature"),
                 .project(target: "SettingsFeature", path: "../Features/SettingsFeature"),
                 .project(target: "AdKit", path: "../Data/AdKit"),
+                .project(target: "SourceKit", path: "../Data/SourceKit"),
                 .project(target: "ArchiveKit", path: "../Data/ArchiveKit"),
                 .project(target: "IntelligenceKit", path: "../Data/IntelligenceKit"),
                 .project(target: "PersistenceKit", path: "../Data/PersistenceKit"),

@@ -7,7 +7,8 @@ let packageSettings = PackageSettings(
     productTypes: [
         "ComposableArchitecture": .framework,
         "ZIPFoundation": .framework,
-        "UnrarKit": .framework
+        "UnrarKit": .framework,
+        "SwiftSoup": .framework
     ],
     // Several external packages declare deployment targets (iOS 12/13,
     // macOS 10.15) below the floor the current Xcode toolchain accepts
@@ -46,6 +47,7 @@ let package = Package(
         .package(url: "https://github.com/pointfreeco/swift-clocks", from: "1.1.1"),
         .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "1.7.3"),
         .package(url: "https://github.com/pointfreeco/swift-perception", from: "2.0.12"),
+        .package(url: "https://github.com/scinfu/SwiftSoup", from: "2.7.0"),
         .package(url: "https://github.com/weichsel/ZIPFoundation", from: "0.9.19"),
         .package(url: "https://github.com/ZHK1024/UnrarKit-Swift-Package", from: "2.10.1"),
         .package(url: "https://github.com/googleads/swift-package-manager-google-mobile-ads.git", from: "13.6.0"),

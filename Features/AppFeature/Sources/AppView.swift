@@ -1,5 +1,6 @@
 import SwiftUI
 import ComposableArchitecture
+import BrowseFeature
 import LibraryFeature
 import ReaderFeature
 import SettingsFeature
@@ -20,6 +21,10 @@ public struct AppView: View {
                 ReaderView(store: readerStore)
             case let .settings(settingsStore):
                 SettingsView(store: settingsStore)
+            case let .browse(browseStore):
+                BrowseView(store: browseStore)
+            case let .mangaDetail(detailStore):
+                MangaDetailView(store: detailStore)
             }
         }
         .environment(\.locale, locale(for: store.appLanguage))

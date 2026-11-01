@@ -2,6 +2,7 @@ import Foundation
 import ComposableArchitecture
 import Domain
 import IntelligenceKit
+import BrowseFeature
 import LibraryFeature
 import ReaderFeature
 import SettingsFeature
@@ -14,6 +15,8 @@ public struct AppFeature {
     public enum Path {
         case reader(ReaderFeature)
         case settings(SettingsFeature)
+        case browse(BrowseFeature)
+        case mangaDetail(MangaDetailFeature)
     }
 
     @ObservableState
@@ -92,6 +95,14 @@ public struct AppFeature {
 
             case let .path(.element(id: _, action: .settings(.appLanguageChanged(lang)))):
                 state.appLanguage = lang
+                return .none
+
+            case .library(.browseTapped):
+                state.path.append(.browse(BrowseFeature.State()))
+                return .none
+
+            case let .path(.element(id: _, action: .browse(.mangaTapped(manga)))):
+                state.path.append(.mangaDetail(MangaDetailFeature.State(mangaURL: manga.url, preview: manga)))
                 return .none
 
             case .library, .path:
