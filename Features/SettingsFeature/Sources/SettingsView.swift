@@ -113,6 +113,59 @@ public struct SettingsView: View {
                                 ]
                             )
                         }
+
+                        settingRow(
+                            title: localized("settings.translate.engine"),
+                            footer: localized("settings.translate.engine.description")
+                        ) {
+                            MangaToggle(
+                                selection: Binding(
+                                    get: { store.translationEngine },
+                                    set: { store.send(.translationEngineChanged($0)) }
+                                ),
+                                options: [
+                                    (TranslationEngine.apple,  Text(verbatim: localized("settings.translate.engine.apple"))),
+                                    (TranslationEngine.gemini, Text(verbatim: localized("settings.translate.engine.gemini")))
+                                ]
+                            )
+                        }
+
+                        if store.translationEngine == .gemini {
+                            settingRow(
+                                title: localized("settings.translate.gemini_key"),
+                                footer: localized("settings.translate.gemini_key.description")
+                            ) {
+                                SecureField(
+                                    localized("settings.translate.gemini_key.placeholder"),
+                                    text: Binding(
+                                        get: { store.geminiApiKey },
+                                        set: { store.send(.geminiApiKeyChanged($0)) }
+                                    )
+                                )
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                                .font(Tokens.Typography.mono)
+                                .padding(10)
+                                .background(Tokens.Colors.paper)
+                                .overlay(Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: 1.5))
+                            }
+
+                            settingRow(title: localized("settings.translate.gemini_model")) {
+                                TextField(
+                                    "gemini-flash-latest",
+                                    text: Binding(
+                                        get: { store.geminiModel },
+                                        set: { store.send(.geminiModelChanged($0)) }
+                                    )
+                                )
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                                .font(Tokens.Typography.mono)
+                                .padding(10)
+                                .background(Tokens.Colors.paper)
+                                .overlay(Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: 1.5))
+                            }
+                        }
                     }
                 }
 

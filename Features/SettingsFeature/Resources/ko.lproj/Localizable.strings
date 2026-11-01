@@ -36,3 +36,11 @@
 "settings.translate.on" = "켜기";
 "settings.translate.off" = "끄기";
 "settings.translate.description" = "지원되는 기기에서만 표시됩니다.";
+"settings.translate.engine" = "엔진";
+"settings.translate.engine.description" = "Apple은 온디바이스로 동작합니다. Gemini는 API 키와 인터넷이 필요하며 품질이 더 높습니다.";
+"settings.translate.engine.apple" = "Apple";
+"settings.translate.engine.gemini" = "Gemini";
+"settings.translate.gemini_key" = "Gemini API 키";
+"settings.translate.gemini_key.description" = "이 기기에만 저장됩니다. Google AI Studio에서 발급받으세요.";
+"settings.translate.gemini_key.placeholder" = "AIza…";
+"settings.translate.gemini_model" = "Gemini 모델";

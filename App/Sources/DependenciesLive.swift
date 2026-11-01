@@ -63,7 +63,21 @@ enum LiveDependencies {
             // Availability is gated on the OS version inside IntelligenceAvailabilityLive;
             // on older systems the Settings section and Reader controls stay hidden.
             $0.intelligenceAvailability = IntelligenceAvailabilityLive()
-            $0.pageTranslator = PageTranslatorLive(llm: AppleTranslator())
+            // Engine chosen in Settings (Apple on-device vs Gemini cloud), read fresh per page so a
+            // change takes effect without relaunch. An optional build-time key (Info.plist
+            // `GeminiDefaultKey`) lets Gemini work before the user enters their own.
+            let bundledGeminiKey = (Bundle.main.object(forInfoDictionaryKey: "GeminiDefaultKey") as? String) ?? ""
+            let engineRouter = EngineRoutingTranslator(configProvider: {
+                let d = UserDefaults.standard
+                let engineRaw = d.string(forKey: SettingsFeature.translationEngineKey) ?? TranslationEngine.gemini.rawValue
+                return EngineRoutingTranslator.Config(
+                    engine: TranslationEngine(rawStringOrDefault: engineRaw),
+                    apiKey: d.string(forKey: SettingsFeature.geminiApiKeyKey) ?? "",
+                    model: d.string(forKey: SettingsFeature.geminiModelKey).flatMap { $0.isEmpty ? nil : $0 } ?? "gemini-flash-latest",
+                    defaultKey: bundledGeminiKey
+                )
+            })
+            $0.pageTranslator = PageTranslatorLive(llm: engineRouter)
         }
 
         let reconcile = LibraryReconcileService(repo: comicRepo, importer: importer)

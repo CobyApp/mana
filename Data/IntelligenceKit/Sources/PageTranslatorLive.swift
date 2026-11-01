@@ -56,14 +56,18 @@ public struct PageTranslatorLive: PageTranslator {
             )
         }
 
-        // 3) Translate per-line. The LLM returns `nil` for any line it couldn't
+        // 2.5) Cluster per-line OCR boxes into speech-bubble units, so a bubble split across several
+        //      columns/lines becomes one plate with its text in manga reading order.
+        let bubbles = BubbleClusterer.cluster(boxes)
+
+        // 3) Translate per-bubble. The LLM returns `nil` for any item it couldn't
         //    handle (safety guardrail, transient failure). We just skip those —
-        //    the page still renders an overlay for the lines that did translate.
-        let inputs = boxes.map(\.text)
+        //    the page still renders an overlay for the bubbles that did translate.
+        let inputs = bubbles.map(\.text)
         let translated = await llm.translateLines(inputs, from: Self.sourceLanguage, to: targetLanguage)
 
-        // 4) Sample a background color per line and assemble — drop nil translations.
-        let lines: [TranslatedLine] = zip(boxes, translated).compactMap { box, t in
+        // 4) Sample a background color per bubble and assemble — drop nil translations.
+        let lines: [TranslatedLine] = zip(bubbles, translated).compactMap { box, t in
             guard let t else { return nil }
             let argb = sampler.sample(imageData: imageData, normalizedBox: box.boundingBox)
             return TranslatedLine(original: box, translated: t, backgroundColorARGB: argb)

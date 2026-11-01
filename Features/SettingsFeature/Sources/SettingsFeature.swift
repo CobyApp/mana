@@ -14,6 +14,10 @@ public struct SettingsFeature {
         public var appLanguage: AppLanguage
         public var isIntelligenceAvailable: Bool
         public var autoTranslateEnabled: Bool
+        /// Which engine translates recognized manga text (Apple on-device vs Gemini cloud).
+        public var translationEngine: TranslationEngine
+        public var geminiApiKey: String
+        public var geminiModel: String
         @Presents public var resetAlert: AlertState<Action.ResetAlert>?
 
         public init(
@@ -22,7 +26,10 @@ public struct SettingsFeature {
             defaultPageOffset: Bool = false,
             appLanguage: AppLanguage = .system,
             isIntelligenceAvailable: Bool = false,
-            autoTranslateEnabled: Bool = false
+            autoTranslateEnabled: Bool = false,
+            translationEngine: TranslationEngine = .gemini,
+            geminiApiKey: String = "",
+            geminiModel: String = "gemini-flash-latest"
         ) {
             self.defaultMode = defaultMode
             self.defaultPageProgressionDirection = defaultPageProgressionDirection
@@ -30,6 +37,9 @@ public struct SettingsFeature {
             self.appLanguage = appLanguage
             self.isIntelligenceAvailable = isIntelligenceAvailable
             self.autoTranslateEnabled = autoTranslateEnabled
+            self.translationEngine = translationEngine
+            self.geminiApiKey = geminiApiKey
+            self.geminiModel = geminiModel
         }
     }
 
@@ -40,6 +50,9 @@ public struct SettingsFeature {
         case defaultPageOffsetChanged(Bool)
         case appLanguageChanged(AppLanguage)
         case autoTranslateChanged(Bool)
+        case translationEngineChanged(TranslationEngine)
+        case geminiApiKeyChanged(String)
+        case geminiModelChanged(String)
         case resetLibraryRequested
         case resetAlert(PresentationAction<ResetAlert>)
         case resetLibraryCompleted
@@ -75,6 +88,15 @@ public struct SettingsFeature {
                 } else {
                     state.autoTranslateEnabled = false
                 }
+                if let raw = defaults.string(forKey: Self.translationEngineKey) {
+                    state.translationEngine = TranslationEngine(rawStringOrDefault: raw)
+                }
+                if let key = defaults.string(forKey: Self.geminiApiKeyKey) {
+                    state.geminiApiKey = key
+                }
+                if let model = defaults.string(forKey: Self.geminiModelKey), !model.isEmpty {
+                    state.geminiModel = model
+                }
                 return .none
 
             case let .defaultModeChanged(mode):
@@ -102,6 +124,21 @@ public struct SettingsFeature {
             case let .autoTranslateChanged(enabled):
                 state.autoTranslateEnabled = enabled
                 defaults.set(enabled ? "true" : "false", forKey: Self.autoTranslateKey)
+                return .none
+
+            case let .translationEngineChanged(engine):
+                state.translationEngine = engine
+                defaults.set(engine.rawValue, forKey: Self.translationEngineKey)
+                return .none
+
+            case let .geminiApiKeyChanged(key):
+                state.geminiApiKey = key
+                defaults.set(key, forKey: Self.geminiApiKeyKey)
+                return .none
+
+            case let .geminiModelChanged(model):
+                state.geminiModel = model
+                defaults.set(model, forKey: Self.geminiModelKey)
                 return .none
 
             case .resetLibraryRequested:
@@ -141,6 +178,9 @@ public struct SettingsFeature {
     public static let pageOffsetKey = "mana.defaultPageOffset"
     public static let languageKey = "mana.appLanguage"
     public static let autoTranslateKey = "mana.autoTranslateEnabled"
+    public static let translationEngineKey = "mana.translationEngine"
+    public static let geminiApiKeyKey = "mana.geminiApiKey"
+    public static let geminiModelKey = "mana.geminiModel"
 }
 
 public enum AppLanguage: String, Sendable, Equatable, CaseIterable {

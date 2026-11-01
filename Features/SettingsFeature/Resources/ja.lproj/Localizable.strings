@@ -36,3 +36,11 @@
 "settings.translate.on" = "オン";
 "settings.translate.off" = "オフ";
 "settings.translate.description" = "対応デバイスでのみ表示されます。";
+"settings.translate.engine" = "エンジン";
+"settings.translate.engine.description" = "Apple は端末内で動作します。Gemini は API キーとインターネットが必要で、より高品質です。";
+"settings.translate.engine.apple" = "Apple";
+"settings.translate.engine.gemini" = "Gemini";
+"settings.translate.gemini_key" = "Gemini API キー";
+"settings.translate.gemini_key.description" = "この端末にのみ保存されます。Google AI Studio で取得してください。";
+"settings.translate.gemini_key.placeholder" = "AIza…";
+"settings.translate.gemini_model" = "Gemini モデル";
