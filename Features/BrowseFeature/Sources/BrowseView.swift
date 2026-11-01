@@ -21,7 +21,7 @@ public struct BrowseView: View {
         self.store = store
     }
 
-    private let columns = [GridItem(.adaptive(minimum: 110, maximum: 160), spacing: 12)]
+    private let columns = [GridItem(.adaptive(minimum: 110, maximum: 160), spacing: 12, alignment: .top)]
 
     public var body: some View {
         ZStack {
@@ -156,8 +156,11 @@ public struct BrowseView: View {
     private func cell(_ manga: SourceManga) -> some View {
         Button { store.send(.mangaTapped(manga)) } label: {
             VStack(alignment: .leading, spacing: 6) {
-                SourceImage(url: manga.coverURL, headers: store.imageHeaders)
+                // Fixed 2:3 frame; the cover fills it and is cropped so wide art can't overflow.
+                Color.clear
                     .aspectRatio(2.0 / 3.0, contentMode: .fit)
+                    .overlay { SourceImage(url: manga.coverURL, headers: store.imageHeaders) }
+                    .clipped()
                     .overlay(Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: 1.5))
                 Text(verbatim: manga.title)
                     .font(Tokens.Typography.caption)

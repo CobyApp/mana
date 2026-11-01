@@ -87,7 +87,6 @@ enum LiveDependencies {
         ContinueReadingWidgetBridge(progressRepo: progressRepo, comicRepo: comicRepo).start()
 
         // Surface and auto-resume any downloads interrupted by a previous app kill.
-        downloadNotifier.requestAuthorization()
         Task {
             await downloadManager.restore()
             downloadManager.resumePending()

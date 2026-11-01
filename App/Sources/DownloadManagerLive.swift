@@ -138,6 +138,8 @@ public final class DownloadManagerLive: DownloadManager, @unchecked Sendable {
         lock.unlock()
         emitActive()
         if persist {
+            // Ask for notification permission on the first user-initiated download, not at launch.
+            notifier.requestAuthorization()
             let record = PersistedDownload(chapterURL: chapterURL, seriesURL: seriesURL, seriesTitle: seriesTitle,
                                            chapterName: chapterName, seriesCoverURL: seriesCoverURL, enqueuedAt: Date())
             Task { await store.add(record) }

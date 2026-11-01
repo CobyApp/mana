@@ -69,9 +69,10 @@ public struct MangaDetailView: View {
 
     private var header: some View {
         HStack(alignment: .top, spacing: 14) {
-            SourceImage(url: store.detail?.coverURL ?? store.preview?.coverURL, headers: store.imageHeaders)
-                .aspectRatio(2.0 / 3.0, contentMode: .fit)
-                .frame(width: 120)
+            Color.clear
+                .frame(width: 120, height: 180)
+                .overlay { SourceImage(url: store.detail?.coverURL ?? store.preview?.coverURL, headers: store.imageHeaders) }
+                .clipped()
                 .overlay(Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: 2))
             VStack(alignment: .leading, spacing: 8) {
                 Text(verbatim: store.detail?.title ?? store.preview?.title ?? "")
