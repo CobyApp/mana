@@ -25,6 +25,10 @@ public struct AppView: View {
                 BrowseView(store: browseStore)
             case let .mangaDetail(detailStore):
                 MangaDetailView(store: detailStore)
+            case let .downloads(downloadsStore):
+                DownloadsView(store: downloadsStore)
+            case let .onlineReader(onlineStore):
+                OnlineReaderView(store: onlineStore)
             }
         }
         .environment(\.locale, locale(for: store.appLanguage))

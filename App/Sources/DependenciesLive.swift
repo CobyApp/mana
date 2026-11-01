@@ -7,9 +7,11 @@ import PersistenceKit
 import ImageCacheKit
 import ThumbnailKit
 import AppFeature
+import BrowseFeature
 import LibraryFeature
 import ReaderFeature
 import SettingsFeature
+import SourceKit
 
 enum LiveDependencies {
     static func register() {
@@ -41,6 +43,20 @@ enum LiveDependencies {
             repo: comicRepo, router: router, cache: cache, thumbnails: thumbnails
         )
         let translationCache = TranslationCacheLive(stack: stack)
+
+        // Online source + download stack.
+        let source = RawkumaSource()
+        let sourceRegistry = RawkumaRegistry(rawkuma: source)
+        let sourceHTTP = SourceHTTP()
+        let chapterDownloader = ChapterDownloaderLive(
+            source: source, http: sourceHTTP, importer: importer, comicRepo: comicRepo, folderRepo: folderRepo
+        )
+        let downloadNotifier = DownloadNotifier()
+        let downloadQueueStore = DownloadQueueStoreLive()
+        let downloadManager = DownloadManagerLive(
+            downloader: chapterDownloader, store: downloadQueueStore, notifier: downloadNotifier
+        )
+        let readChapterRepo = ReadChapterRepositoryLive()
         let libraryReset = LibraryResetServiceLive(
             comicRepo: comicRepo,
             folderRepo: folderRepo,
@@ -78,11 +94,21 @@ enum LiveDependencies {
                 )
             })
             $0.pageTranslator = PageTranslatorLive(llm: engineRouter)
+            $0.sourceRegistry = sourceRegistry
+            $0.downloadManager = downloadManager
+            $0.readChapterRepository = readChapterRepo
         }
 
         let reconcile = LibraryReconcileService(repo: comicRepo, importer: importer)
         Task.detached(priority: .utility) {
             await reconcile.reconcile()
+        }
+
+        // Surface and auto-resume any downloads interrupted by a previous app kill.
+        downloadNotifier.requestAuthorization()
+        Task {
+            await downloadManager.restore()
+            downloadManager.resumePending()
         }
     }
 }

@@ -44,7 +44,8 @@ let project = Project(
                 .project(target: "ThumbnailKit", path: "../Data/ThumbnailKit"),
                 .project(target: "Domain", path: "../Domain"),
                 .project(target: "DesignSystem", path: "../DesignSystem"),
-                .external(name: "ComposableArchitecture")
+                .external(name: "ComposableArchitecture"),
+                .external(name: "ZIPFoundation")
             ],
             settings: .settings(base: appBaseSettings)
         ),

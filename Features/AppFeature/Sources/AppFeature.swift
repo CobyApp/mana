@@ -17,6 +17,8 @@ public struct AppFeature {
         case settings(SettingsFeature)
         case browse(BrowseFeature)
         case mangaDetail(MangaDetailFeature)
+        case downloads(DownloadsFeature)
+        case onlineReader(OnlineReaderFeature)
     }
 
     @ObservableState
@@ -101,8 +103,16 @@ public struct AppFeature {
                 state.path.append(.browse(BrowseFeature.State()))
                 return .none
 
+            case .library(.downloadsTapped):
+                state.path.append(.downloads(DownloadsFeature.State()))
+                return .none
+
             case let .path(.element(id: _, action: .browse(.mangaTapped(manga)))):
                 state.path.append(.mangaDetail(MangaDetailFeature.State(mangaURL: manga.url, preview: manga)))
+                return .none
+
+            case let .path(.element(id: _, action: .mangaDetail(.chapterTapped(chapter)))):
+                state.path.append(.onlineReader(OnlineReaderFeature.State(chapterURL: chapter.url, title: chapter.name)))
                 return .none
 
             case .library, .path:

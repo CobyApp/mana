@@ -24,6 +24,7 @@ public actor FolderRepositoryLive: FolderRepository {
         if let existing = try context.fetch(descriptor).first {
             existing.name = folder.name
             existing.dateAdded = folder.dateAdded
+            existing.sourceURL = folder.sourceURL
         } else {
             context.insert(FolderEntity.from(folder))
         }
