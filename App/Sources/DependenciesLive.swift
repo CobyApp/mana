@@ -83,6 +83,9 @@ enum LiveDependencies {
             await reconcile.reconcile()
         }
 
+        // Keep the "continue reading" home-screen widget in sync with reading progress.
+        ContinueReadingWidgetBridge(progressRepo: progressRepo, comicRepo: comicRepo).start()
+
         // Surface and auto-resume any downloads interrupted by a previous app kill.
         downloadNotifier.requestAuthorization()
         Task {

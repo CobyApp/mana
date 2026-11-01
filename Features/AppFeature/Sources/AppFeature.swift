@@ -41,9 +41,13 @@ public struct AppFeature {
         case task
         case library(LibraryFeature.Action)
         case path(StackActionOf<Path>)
+        /// Deep link (`noiz://comic/<id>` from the home-screen widget, `noiz://library`).
+        case openURL(URL)
+        case openComicResolved(ComicItem)
     }
 
     @Dependency(\.userDefaults) var userDefaults
+    @Dependency(\.comicRepository) var comicRepository
 
     public var body: some ReducerOf<Self> {
         Scope(state: \.library, action: \.library) {
@@ -83,6 +87,23 @@ public struct AppFeature {
 
             case let .path(.element(id: _, action: .settings(.appLanguageChanged(lang)))):
                 state.appLanguage = lang
+                return .none
+
+            case let .openURL(url):
+                guard url.scheme == "noiz" else { return .none }
+                if url.host() == "comic",
+                   let id = url.pathComponents.dropFirst().first.flatMap(UUID.init(uuidString:)) {
+                    let repo = self.comicRepository
+                    return .run { send in
+                        if let comic = await repo.comic(id: id) { await send(.openComicResolved(comic)) }
+                    }
+                }
+                state.path.removeAll()
+                return .none
+
+            case let .openComicResolved(comic):
+                state.path.removeAll()
+                state.path.append(.reader(ReaderFeature.State(comic: comic)))
                 return .none
 
             case .library(.browseTapped):

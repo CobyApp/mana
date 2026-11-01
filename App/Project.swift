@@ -29,7 +29,9 @@ let project = Project(
             resources: [
                 .glob(pattern: "Resources/**", excluding: ["Resources/Info.plist"])
             ],
+            entitlements: .file(path: "Mana.entitlements"),
             dependencies: [
+                .target(name: "ManaWidget"),
                 .project(target: "AppFeature", path: "../Features/AppFeature"),
                 .project(target: "BrowseFeature", path: "../Features/BrowseFeature"),
                 .project(target: "LibraryFeature", path: "../Features/LibraryFeature"),
@@ -45,6 +47,31 @@ let project = Project(
                 .project(target: "DesignSystem", path: "../DesignSystem"),
                 .external(name: "ComposableArchitecture"),
                 .external(name: "ZIPFoundation")
+            ],
+            settings: .settings(base: appBaseSettings)
+        ),
+        .target(
+            name: "ManaWidget",
+            destinations: .iOS,
+            product: .appExtension,
+            bundleId: "com.coby.mana.widget",
+            deploymentTargets: .iOS("17.0"),
+            infoPlist: .extendingDefault(with: [
+                "CFBundleDisplayName": "NOIZ",
+                "CFBundleShortVersionString": "$(MARKETING_VERSION)",
+                "CFBundleVersion": "$(CURRENT_PROJECT_VERSION)",
+                "CFBundleDevelopmentRegion": "ko",
+                "CFBundleLocalizations": ["ko", "ja", "en"],
+                "NSExtension": [
+                    "NSExtensionPointIdentifier": "com.apple.widgetkit-extension"
+                ]
+            ]),
+            sources: ["Widget/Sources/**"],
+            resources: ["Widget/Resources/**"],
+            entitlements: .file(path: "Widget/ManaWidget.entitlements"),
+            dependencies: [
+                .sdk(name: "WidgetKit", type: .framework),
+                .sdk(name: "SwiftUI", type: .framework)
             ],
             settings: .settings(base: appBaseSettings)
         ),

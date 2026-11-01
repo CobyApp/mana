@@ -27,6 +27,17 @@
   <key>ITSAppUsesNonExemptEncryption</key>
   <false/>
   <!-- AdMob app ID (real, from the AdMob console). Publisher pub-1120202923997022. -->
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key>
+      <string>com.coby.mana</string>
+      <key>CFBundleURLSchemes</key>
+      <array>
+        <string>noiz</string>
+      </array>
+    </dict>
+  </array>
   <key>GADApplicationIdentifier</key>
   <string>ca-app-pub-1120202923997022~1147432844</string>
   <key>NSUserTrackingUsageDescription</key>

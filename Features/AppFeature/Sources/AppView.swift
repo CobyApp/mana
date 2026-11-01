@@ -33,6 +33,7 @@ public struct AppView: View {
         }
         .environment(\.locale, locale(for: store.appLanguage))
         .task { await store.send(.task).finish() }
+        .onOpenURL { store.send(.openURL($0)) }
     }
 
     private func locale(for language: AppLanguage) -> Locale {
