@@ -16,78 +16,117 @@ private extension Bundle {
 public struct DownloadsView: View {
     @Bindable public var store: StoreOf<DownloadsFeature>
     @Environment(\.locale) private var locale
+    @Environment(\.dismiss) private var dismiss
 
     public init(store: StoreOf<DownloadsFeature>) {
         self.store = store
     }
 
     public var body: some View {
-        ZStack {
-            Tokens.Colors.paper.ignoresSafeArea()
-            if store.entries.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "arrow.down.circle").font(.system(size: 40, weight: .bold)).foregroundStyle(Tokens.Colors.ink.opacity(0.3))
-                    Text(verbatim: localized("downloads.empty")).font(Tokens.Typography.subtitle).foregroundStyle(Tokens.Colors.ink.opacity(0.6))
-                }
-            } else {
-                VStack(spacing: 0) {
-                    HStack(spacing: 10) {
-                        Button { store.send(.togglePause) } label: {
-                            pill(localized(store.paused ? "downloads.resume" : "downloads.pause"), accent: true)
-                        }.buttonStyle(.plain)
-                        Button { store.send(.cancelAll) } label: {
-                            pill(localized("downloads.cancel_all"), accent: false)
-                        }.buttonStyle(.plain)
-                        Spacer()
+        VStack(spacing: 0) {
+            BrowseChromeHeader(onBack: { dismiss() }) {
+                if !store.entries.isEmpty {
+                    Button { store.send(.togglePause) } label: {
+                        MangaIconBadge(systemName: store.paused ? "play.fill" : "pause.fill", isAccent: store.paused)
                     }
-                    .padding(.horizontal, 16).padding(.vertical, 10)
-                    ScrollView {
-                        LazyVStack(spacing: 0) {
-                            ForEach(store.entries) { entry in
-                                row(entry)
-                                Rectangle().fill(Tokens.Colors.ink.opacity(0.1)).frame(height: 1).padding(.horizontal, 16)
-                            }
+                    .buttonStyle(MangaPressStyle(haptic: .tick))
+                    Button { store.send(.cancelAll) } label: {
+                        MangaTextBadge(text: Text(verbatim: localized("downloads.cancel_all")))
+                    }
+                    .buttonStyle(MangaPressStyle())
+                }
+            }
+            BrowseChromeTitle(
+                title: localized("downloads.title"),
+                subtitle: store.paused ? localized("downloads.paused") : "\(store.entries.count)"
+            )
+            if store.entries.isEmpty {
+                BrowseCenterHint(text: localized("downloads.empty"))
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: Tokens.Spacing.s) {
+                        ForEach(store.entries) { entry in
+                            row(entry)
                         }
                     }
+                    .padding(Tokens.Spacing.m)
                 }
             }
         }
-        .navigationTitle(Text(verbatim: localized("downloads.title")))
-        .navigationBarTitleDisplayMode(.inline)
+        .browseScreenChrome()
         .task { await store.send(.task).finish() }
     }
 
     private func row(_ entry: DownloadEntry) -> some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(verbatim: entry.seriesTitle).font(Tokens.Typography.caption).foregroundStyle(Tokens.Colors.ink.opacity(0.6)).lineLimit(1)
-                Text(verbatim: entry.chapterName).font(Tokens.Typography.body).foregroundStyle(Tokens.Colors.ink).lineLimit(1)
-                Text(verbatim: statusText(entry.status)).font(Tokens.Typography.caption).foregroundStyle(Tokens.Colors.ink.opacity(0.5))
+        HStack(spacing: Tokens.Spacing.m) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(verbatim: entry.seriesTitle)
+                    .font(Tokens.Typography.caption)
+                    .foregroundStyle(Tokens.Colors.accent)
+                    .lineLimit(1)
+                Text(verbatim: entry.chapterName)
+                    .font(Tokens.Typography.title)
+                    .foregroundStyle(Tokens.Colors.ink)
+                    .lineLimit(1)
+                Spacer().frame(height: 6)
+                status(entry.status)
             }
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
+
             Button { store.send(.cancel(entry.chapterURL)) } label: {
-                Image(systemName: "xmark.circle").font(.system(size: 20)).foregroundStyle(Tokens.Colors.ink.opacity(0.6))
-            }.buttonStyle(.plain)
+                Image(systemName: "xmark")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Tokens.Colors.ink)
+                    .frame(width: 36, height: 36)
+                    .background(Tokens.Colors.paper)
+                    .overlay(Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: 1.5))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(MangaPressStyle())
         }
-        .padding(.horizontal, 16).padding(.vertical, 12)
+        .padding(Tokens.Spacing.m)
+        .background(Tokens.Colors.paper)
+        .overlay(Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.regular))
     }
 
-    private func statusText(_ status: ChapterDownloadStatus) -> String {
+    @ViewBuilder
+    private func status(_ status: ChapterDownloadStatus) -> some View {
         switch status {
-        case .queued: return localized("downloads.queued")
-        case let .running(done, total): return total > 0 ? "\(done)/\(total)" : "…"
-        case .failed: return "⚠︎"
+        case .queued:
+            statusText(localized("downloads.queued"), color: Tokens.Colors.ink.opacity(0.6))
+        case let .running(done, total):
+            DownloadProgressBar(fraction: total > 0 ? Double(done) / Double(total) : nil)
+            Spacer().frame(height: 4)
+            statusText(
+                total > 0 ? "\(done) / \(total)" : localized("downloads.preparing"),
+                color: Tokens.Colors.ink.opacity(0.7)
+            )
+        case .failed:
+            statusText(localized("downloads.failed"), color: Tokens.Colors.accent)
         }
     }
 
-    private func pill(_ text: String, accent: Bool) -> some View {
+    private func statusText(_ text: String, color: Color) -> some View {
         Text(verbatim: text)
-            .font(Tokens.Typography.caption)
-            .foregroundStyle(accent ? Tokens.Colors.paper : Tokens.Colors.ink)
-            .padding(.horizontal, 12).padding(.vertical, 7)
-            .background(accent ? Tokens.Colors.ink : Tokens.Colors.paper)
-            .overlay(Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: 1.2))
+            .font(Tokens.Typography.mono)
+            .foregroundStyle(color)
     }
 
     private func localized(_ key: String) -> String { Bundle.module.localized(key, for: locale) }
+}
+
+/// 8pt bar: 18% ink track, accent fill. `nil` fraction = indeterminate (static 30% like Android).
+struct DownloadProgressBar: View {
+    let fraction: Double?
+
+    var body: some View {
+        GeometryReader { geo in
+            Rectangle()
+                .fill(Tokens.Colors.accent)
+                .frame(width: geo.size.width * CGFloat(fraction.map { min(1, max(0.02, $0)) } ?? 0.3))
+        }
+        .frame(height: 8)
+        .frame(maxWidth: .infinity)
+        .background(Tokens.Colors.ink.opacity(0.18))
+    }
 }
