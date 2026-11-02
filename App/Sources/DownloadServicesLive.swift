@@ -5,6 +5,8 @@ import SourceKit
 import LibraryFeature
 import ZIPFoundation
 import UserNotifications
+import UIKit
+import ImageIO
 
 // MARK: - ChapterDownloader
 
@@ -84,6 +86,14 @@ public struct ChapterDownloaderLive: ChapterDownloader {
         defer { try? fm.removeItem(at: cbz) }
 
         let folder = try await findOrCreateFolder(name: ComicNaming.seriesFolderName(title: seriesTitle, url: seriesURL), sourceURL: seriesURL)
+        // Auto folder cover: the first time we download into a folder without a cover, use the
+        // online series' cover art (downsampled) so it shows the book cover. Failures are ignored.
+        if folder.coverImage == nil, let seriesCoverURL {
+            if let bytes = try? await http.getBytes(seriesCoverURL, headers: headers),
+               let cover = Self.downsampledJPEG(bytes, maxPixel: 512) {
+                try? await folderRepo.setCover(folderId: folder.id, image: cover)
+            }
+        }
         let imported = try await importer.importFiles([cbz], folderId: folder.id)
         guard let comic = imported.first else { throw DownloadError.importFailed }
 
@@ -128,6 +138,22 @@ public struct ChapterDownloaderLive: ChapterDownloader {
         let ext = (beforeQuery as NSString).pathExtension.lowercased()
         let ok = (1...4).contains(ext.count) && ext.allSatisfy { $0.isLetter || $0.isNumber }
         return ok ? ext : "jpg"
+    }
+
+    /// Decodes `data` at most `maxPixel` on its long edge (ImageIO thumbnailing, no full decode)
+    /// and re-encodes it as JPEG. Returns nil if the bytes aren't a decodable image.
+    static func downsampledJPEG(_ data: Data, maxPixel: Int) -> Data? {
+        guard !data.isEmpty,
+              let src = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary)
+        else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixel,
+        ]
+        guard let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, options as CFDictionary) else { return nil }
+        return UIImage(cgImage: cg).jpegData(compressionQuality: 0.85)
     }
 
     public enum DownloadError: Error, Sendable { case noPages, importFailed, fetchFailed(String) }
@@ -207,12 +233,41 @@ public struct DownloadNotifier: Sendable {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
+    /// Routes notification taps to `noiz://downloads` and lets completions show while the app is
+    /// in the foreground.
+
+    public func installTapHandler() {
+        UNUserNotificationCenter.current().delegate = DownloadNotificationDelegate.shared
+    }
+
     public func notifyCompleted(series: String, chapter: String) {
         let content = UNMutableNotificationContent()
         content.title = series
         content.body = chapter
+        content.userInfo = ["url": "noiz://downloads"]
+        content.threadIdentifier = series
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
+    }
+}
+
+final class DownloadNotificationDelegate: NSObject, UNUserNotificationCenterDelegate, @unchecked Sendable {
+    static let shared = DownloadNotificationDelegate()
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        [.banner, .list]
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        guard let raw = response.notification.request.content.userInfo["url"] as? String,
+              let url = URL(string: raw) else { return }
+        await MainActor.run { UIApplication.shared.open(url) }
     }
 }
 

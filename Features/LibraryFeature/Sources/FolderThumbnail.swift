@@ -2,66 +2,31 @@ import SwiftUI
 import Domain
 import DesignSystem
 
+/// Single folder cover (Android `FolderThumbnail`): the folder's custom cover, else the most
+/// recently added comic's cover (resolved by `LibraryFeature.State.coverData(for:)`), else a
+/// dense halftone placeholder.
 public struct FolderThumbnail: View {
-    let comicsInFolder: [ComicItem]
+    let cover: Data?
 
-    public init(comicsInFolder: [ComicItem]) {
-        self.comicsInFolder = comicsInFolder
+    public init(cover: Data?) {
+        self.cover = cover
     }
 
     public var body: some View {
-        let covers = comicsInFolder.prefix(4)
-        Group {
-            switch covers.count {
-            case 0:
-                placeholder
-            case 1:
-                cover(covers[covers.startIndex])
-            default:
-                grid(Array(covers))
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func cover(_ item: ComicItem) -> some View {
-        if let data = item.coverThumbnail, let img = UIImage(data: data) {
-            Image(uiImage: img).resizable().aspectRatio(contentMode: .fill)
+        if let cover, let img = UIImage(data: cover) {
+            Color.clear
+                .overlay {
+                    Image(uiImage: img)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                }
+                .clipped()
         } else {
-            placeholder
-        }
-    }
-
-    @ViewBuilder
-    private func grid(_ items: [ComicItem]) -> some View {
-        let padded = items + Array(repeating: nil as ComicItem?, count: max(0, 4 - items.count))
-        VStack(spacing: 2) {
-            HStack(spacing: 2) {
-                cell(padded[0])
-                cell(padded[1])
+            ZStack {
+                Tokens.Colors.paper
+                HalftoneBackground(spacing: Tokens.Halftone.denseDotSpacing,
+                                   radius: Tokens.Halftone.denseDotRadius)
             }
-            HStack(spacing: 2) {
-                cell(padded.count > 2 ? padded[2] : nil)
-                cell(padded.count > 3 ? padded[3] : nil)
-            }
-        }
-        .background(Tokens.Colors.ink)
-    }
-
-    @ViewBuilder
-    private func cell(_ item: ComicItem?) -> some View {
-        if let item, let data = item.coverThumbnail, let img = UIImage(data: data) {
-            Image(uiImage: img).resizable().aspectRatio(contentMode: .fill).clipped()
-        } else {
-            placeholder
-        }
-    }
-
-    private var placeholder: some View {
-        ZStack {
-            Tokens.Colors.paper
-            HalftoneBackground(spacing: Tokens.Halftone.denseDotSpacing,
-                               radius: Tokens.Halftone.denseDotRadius)
         }
     }
 }

@@ -35,4 +35,37 @@ import Domain
         let all = await repo.all()
         #expect(all.isEmpty)
     }
+
+    @Test func deleteDetachesComicsToRoot() async throws {
+        let stack = try SwiftDataStack.inMemory()
+        let repo = FolderRepositoryLive(stack: stack)
+        let comics = ComicRepositoryLive(stack: stack)
+        let folder = Folder(id: UUID(), name: "X", dateAdded: .init(timeIntervalSince1970: 0))
+        try await repo.upsert(folder)
+        let comic = ComicItem(id: UUID(), url: URL(fileURLWithPath: "/tmp/x.cbz"), format: .cbz, title: "C",
+                              pageCount: 1, coverThumbnail: nil, dateAdded: .init(timeIntervalSince1970: 0),
+                              fileSizeBytes: 0, folderId: folder.id)
+        try await comics.upsert(comic)
+        try await repo.delete(folder.id)
+        let stored = await comics.all()
+        #expect(stored.count == 1)
+        #expect(stored.first?.folderId == nil)
+    }
+
+    @Test func coverRoundTripsAndSurvivesRename() async throws {
+        let stack = try SwiftDataStack.inMemory()
+        let repo = FolderRepositoryLive(stack: stack)
+        let folder = Folder(id: UUID(), name: "X", dateAdded: .init(timeIntervalSince1970: 0), sourceURL: "s")
+        try await repo.upsert(folder)
+        try await repo.setCover(folderId: folder.id, image: Data([9, 8, 7]))
+        let withCover = try #require(await repo.all().first)
+        #expect(withCover.coverImage == Data([9, 8, 7]))
+        try await repo.upsert(withCover.renamed("Y"))
+        let renamed = try #require(await repo.all().first)
+        #expect(renamed.name == "Y")
+        #expect(renamed.sourceURL == "s")
+        #expect(renamed.coverImage == Data([9, 8, 7]))
+        try await repo.setCover(folderId: folder.id, image: nil)
+        #expect(await repo.all().first?.coverImage == nil)
+    }
 }

@@ -14,74 +14,45 @@ extension Bundle {
     }
 }
 
-public struct NewFolderSheetView: View {
+/// Text-entry dialog (new folder / rename folder / rename comic) shown in a `MangaDialogHost`.
+/// Field label + inked text field + optional "SUGGESTED" quick-fill chips.
+/// Ported from Android `ManaDialogs.NewFolderDialog`.
+struct NameEntryDialog: View {
     @Binding var name: String
     let titleKey: String
     let submitKey: String
+    let fieldLabelKey: String
     let placeholderKey: String
+    var suggestions: [String] = []
     var onSubmit: () -> Void
     var onCancel: () -> Void
 
     @FocusState private var fieldFocused: Bool
     @Environment(\.locale) private var locale
 
-    public init(
-        name: Binding<String>,
-        titleKey: String = "library.new_folder",
-        submitKey: String = "library.create",
-        placeholderKey: String = "library.folder_name_placeholder",
-        onSubmit: @escaping () -> Void,
-        onCancel: @escaping () -> Void
-    ) {
-        self._name = name
-        self.titleKey = titleKey
-        self.submitKey = submitKey
-        self.placeholderKey = placeholderKey
-        self.onSubmit = onSubmit
-        self.onCancel = onCancel
+    private var canSubmit: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    public var body: some View {
-        ZStack {
-            Tokens.Colors.paper.ignoresSafeArea()
-            HalftoneBackground().opacity(0.6).ignoresSafeArea()
-
-            VStack(alignment: .leading, spacing: Tokens.Spacing.l) {
-                header
-                fieldBlock
-                Spacer(minLength: 0)
-                buttonRow
-            }
-            .padding(Tokens.Spacing.l)
+    var body: some View {
+        MangaDialogPanel(
+            title: Bundle.module.localized(titleKey, for: locale),
+            cancelTitle: Bundle.module.localized("library.cancel", for: locale),
+            confirmTitle: Bundle.module.localized(submitKey, for: locale),
+            confirmIsAccent: canSubmit,
+            onCancel: onCancel,
+            onConfirm: { if canSubmit { onSubmit() } }
+        ) {
+            fieldBlock
         }
-        .presentationDetents([.medium])
-        .presentationBackground(Tokens.Colors.paper)
-        .presentationDragIndicator(.hidden)
         .onAppear { fieldFocused = true }
-    }
-
-    private var header: some View {
-        SoundEffectText(
-            sheetTitle.uppercased(),
-            font: Tokens.Typography.displayM,
-            fill: Tokens.Colors.accent,
-            stroke: Tokens.Colors.ink,
-            strokeWidth: 4,
-            tilt: -3,
-            shadowOffset: .init(width: 3, height: 4)
-        )
-    }
-
-    private var sheetTitle: String {
-        Bundle.module.localized(titleKey, for: locale)
     }
 
     private var fieldBlock: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("library.folder_name", bundle: .module)
+            Text(verbatim: Bundle.module.localized(fieldLabelKey, for: locale).uppercased())
                 .font(Tokens.Typography.caption)
                 .foregroundStyle(Tokens.Colors.ink.opacity(0.7))
-                .textCase(.uppercase)
 
             TextField(
                 Bundle.module.localized(placeholderKey, for: locale),
@@ -89,11 +60,10 @@ public struct NewFolderSheetView: View {
             )
             .focused($fieldFocused)
             .submitLabel(.done)
-            .onSubmit {
-                if !name.isEmpty { onSubmit() }
-            }
+            .onSubmit { if canSubmit { onSubmit() } }
             .font(Tokens.Typography.title)
             .foregroundStyle(Tokens.Colors.ink)
+            .tint(Tokens.Colors.accent)
             .padding(.horizontal, Tokens.Spacing.m)
             .padding(.vertical, Tokens.Spacing.s)
             .background(Tokens.Colors.paper)
@@ -105,40 +75,83 @@ public struct NewFolderSheetView: View {
                     .fill(Tokens.Colors.ink)
                     .offset(x: 4, y: 5)
             )
+
+            if !suggestions.isEmpty {
+                Text(verbatim: Bundle.module.localized("library.suggested", for: locale).uppercased())
+                    .font(Tokens.Typography.caption)
+                    .foregroundStyle(Tokens.Colors.ink.opacity(0.5))
+                    .padding(.top, 9) // 4pt gap + clear the field's 5pt ink shadow
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Tokens.Spacing.s) {
+                        ForEach(suggestions, id: \.self) { suggestion in
+                            Button { name = suggestion } label: {
+                                Text(verbatim: suggestion)
+                                    .font(Tokens.Typography.caption)
+                                    .foregroundStyle(Tokens.Colors.ink)
+                                    .lineLimit(1)
+                                    .padding(.horizontal, Tokens.Spacing.s)
+                                    .padding(.vertical, 6)
+                                    .background(Tokens.Colors.paper)
+                                    .overlay(Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.regular))
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(MangaPressStyle(haptic: .tick, pressedScale: 0.97))
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
         }
     }
+}
 
-    private var buttonRow: some View {
-        HStack(spacing: Tokens.Spacing.m) {
-            Button(action: onCancel) {
-                Text("library.cancel", bundle: .module)
-                    .font(Tokens.Typography.title)
-                    .foregroundStyle(Tokens.Colors.ink)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Tokens.Colors.paper)
-                    .overlay(Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.regular))
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
+/// Manga dialog panel without the bottom button row (move-to / folder-cover pickers):
+/// tilted title, then content. Same paper card, ink stroke and (6,7) shadow as `MangaDialogPanel`.
+struct BareMangaDialogPanel<Content: View>: View {
+    let title: String
+    @ViewBuilder var content: Content
 
-            Button(action: onSubmit) {
-                Text(LocalizedStringKey(submitKey), bundle: .module)
-                    .font(Tokens.Typography.title)
-                    .foregroundStyle(name.isEmpty ? Tokens.Colors.ink.opacity(0.45) : Tokens.Colors.paper)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(name.isEmpty ? Tokens.Colors.paper : Tokens.Colors.accent)
-                    .overlay(Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.regular))
-                    .background(
-                        Rectangle()
-                            .fill(Tokens.Colors.ink)
-                            .offset(x: 4, y: 5)
-                    )
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(name.isEmpty)
+    var body: some View {
+        VStack(alignment: .leading, spacing: Tokens.Spacing.m) {
+            SoundEffectText(
+                title.uppercased(),
+                font: Tokens.Typography.displayM,
+                fill: Tokens.Colors.accent,
+                stroke: Tokens.Colors.ink,
+                strokeWidth: 4,
+                tilt: -3,
+                shadowOffset: .init(width: 3, height: 4)
+            )
+            content
         }
+        .padding(Tokens.Spacing.l)
+        .frame(maxWidth: 420)
+        .background(Tokens.Colors.paper)
+        .overlay(Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.regular))
+        .background(Rectangle().fill(Tokens.Colors.ink).offset(x: 6, y: 7))
+    }
+}
+
+/// Vertical scroll view that hugs its content height up to `maxHeight`, then scrolls
+/// (Compose `Modifier.heightIn(max =).verticalScroll()`).
+struct CappedScrollView<Content: View>: View {
+    let maxHeight: CGFloat
+    @ViewBuilder var content: Content
+    @State private var contentHeight: CGFloat = 0
+
+    var body: some View {
+        ScrollView(.vertical, showsIndicators: true) {
+            content
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear
+                            .onAppear { contentHeight = proxy.size.height }
+                            .onChange(of: proxy.size.height) { _, h in contentHeight = h }
+                    }
+                )
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .frame(height: contentHeight > 0 ? min(contentHeight, maxHeight) : nil)
+        .frame(maxHeight: maxHeight)
     }
 }

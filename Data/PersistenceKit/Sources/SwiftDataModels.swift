@@ -103,20 +103,26 @@ public final class FolderEntity {
     /// Online series URL this folder was downloaded from, if any (SwiftData lightweight migration:
     /// optional, defaults to nil for existing rows).
     public var sourceURL: String?
+    /// Custom folder cover (lightweight migration: optional, nil for existing rows).
+    @Attribute(.externalStorage) public var coverImage: Data?
 
-    public init(id: UUID, name: String, dateAdded: Date, sourceURL: String? = nil) {
+    public init(id: UUID, name: String, dateAdded: Date, sourceURL: String? = nil, coverImage: Data? = nil) {
         self.id = id
         self.name = name
         self.dateAdded = dateAdded
         self.sourceURL = sourceURL
+        self.coverImage = coverImage
     }
 
     public func toModel() -> Folder {
-        Folder(id: id, name: name, dateAdded: dateAdded, sourceURL: sourceURL)
+        Folder(id: id, name: name, dateAdded: dateAdded, sourceURL: sourceURL, coverImage: coverImage)
     }
 
     public static func from(_ folder: Folder) -> FolderEntity {
-        FolderEntity(id: folder.id, name: folder.name, dateAdded: folder.dateAdded, sourceURL: folder.sourceURL)
+        FolderEntity(
+            id: folder.id, name: folder.name, dateAdded: folder.dateAdded,
+            sourceURL: folder.sourceURL, coverImage: folder.coverImage
+        )
     }
 }
 
