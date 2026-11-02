@@ -6,15 +6,6 @@ import LibraryFeature
 import ZIPFoundation
 import UserNotifications
 
-// MARK: - Array chunking
-
-private extension Array {
-    func chunked(_ size: Int) -> [[Element]] {
-        guard size > 0 else { return [self] }
-        return stride(from: 0, to: count, by: size).map { Array(self[$0..<Swift.min($0 + size, count)]) }
-    }
-}
-
 // MARK: - ChapterDownloader
 
 /// Downloads a chapter's page images (with the source's required headers), packs them into a
@@ -27,7 +18,7 @@ public struct ChapterDownloaderLive: ChapterDownloader {
     private let comicRepo: any ComicRepository
     private let folderRepo: any FolderRepository
 
-    private static let maxConcurrentPages = 6
+    private static let maxConcurrentPages = 8
     private static let maxFetchAttempts = 3
     private static let retryBackoffMillis: UInt64 = 600
 
@@ -64,23 +55,25 @@ public struct ChapterDownloaderLive: ChapterDownloader {
         try fm.createDirectory(at: tmp, withIntermediateDirectories: true)
         defer { try? fm.removeItem(at: tmp) }
 
-        var written = 0
-        for (chunkIndex, chunk) in urls.chunked(Self.maxConcurrentPages).enumerated() {
-            let fetched = try await withThrowingTaskGroup(of: (Int, Data).self) { group -> [Int: Data] in
-                for (i, u) in chunk.enumerated() {
-                    group.addTask { (i, try await fetchPage(u, headers: headers)) }
-                }
-                var dict: [Int: Data] = [:]
-                for try await (i, data) in group { dict[i] = data }
-                return dict
+        // Sliding window: keep `maxConcurrentPages` fetches in flight at all times so one slow page
+        // doesn't stall a whole batch, and write each page to disk as soon as it lands.
+        try await withThrowingTaskGroup(of: (Int, Data).self) { group in
+            var next = 0
+            func addNext() {
+                guard next < total else { return }
+                let index = next
+                let url = urls[index]
+                group.addTask { (index, try await fetchPage(url, headers: headers)) }
+                next += 1
             }
-            for i in 0..<chunk.count {
-                guard let data = fetched[i] else { continue }
-                let index = chunkIndex * Self.maxConcurrentPages + i
+            for _ in 0..<min(Self.maxConcurrentPages, total) { addNext() }
+            var written = 0
+            while let (index, data) = try await group.next() {
                 let name = String(format: "%03d.%@", index + 1, extensionOf(urls[index]))
                 try data.write(to: tmp.appending(path: name))
                 written += 1
                 onProgress(written, total)
+                addNext()
             }
         }
 
@@ -112,7 +105,11 @@ public struct ChapterDownloaderLive: ChapterDownloader {
         for attempt in 0..<Self.maxFetchAttempts {
             do {
                 return try await http.getBytes(url, headers: headers)
+            } catch let SourceHTTP.HTTPError.status(code, _) where (400..<500).contains(code) && code != 408 && code != 429 {
+                // Permanent client error (missing page, forbidden) — retrying won't help.
+                throw DownloadError.fetchFailed(url)
             } catch {
+                try Task.checkCancellation()
                 lastError = error
                 if attempt < Self.maxFetchAttempts - 1 {
                     try? await Task.sleep(nanoseconds: Self.retryBackoffMillis * UInt64(attempt + 1) * 1_000_000)
@@ -123,11 +120,7 @@ public struct ChapterDownloaderLive: ChapterDownloader {
     }
 
     private func findOrCreateFolder(name: String, sourceURL: String) async throws -> Folder {
-        let all = await folderRepo.all()
-        if let existing = all.first(where: { $0.name == name }) { return existing }
-        let folder = Folder(id: UUID(), name: name, dateAdded: Date(), sourceURL: sourceURL)
-        try await folderRepo.upsert(folder)
-        return folder
+        try await SeriesFolderGate.shared.findOrCreate(name: name, sourceURL: sourceURL, repo: folderRepo)
     }
 
     private func extensionOf(_ url: String) -> String {
@@ -138,6 +131,29 @@ public struct ChapterDownloaderLive: ChapterDownloader {
     }
 
     public enum DownloadError: Error, Sendable { case noPages, importFailed, fetchFailed(String) }
+}
+
+/// Serialises series-folder lookup/creation so two chapters of the same series downloading in
+/// parallel can't both create the folder.
+private actor SeriesFolderGate {
+    static let shared = SeriesFolderGate()
+
+    /// Actor methods are re-entrant across `await`, so chain each call behind the previous one.
+    private var tail: Task<Void, Never>?
+
+    func findOrCreate(name: String, sourceURL: String, repo: any FolderRepository) async throws -> Folder {
+        let previous = tail
+        let work = Task { () async throws -> Folder in
+            await previous?.value
+            let all = await repo.all()
+            if let existing = all.first(where: { $0.name == name }) { return existing }
+            let folder = Folder(id: UUID(), name: name, dateAdded: Date(), sourceURL: sourceURL)
+            try await repo.upsert(folder)
+            return folder
+        }
+        tail = Task { _ = try? await work.value }
+        return try await work.value
+    }
 }
 
 // MARK: - DownloadQueueStore

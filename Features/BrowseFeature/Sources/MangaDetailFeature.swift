@@ -130,10 +130,12 @@ public struct MangaDetailFeature {
                     case .failed: failed.insert(e.chapterURL)
                     }
                 }
+                // A completion drops out of the queue → recompute which chapters are now downloaded.
+                // Progress ticks alone don't change that, so skip the library scan for them.
+                let finished = !Set(state.downloading.keys).subtracting(downloading.keys).isEmpty
                 state.downloading = downloading
                 state.failed = failed
-                // A completion drops out of the queue → recompute which chapters are now downloaded.
-                if let detail = state.detail { return computeDownloaded(detail) }
+                if finished, let detail = state.detail { return computeDownloaded(detail) }
                 return .none
 
             case let .readUpdated(urls):

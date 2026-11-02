@@ -55,7 +55,11 @@ public struct OnlineReaderView: View {
             return nil
         }
         let binding = Binding<Int>(get: { store.pageIndex }, set: { store.send(.pageChanged($0)) })
-        let hint: (Int) -> Void = { _ in }
+        // Warm the next few pages so page turns are instant.
+        let hint: (Int) -> Void = { idx in
+            let upcoming = urls.indices.filter { $0 > idx && $0 <= idx + 4 }.map { urls[$0] }
+            RemoteImageLoader.shared.prefetch(upcoming, headers: headers)
+        }
         let centerTap: () -> Void = { store.send(.toggleControls) }
 
         switch store.mode {

@@ -20,6 +20,9 @@ public struct SourceHTTP: Sendable {
             config.timeoutIntervalForRequest = 30
             config.timeoutIntervalForResource = 45
             config.requestCachePolicy = .reloadIgnoringLocalCacheData
+            // Downloads run several chapters × pages at once against the same image host.
+            config.httpMaximumConnectionsPerHost = 16
+            config.urlCache = nil
             self.session = URLSession(configuration: config)
         }
     }

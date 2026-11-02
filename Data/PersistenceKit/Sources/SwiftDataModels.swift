@@ -45,12 +45,25 @@ public final class ComicEntity {
         self.pageOffset = pageOffset
     }
 
+    /// The app container's path changes across reinstalls/some updates, so an absolute URL stored
+    /// earlier can point into a container that no longer exists. Re-root files that live in the
+    /// app's library folder onto the current container.
+    static func currentContainerURL(_ urlString: String) -> URL {
+        let stored = URL(string: urlString) ?? URL(fileURLWithPath: urlString)
+        let marker = "/Application Support/Mana Library/"
+        let path = stored.path
+        guard stored.isFileURL, let range = path.range(of: marker) else { return stored }
+        let library = URL.applicationSupportDirectory.appending(path: "Mana Library")
+        guard !path.hasPrefix(library.path) else { return stored }
+        return library.appending(path: String(path[range.upperBound...]))
+    }
+
     public func toModel() -> ComicItem {
         let mode = readingModeRaw.flatMap { ReadingMode(rawString: $0) }
         let direction = pageProgressionDirectionRaw.flatMap { PageProgressionDirection(rawValue: $0) }
         return ComicItem(
             id: id,
-            url: URL(string: urlString) ?? URL(fileURLWithPath: urlString),
+            url: Self.currentContainerURL(urlString),
             format: ComicFormat(rawValue: formatRaw) ?? .zip,
             title: title,
             pageCount: pageCount,

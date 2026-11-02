@@ -1,10 +1,9 @@
 import Foundation
 import Domain
 
-/// App-scoped, sequential download queue. Survives leaving the detail screen, exposes the live
+/// App-scoped download queue (up to `maxWorkers` chapters at once). Survives leaving the detail screen, exposes the live
 /// queue (running first, then queued) as an `AsyncStream`, and persists the pending queue so an
-/// interrupted run resumes on next launch. Ported from Android `DefaultDownloadManager` (one worker
-/// instead of three). Completed chapters leave the list — the library folder then reflects
+/// interrupted run resumes on next launch. Ported from Android `DefaultDownloadManager`. Completed chapters leave the list — the library folder then reflects
 /// "downloaded".
 public final class DownloadManagerLive: DownloadManager, @unchecked Sendable {
     private struct Request: Sendable {
@@ -24,9 +23,9 @@ public final class DownloadManagerLive: DownloadManager, @unchecked Sendable {
     private var entries: [String: DownloadEntry] = [:]
     private var requests: [String: Request] = [:]
     private var cancelled: Set<String> = []
-    private var runningURL: String?
-    private var runningTask: Task<Void, Error>?
-    private var workerRunning = false
+    private static let maxWorkers = 2
+    private var runningTasks: [String: Task<Void, Error>] = [:]
+    private var workerCount = 0
     private var isPaused = false
     private var pendingRecords: [PersistedDownload] = []
     private var pendingEntries: [DownloadEntry] = []
@@ -149,8 +148,8 @@ public final class DownloadManagerLive: DownloadManager, @unchecked Sendable {
 
     public func cancel(chapterURL: String) {
         lock.lock()
-        let isRunningNow = (runningURL == chapterURL)
-        let task = runningTask
+        let task = runningTasks[chapterURL]
+        let isRunningNow = task != nil
         entries[chapterURL] = nil
         order.removeAll { $0 == chapterURL }
         requests[chapterURL] = nil
@@ -163,13 +162,13 @@ public final class DownloadManagerLive: DownloadManager, @unchecked Sendable {
 
     public func cancelAll() {
         lock.lock()
-        let task = runningTask
-        for url in order { cancelled.insert(url) }
+        let tasks = Array(runningTasks.values)
+        for url in order where runningTasks[url] == nil { cancelled.insert(url) }
         order.removeAll()
         entries.removeAll()
         requests.removeAll()
         lock.unlock()
-        task?.cancel()
+        for task in tasks { task.cancel() }
         Task { await store.clear() }
         emitActive()
     }
@@ -208,16 +207,28 @@ public final class DownloadManagerLive: DownloadManager, @unchecked Sendable {
 
     private func startWorkerIfNeeded() {
         lock.lock()
-        if workerRunning { lock.unlock(); return }
-        workerRunning = true
+        let queued = order.filter { entries[$0]?.status == .queued }.count
+        let toStart = min(Self.maxWorkers - workerCount, queued)
+        if toStart > 0 { workerCount += toStart }
         lock.unlock()
-        Task { await runLoop() }
+        for _ in 0..<max(0, toStart) { Task { await runLoop() } }
     }
 
-    private func nextQueued() -> Request? {
+    /// Atomically claims the next queued chapter (marking it running) so parallel workers never
+    /// pick the same one. Chapters cancelled while queued are dropped here.
+    private func claimNext() -> (request: Request?, skipped: [String]) {
         withLockSync {
-            for url in order where entries[url]?.status == .queued { return requests[url] }
-            return nil
+            var skipped: [String] = []
+            for url in order where entries[url]?.status == .queued {
+                guard let request = requests[url] else { continue }
+                if cancelled.remove(url) != nil {
+                    skipped.append(url)
+                    continue
+                }
+                entries[url] = DownloadEntry(chapterURL: url, seriesTitle: request.series, chapterName: request.chapter, status: .running(done: 0, total: 0))
+                return (request, skipped)
+            }
+            return (nil, skipped)
         }
     }
 
@@ -225,8 +236,14 @@ public final class DownloadManagerLive: DownloadManager, @unchecked Sendable {
         while true {
             // Honour pause between chapters.
             while paused { try? await Task.sleep(nanoseconds: 300_000_000) }
-            guard let request = nextQueued() else {
-                withLockSync { workerRunning = false }
+            let (request, skipped) = claimNext()
+            for url in skipped {
+                withLockSync { entries[url] = nil; order.removeAll { $0 == url } }
+                await store.remove(chapterURL: url)
+            }
+            guard let request else {
+                withLockSync { workerCount -= 1 }
+                emitActive()
                 return
             }
             await process(request)
@@ -234,20 +251,6 @@ public final class DownloadManagerLive: DownloadManager, @unchecked Sendable {
     }
 
     private func process(_ request: Request) async {
-        let skip: Bool = withLockSync {
-            if cancelled.remove(request.url) != nil {
-                entries[request.url] = nil; order.removeAll { $0 == request.url }
-                return true
-            }
-            entries[request.url] = DownloadEntry(chapterURL: request.url, seriesTitle: request.series, chapterName: request.chapter, status: .running(done: 0, total: 0))
-            runningURL = request.url
-            return false
-        }
-        if skip {
-            emitActive()
-            await store.remove(chapterURL: request.url)
-            return
-        }
         emitActive()
 
         let task = Task<Void, Error> {
@@ -258,12 +261,15 @@ public final class DownloadManagerLive: DownloadManager, @unchecked Sendable {
                 self?.updateProgress(url: request.url, series: request.series, chapter: request.chapter, done: done, total: total)
             }
         }
-        withLockSync { runningTask = task }
+        let cancelledEarly: Bool = withLockSync {
+            runningTasks[request.url] = task
+            return entries[request.url] == nil
+        }
+        if cancelledEarly { task.cancel() }
 
         let result = await task.result
         withLockSync {
-            runningURL = nil
-            runningTask = nil
+            runningTasks[request.url] = nil
             let wasCancelled = (entries[request.url] == nil)
             switch result {
             case .success:
