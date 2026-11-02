@@ -2,6 +2,7 @@ import SwiftUI
 import UIKit
 import Domain
 import SharedUI
+import DesignSystem
 
 public struct SinglePageRenderer: View, PageRenderer {
     let totalPages: Int
@@ -13,9 +14,13 @@ public struct SinglePageRenderer: View, PageRenderer {
     let swipeEnabled: Bool
     let onCenterTap: () -> Void
     let pageOverlay: ((Int) -> AnyView)?
+    /// Optional extra page shown after the last one (e.g. the "next chapter" card). It is
+    /// purely visual: `current` stays on the last real page while it's showing.
+    let endPage: AnyView?
 
     @State private var image: UIImage?
     @State private var loadingIndex: Int?
+    @State private var showingEnd = false
 
     public init(
         totalPages: Int,
@@ -27,7 +32,8 @@ public struct SinglePageRenderer: View, PageRenderer {
         swipeEnabled: Bool = true,
         onCenterTap: @escaping () -> Void = {},
         pageOffset: Bool = false,
-        pageOverlay: ((Int) -> AnyView)? = nil
+        pageOverlay: ((Int) -> AnyView)? = nil,
+        endPage: AnyView? = nil
     ) {
         self.totalPages = totalPages
         self._current = current
@@ -39,11 +45,18 @@ public struct SinglePageRenderer: View, PageRenderer {
         self.onCenterTap = onCenterTap
         _ = pageOffset
         self.pageOverlay = pageOverlay
+        self.endPage = endPage
     }
 
     public var body: some View {
         ZStack {
-            if let image {
+            if showingEnd, let endPage {
+                EndPageContainer(
+                    content: endPage,
+                    onLeftTap: { handleLeftTap() },
+                    onRightTap: { handleRightTap() }
+                )
+            } else if let image {
                 ZoomableImageView(
                     image: image,
                     onLeftTap: tapZonesEnabled ? { handleLeftTap() } : nil,
@@ -59,6 +72,7 @@ public struct SinglePageRenderer: View, PageRenderer {
         .task(id: current) {
             await load(current)
         }
+        .onChange(of: current) { _, _ in showingEnd = false }
     }
 
     private var swipeGesture: some Gesture {
@@ -81,7 +95,16 @@ public struct SinglePageRenderer: View, PageRenderer {
     }
 
     private func applyDelta(_ delta: Int) {
+        if showingEnd {
+            if delta < 0 { showingEnd = false; MangaHaptic.tick.play() }
+            return
+        }
         let target = current + delta
+        if target == totalPages, endPage != nil {
+            showingEnd = true
+            MangaHaptic.tick.play()
+            return
+        }
         guard target >= 0, target < totalPages else { return }
         current = target
     }

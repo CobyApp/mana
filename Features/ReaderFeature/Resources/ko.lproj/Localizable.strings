@@ -18,3 +18,10 @@
 "translate.off" = "끄기";
 "mode.webtoon"             = "웹툰";
 "reader.next_chapter"      = "다음 화";
+"reader.read_next"         = "이어보기 →";
+"reader.back_to_library"   = "라이브러리로";
+"reader.go_to_page"        = "페이지 이동";
+"reader.jump.go"           = "이동";
+"reader.jump.cancel"       = "취소";
+"reader.load_failed"       = "챕터를 불러오지 못했어요.";
+"reader.retry"             = "다시 시도";
