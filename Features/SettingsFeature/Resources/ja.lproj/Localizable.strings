@@ -28,10 +28,11 @@
 "settings.cancel"          = "キャンセル";
 "mode.single"              = "シングル";
 "mode.dual"                = "デュアル";
+"mode.webtoon"             = "縦読み";
 "direction.ltr"            = "左から右";
 "direction.rtl"            = "右から左";
-"settings.translate.section" = "自動翻訳";
-"settings.translate.toggle" = "ページ自動翻訳";
-"settings.translate.on" = "オン";
-"settings.translate.off" = "オフ";
-"settings.translate.description" = "対応デバイスでのみ表示されます。";
+"settings.display" = "表示";
+"settings.lite_mode" = "ライトモード";
+"settings.lite_mode.description" = "ハーフトーン・グリッチ・集中線の演出を切り、低スペック端末や電子ペーパーで軽快に動作させます。";
+"settings.on" = "オン";
+"settings.off" = "オフ";

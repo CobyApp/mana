@@ -28,10 +28,11 @@
 "settings.cancel"          = "Cancel";
 "mode.single"              = "Single page";
 "mode.dual"                = "Two pages";
+"mode.webtoon"             = "Webtoon";
 "direction.ltr"            = "Left to Right";
 "direction.rtl"            = "Right to Left";
-"settings.translate.section" = "Auto translation";
-"settings.translate.toggle" = "Translate pages automatically";
-"settings.translate.on" = "On";
-"settings.translate.off" = "Off";
-"settings.translate.description" = "Available on supported devices.";
+"settings.display" = "Display";
+"settings.lite_mode" = "Lite mode";
+"settings.lite_mode.description" = "Turns off halftone, glitch and speed-line effects for smoother performance or e-ink screens.";
+"settings.on" = "On";
+"settings.off" = "Off";

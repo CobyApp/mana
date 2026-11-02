@@ -2,14 +2,15 @@ import Foundation
 import ComposableArchitecture
 import Domain
 import ArchiveKit
-import IntelligenceKit
 import PersistenceKit
 import ImageCacheKit
 import ThumbnailKit
 import AppFeature
+import BrowseFeature
 import LibraryFeature
 import ReaderFeature
 import SettingsFeature
+import SourceKit
 
 enum LiveDependencies {
     static func register() {
@@ -41,6 +42,20 @@ enum LiveDependencies {
             repo: comicRepo, router: router, cache: cache, thumbnails: thumbnails
         )
         let translationCache = TranslationCacheLive(stack: stack)
+
+        // Online source + download stack.
+        let source = RawkumaSource()
+        let sourceRegistry = RawkumaRegistry(rawkuma: source)
+        let sourceHTTP = SourceHTTP()
+        let chapterDownloader = ChapterDownloaderLive(
+            source: source, http: sourceHTTP, importer: importer, comicRepo: comicRepo, folderRepo: folderRepo
+        )
+        let downloadNotifier = DownloadNotifier()
+        let downloadQueueStore = DownloadQueueStoreLive()
+        let downloadManager = DownloadManagerLive(
+            downloader: chapterDownloader, store: downloadQueueStore, notifier: downloadNotifier
+        )
+        let readChapterRepo = ReadChapterRepositoryLive()
         let libraryReset = LibraryResetServiceLive(
             comicRepo: comicRepo,
             folderRepo: folderRepo,
@@ -58,18 +73,23 @@ enum LiveDependencies {
             $0.folderRepository = folderRepo
             $0.userDefaults = LiveUserDefaultsClient()
             $0.libraryResetService = libraryReset
-            $0.translationCache = translationCache
-            // Auto-translation feature removed from the app: keep intelligence
-            // unavailable so no translation UI, controls, overlays, or page
-            // translation run anywhere (Settings section and Reader controls are
-            // both gated on availability).
-            $0.intelligenceAvailability = UnavailableIntelligence()
-            $0.pageTranslator = NoopPageTranslator()
+            $0.sourceRegistry = sourceRegistry
+            $0.downloadManager = downloadManager
+            $0.readChapterRepository = readChapterRepo
         }
 
         let reconcile = LibraryReconcileService(repo: comicRepo, importer: importer)
         Task.detached(priority: .utility) {
             await reconcile.reconcile()
+        }
+
+        // Keep the "continue reading" home-screen widget in sync with reading progress.
+        ContinueReadingWidgetBridge(progressRepo: progressRepo, comicRepo: comicRepo).start()
+
+        // Surface and auto-resume any downloads interrupted by a previous app kill.
+        Task {
+            await downloadManager.restore()
+            downloadManager.resumePending()
         }
     }
 }

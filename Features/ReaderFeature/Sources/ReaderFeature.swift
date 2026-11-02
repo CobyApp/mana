@@ -2,35 +2,12 @@ import Foundation
 import ComposableArchitecture
 import Domain
 import ImageCacheKit
-import IntelligenceKit
 import LibraryFeature
 import SettingsFeature
 
 @Reducer
 public struct ReaderFeature {
     public init() {}
-
-    public struct TranslationState: Equatable, Sendable {
-        public var isIntelligenceAvailable: Bool
-        public var isEnabled: Bool
-        public var targetLanguage: String
-        public var pagesInFlight: Set<Int>
-        public var pages: [Int: TranslatedPage]
-
-        public init(
-            isIntelligenceAvailable: Bool = false,
-            isEnabled: Bool = false,
-            targetLanguage: String = "ko",
-            pagesInFlight: Set<Int> = [],
-            pages: [Int: TranslatedPage] = [:]
-        ) {
-            self.isIntelligenceAvailable = isIntelligenceAvailable
-            self.isEnabled = isEnabled
-            self.targetLanguage = targetLanguage
-            self.pagesInFlight = pagesInFlight
-            self.pages = pages
-        }
-    }
 
     @ObservableState
     public struct State: Equatable {
@@ -44,7 +21,8 @@ public struct ReaderFeature {
         public var isControlsVisible: Bool
         public var loadedIndices: Set<Int>
         public var securityScopedURL: URL?
-        public var translation: TranslationState
+        /// The next chapter in this comic's folder (natural order), resolved after open.
+        public var nextComic: ComicItem?
         @Presents public var alert: AlertState<Action.Alert>?
 
         public init(
@@ -55,8 +33,7 @@ public struct ReaderFeature {
             mode: ReadingMode = .single,
             isControlsVisible: Bool = false,
             loadedIndices: Set<Int> = [],
-            securityScopedURL: URL? = nil,
-            translation: TranslationState = TranslationState()
+            securityScopedURL: URL? = nil
         ) {
             self.comic = comic
             self.handle = handle
@@ -66,7 +43,6 @@ public struct ReaderFeature {
             self.isControlsVisible = isControlsVisible
             self.loadedIndices = loadedIndices
             self.securityScopedURL = securityScopedURL
-            self.translation = translation
         }
     }
 
@@ -85,14 +61,13 @@ public struct ReaderFeature {
         case startedSecurityScope(URL)
         case onDisappear
         case alert(PresentationAction<Alert>)
-        case translationToggleChanged(Bool)
-        case translationSessionReady
-        case translatePage(Int)
-        case translationLoaded(pageIndex: Int, page: TranslatedPage, fromCache: Bool)
-        case translationFailed(pageIndex: Int)
+        case nextComicResolved(ComicItem?)
+        case openNext
 
         public enum Alert: Equatable {}
     }
+
+    private enum CancelID: Hashable { case session }
 
     @Dependency(\.archiveReaderRouter) var router
     @Dependency(\.progressRepository) var progress
@@ -100,52 +75,12 @@ public struct ReaderFeature {
     @Dependency(\.mainQueue) var mainQueue
     @Dependency(\.comicRepository) var comicRepo
     @Dependency(\.userDefaults) var userDefaults
-    @Dependency(\.pageTranslator) var pageTranslator
-    @Dependency(\.translationCache) var translationCache
 
     public var body: some ReducerOf<Self> {
         Reduce { state, action in
             switch action {
             case .task:
-                if state.translation.isIntelligenceAvailable,
-                   userDefaults.string(forKey: SettingsFeature.autoTranslateKey) == "true" {
-                    state.translation.isEnabled = true
-                }
-                // The effect parks until it's cancelled (i.e. the reader view
-                // is dismissed and SwiftUI tears down its `.task`). Closing
-                // the archive in the same effect avoids dispatching an
-                // `.onDisappear` action after the navigation stack has already
-                // popped this element (which trips TCA's "missing element"
-                // forEach guard).
-                let comic = state.comic
-                let router = self.router
-                let progress = self.progress
-                return .run { send in
-                    let url = comic.url
-                    let didStart = url.startAccessingSecurityScopedResource()
-                    let reader = router.reader(for: comic.format)
-                    var openedHandle: ArchiveHandle?
-                    defer {
-                        if let handle = openedHandle {
-                            Task.detached { await reader.closeArchive(handle) }
-                        }
-                        if didStart { url.stopAccessingSecurityScopedResource() }
-                    }
-                    do {
-                        let handle = try await reader.openArchive(at: url)
-                        openedHandle = handle
-                        let pageCount = await reader.pageCount(handle)
-                        let saved = await progress.load(comicId: comic.id)
-                        let savedLastPage: Int? = saved.map { min(max(0, $0.lastPageIndex), max(0, pageCount - 1)) }
-                        await send(.opened(handle: handle, pageCount: pageCount, savedLastPage: savedLastPage))
-                        await send(.prefetchHint(savedLastPage ?? 0))
-                        try await Task.sleep(nanoseconds: .max)
-                    } catch is CancellationError {
-                        // Expected when the reader view is dismissed.
-                    } catch {
-                        await send(.openFailed(error.localizedDescription))
-                    }
-                }
+                return openEffect(comic: state.comic)
 
             case let .opened(handle, pageCount, savedLastPage):
                 state.handle = handle
@@ -176,15 +111,20 @@ public struct ReaderFeature {
                     state.pageOffset = state.comic.pageOffset
                 }
                 state.pageIndex = savedLastPage ?? 0
-                if state.translation.isEnabled && state.translation.isIntelligenceAvailable {
-                    let idx = state.pageIndex
-                    return .merge(
-                        .send(.translatePage(idx - 1)),
-                        .send(.translatePage(idx)),
-                        .send(.translatePage(idx + 1))
-                    )
+                let comic = state.comic
+                let repo = self.comicRepo
+                let resolveNext: Effect<Action> = .run { send in
+                    let all = await repo.all()
+                    let siblings = all
+                        .filter { $0.folderId == comic.folderId }
+                        .sorted { NaturalOrder.less($0.title, $1.title) }
+                    if let i = siblings.firstIndex(where: { $0.id == comic.id }), i + 1 < siblings.count {
+                        await send(.nextComicResolved(siblings[i + 1]))
+                    } else {
+                        await send(.nextComicResolved(nil))
+                    }
                 }
-                return .none
+                return resolveNext
 
             case let .openFailed(message):
                 state.alert = AlertState {
@@ -197,15 +137,10 @@ public struct ReaderFeature {
             case let .pageChanged(index):
                 guard index != state.pageIndex, index >= 0, index < state.pageCount else { return .none }
                 state.pageIndex = index
-                var effects: [Effect<Action>] = [
+                let effects: [Effect<Action>] = [
                     .send(.prefetchHint(index)),
                     .send(.persistProgress)
                 ]
-                if state.translation.isEnabled && state.translation.isIntelligenceAvailable {
-                    effects.append(.send(.translatePage(index - 1)))
-                    effects.append(.send(.translatePage(index)))
-                    effects.append(.send(.translatePage(index + 1)))
-                }
                 return .merge(effects)
 
             case let .prefetchHint(index):
@@ -310,111 +245,26 @@ public struct ReaderFeature {
                 return .none
 
             case .onDisappear:
-                let scopedURL = state.securityScopedURL
-                state.securityScopedURL = nil
-                let handle = state.handle
+                // Cancel the parked open effect; its `defer` closes the archive and releases the
+                // security scope. This also covers the case where `.openNext` left a parked effect
+                // that SwiftUI's `.task` no longer owns.
                 state.handle = nil
-                let format = state.comic.format
-                let router = self.router
-                return .run { _ in
-                    if let handle {
-                        let reader = router.reader(for: format)
-                        await reader.closeArchive(handle)
-                    }
-                    if let scopedURL { scopedURL.stopAccessingSecurityScopedResource() }
-                }
+                return .cancel(id: CancelID.session)
 
-            case let .translationToggleChanged(enabled):
-                state.translation.isEnabled = enabled
-                userDefaults.set(enabled ? "true" : "false", forKey: SettingsFeature.autoTranslateKey)
-                if enabled {
-                    let idx = state.pageIndex
-                    return .merge(
-                        .send(.translatePage(idx - 1)),
-                        .send(.translatePage(idx)),
-                        .send(.translatePage(idx + 1))
-                    )
-                }
+            case let .nextComicResolved(next):
+                state.nextComic = next
                 return .none
 
-            case .translationSessionReady:
-                guard state.translation.isEnabled, state.translation.isIntelligenceAvailable else {
-                    return .none
-                }
-                let idx = state.pageIndex
-                return .merge(
-                    .send(.translatePage(idx - 1)),
-                    .send(.translatePage(idx)),
-                    .send(.translatePage(idx + 1))
-                )
-
-            case let .translatePage(idx):
-                guard
-                    state.translation.isEnabled,
-                    state.translation.isIntelligenceAvailable,
-                    idx >= 0, idx < state.pageCount,
-                    state.translation.pages[idx] == nil,
-                    !state.translation.pagesInFlight.contains(idx)
-                else { return .none }
-
-                state.translation.pagesInFlight.insert(idx)
-                let comicId = state.comic.id
-                let target = state.translation.targetLanguage
-                let format = state.comic.format
-                let cache = self.translationCache
-                let translator = self.pageTranslator
-                let router = self.router
-                let imageCache = self.imageCache
-                let handle = state.handle
-
-                return .run { send in
-                    // Cache lookup first.
-                    if let cached = await cache.load(comicId: comicId, pageIndex: idx, targetLanguage: target) {
-                        await send(.translationLoaded(pageIndex: idx, page: cached, fromCache: true))
-                        return
-                    }
-                    // Fetch image bytes (try cache, then archive).
-                    let key = PageKey(comicId: comicId, pageIndex: idx)
-                    var imageData = await imageCache.data(for: key)
-                    if imageData == nil, let handle {
-                        let reader = router.reader(for: format)
-                        do {
-                            let data = try await reader.pageData(handle, index: idx)
-                            await imageCache.store(data, for: key)
-                            imageData = data
-                        } catch {
-                            await send(.translationFailed(pageIndex: idx))
-                            return
-                        }
-                    }
-                    guard let imageData else {
-                        await send(.translationFailed(pageIndex: idx))
-                        return
-                    }
-                    do {
-                        let page = try await translator.translate(
-                            imageData: imageData, comicId: comicId, pageIndex: idx, targetLanguage: target
-                        )
-                        await send(.translationLoaded(pageIndex: idx, page: page, fromCache: false))
-                    } catch {
-                        await send(.translationFailed(pageIndex: idx))
-                    }
-                }
-
-            case let .translationLoaded(idx, page, fromCache):
-                state.translation.pages[idx] = page
-                state.translation.pagesInFlight.remove(idx)
-                if fromCache { return .none }
-                let cache = self.translationCache
-                return .run { _ in
-                    Task.detached(priority: .utility) {
-                        try? await cache.save(page)
-                    }
-                }
-
-            case let .translationFailed(idx):
-                state.translation.pagesInFlight.remove(idx)
-                return .none
+            case .openNext:
+                guard let next = state.nextComic else { return .none }
+                state.comic = next
+                state.handle = nil
+                state.pageIndex = 0
+                state.pageCount = 0
+                state.loadedIndices = []
+                state.nextComic = nil
+                state.isControlsVisible = false
+                return openEffect(comic: next)
 
             case .alert:
                 return .none
@@ -423,7 +273,41 @@ public struct ReaderFeature {
         .ifLet(\.$alert, action: \.alert)
     }
 
-    private struct PersistDebounce: Hashable {}
+    /// Opens a comic's archive, reports page count + resumed page, then parks until cancelled
+    /// (view dismissed, or superseded by `.openNext`). Closing the archive and releasing the
+    /// security scope happen in the effect's `defer`, so a `cancelInFlight` swap and a view
+    /// teardown both clean up correctly. Shared by `.task` and `.openNext`.
+    private func openEffect(comic: ComicItem) -> Effect<Action> {
+        let router = self.router
+        let progress = self.progress
+        return .run { send in
+            let url = comic.url
+            let didStart = url.startAccessingSecurityScopedResource()
+            let reader = router.reader(for: comic.format)
+            var openedHandle: ArchiveHandle?
+            defer {
+                if let handle = openedHandle {
+                    Task.detached { await reader.closeArchive(handle) }
+                }
+                if didStart { url.stopAccessingSecurityScopedResource() }
+            }
+            do {
+                let handle = try await reader.openArchive(at: url)
+                openedHandle = handle
+                let pageCount = await reader.pageCount(handle)
+                let saved = await progress.load(comicId: comic.id)
+                let savedLastPage: Int? = saved.map { min(max(0, $0.lastPageIndex), max(0, pageCount - 1)) }
+                await send(.opened(handle: handle, pageCount: pageCount, savedLastPage: savedLastPage))
+                await send(.prefetchHint(savedLastPage ?? 0))
+                try await Task.sleep(nanoseconds: .max)
+            } catch is CancellationError {
+                // Expected when the reader view is dismissed or a next chapter supersedes this one.
+            } catch {
+                await send(.openFailed(error.localizedDescription))
+            }
+        }
+        .cancellable(id: CancelID.session, cancelInFlight: true)
+    }
 }
 
 // MARK: - Dependency Keys

@@ -1,5 +1,6 @@
 import SwiftUI
 import ComposableArchitecture
+import BrowseFeature
 import LibraryFeature
 import ReaderFeature
 import SettingsFeature
@@ -20,10 +21,19 @@ public struct AppView: View {
                 ReaderView(store: readerStore)
             case let .settings(settingsStore):
                 SettingsView(store: settingsStore)
+            case let .browse(browseStore):
+                BrowseView(store: browseStore)
+            case let .mangaDetail(detailStore):
+                MangaDetailView(store: detailStore)
+            case let .downloads(downloadsStore):
+                DownloadsView(store: downloadsStore)
+            case let .onlineReader(onlineStore):
+                OnlineReaderView(store: onlineStore)
             }
         }
         .environment(\.locale, locale(for: store.appLanguage))
         .task { await store.send(.task).finish() }
+        .onOpenURL { store.send(.openURL($0)) }
     }
 
     private func locale(for language: AppLanguage) -> Locale {

@@ -16,3 +16,5 @@
 "reader.controls.translate" = "翻訳";
 "translate.on" = "オン";
 "translate.off" = "オフ";
+"mode.webtoon"             = "縦読み";
+"reader.next_chapter"      = "次の話";

@@ -5,6 +5,7 @@ let workspace = Workspace(
     projects: [
         "App",
         "Features/AppFeature",
+        "Features/BrowseFeature",
         "Features/LibraryFeature",
         "Features/ReaderFeature",
         "Features/SettingsFeature",
@@ -12,8 +13,8 @@ let workspace = Workspace(
         "Data/AdKit",
         "Data/ArchiveKit",
         "Data/ImageCacheKit",
-        "Data/IntelligenceKit",
         "Data/PersistenceKit",
+        "Data/SourceKit",
         "Data/ThumbnailKit",
         "DesignSystem",
         "SharedUI"

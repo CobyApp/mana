@@ -11,7 +11,13 @@ public struct ChromaticAberration: ViewModifier {
         self.intensity = intensity
     }
 
+    @Environment(\.manaLiteMode) private var manaLite
+
     public func body(content: Content) -> some View {
+        if manaLite { content } else { fullBody(content: content) }
+    }
+
+    @ViewBuilder private func fullBody(content: Content) -> some View {
         content
             .background(
                 content

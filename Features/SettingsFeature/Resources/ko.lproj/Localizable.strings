@@ -28,10 +28,11 @@
 "settings.cancel"          = "취소";
 "mode.single"              = "한 페이지";
 "mode.dual"                = "두 페이지";
+"mode.webtoon"             = "웹툰";
 "direction.ltr"            = "왼쪽에서 오른쪽";
 "direction.rtl"            = "오른쪽에서 왼쪽";
-"settings.translate.section" = "자동 번역";
-"settings.translate.toggle" = "페이지 자동 번역";
-"settings.translate.on" = "켜기";
-"settings.translate.off" = "끄기";
-"settings.translate.description" = "지원되는 기기에서만 표시됩니다.";
+"settings.display" = "화면";
+"settings.lite_mode" = "라이트 모드";
+"settings.lite_mode.description" = "하프톤·글리치·집중선 효과를 꺼서 저사양 기기나 전자잉크 화면에서 더 가볍게 동작합니다.";
+"settings.on" = "켜기";
+"settings.off" = "끄기";

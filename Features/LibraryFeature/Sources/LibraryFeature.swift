@@ -19,6 +19,8 @@ public extension Notification.Name {
 public struct LibraryFeature {
     public init() {}
 
+    public static let viewModeKey = "mana.libraryViewMode"
+
     public struct NewFolderSheet: Equatable, Sendable {
         public struct State: Equatable, Sendable {
             public var name: String
@@ -66,6 +68,8 @@ public struct LibraryFeature {
         public var bulkMoveSheet: BulkMoveSheet.State?
         @Presents public var alert: AlertState<Action.Alert>?
         public var confirmDialog: ConfirmDialog?
+        /// Cover grid or compact list; persisted under `LibraryFeature.viewModeKey`.
+        public var viewMode: LibraryViewMode = .grid
 
         public enum ConfirmDialog: Equatable, Sendable {
             case folderDelete(folderId: UUID, folderName: String, comicCount: Int)
@@ -118,6 +122,17 @@ public struct LibraryFeature {
             guard let id = currentFolderId else { return nil }
             return folders[id: id]
         }
+
+        /// The most recently read comic that isn't finished, for the "continue reading" banner.
+        public var continueReading: (comic: ComicItem, progress: ReadingProgress)? {
+            let candidates = progresses.values
+                .filter { $0.totalPages > 0 && $0.lastPageIndex < $0.totalPages - 1 }
+                .sorted { $0.updatedAt > $1.updatedAt }
+            for p in candidates {
+                if let comic = comics[id: p.comicId] { return (comic, p) }
+            }
+            return nil
+        }
     }
 
     public enum Action {
@@ -133,6 +148,9 @@ public struct LibraryFeature {
         case importFailed(String)
         case comicTapped(ComicItem)
         case settingsTapped
+        case browseTapped
+        case viewModeToggled
+        case downloadsTapped
         case delete(IndexSet)
         case sortChanged(LibrarySortOrder)
         case filterChanged(LibraryFilter)
@@ -186,6 +204,7 @@ public struct LibraryFeature {
         Reduce { state, action in
             switch action {
             case .task:
+                state.viewMode = LibraryViewMode(rawStringOrDefault: UserDefaults.standard.string(forKey: Self.viewModeKey) ?? "")
                 let repo = self.repo
                 let folderRepo = self.folderRepo
                 let progressRepo = self.progressRepo
@@ -197,8 +216,11 @@ public struct LibraryFeature {
                         }
                     },
                     .run { send in
-                        let folders = await folderRepo.all()
-                        await send(.foldersRefreshed(folders))
+                        await send(.foldersRefreshed(await folderRepo.all()))
+                        // Downloads create series folders; pick them up when the library changes.
+                        for await _ in NotificationCenter.default.notifications(named: .manaLibraryReconciled).map({ _ in () }) {
+                            await send(.foldersRefreshed(await folderRepo.all()))
+                        }
                     },
                     .run { send in
                         await send(.progressesRefreshed(await progressRepo.all()))
@@ -280,6 +302,14 @@ public struct LibraryFeature {
                 return .none
 
             case .settingsTapped:
+                return .none
+
+            case .browseTapped, .downloadsTapped:
+                return .none
+
+            case .viewModeToggled:
+                state.viewMode = state.viewMode == .grid ? .list : .grid
+                UserDefaults.standard.set(state.viewMode.rawValue, forKey: Self.viewModeKey)
                 return .none
 
             case let .delete(indexSet):

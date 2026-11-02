@@ -44,8 +44,9 @@ public struct SettingsView: View {
                                 set: { store.send(.defaultModeChanged($0)) }
                             ),
                             options: [
-                                (ReadingMode.single, Text(verbatim: localized("mode.single"))),
-                                (ReadingMode.dual,   Text(verbatim: localized("mode.dual")))
+                                (ReadingMode.single,  Text(verbatim: localized("mode.single"))),
+                                (ReadingMode.dual,    Text(verbatim: localized("mode.dual"))),
+                                (ReadingMode.webtoon, Text(verbatim: localized("mode.webtoon")))
                             ]
                         )
                     }
@@ -95,23 +96,21 @@ public struct SettingsView: View {
                     }
                 }
 
-                if store.isIntelligenceAvailable {
-                    section(title: localized("settings.translate.section")) {
-                        settingRow(
-                            title: localized("settings.translate.toggle"),
-                            footer: localized("settings.translate.description")
-                        ) {
-                            MangaToggle(
-                                selection: Binding(
-                                    get: { store.autoTranslateEnabled },
-                                    set: { store.send(.autoTranslateChanged($0)) }
-                                ),
-                                options: [
-                                    (false, Text(verbatim: localized("settings.translate.off"))),
-                                    (true,  Text(verbatim: localized("settings.translate.on")))
-                                ]
-                            )
-                        }
+                section(title: localized("settings.display")) {
+                    settingRow(
+                        title: localized("settings.lite_mode"),
+                        footer: localized("settings.lite_mode.description")
+                    ) {
+                        MangaToggle(
+                            selection: Binding(
+                                get: { store.liteMode },
+                                set: { store.send(.liteModeChanged($0)) }
+                            ),
+                            options: [
+                                (false, Text(verbatim: localized("settings.off"))),
+                                (true,  Text(verbatim: localized("settings.on")))
+                            ]
+                        )
                     }
                 }
 

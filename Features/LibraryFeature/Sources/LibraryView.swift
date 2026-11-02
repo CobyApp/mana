@@ -13,9 +13,11 @@ public struct LibraryView: View {
 
     private enum ActivePopover: Equatable { case sort }
 
-    private let columns = [
-        GridItem(.adaptive(minimum: 140), spacing: 16, alignment: .top)
-    ]
+    private var columns: [GridItem] {
+        store.viewMode == .list
+            ? [GridItem(.flexible(), spacing: 0, alignment: .top)]
+            : [GridItem(.adaptive(minimum: 140), spacing: 16, alignment: .top)]
+    }
 
     public init(store: StoreOf<LibraryFeature>) {
         self.store = store
@@ -80,6 +82,22 @@ public struct LibraryView: View {
     private var headerBar: some View {
         HStack(spacing: Tokens.Spacing.s) {
             leadingButton
+            if store.currentFolderId == nil, !store.isSelecting {
+                Button { store.send(.browseTapped) } label: {
+                    MangaIconBadge(systemName: "globe")
+                }
+                .buttonStyle(.plain)
+                Button { store.send(.downloadsTapped) } label: {
+                    MangaIconBadge(systemName: "arrow.down.circle.fill")
+                }
+                .buttonStyle(.plain)
+            }
+            if !store.isSelecting {
+                Button { store.send(.viewModeToggled) } label: {
+                    MangaIconBadge(systemName: store.viewMode == .grid ? "list.bullet" : "square.grid.2x2.fill")
+                }
+                .buttonStyle(.plain)
+            }
             Spacer(minLength: 0)
             if !store.displayedComics.isEmpty || !store.displayedFolders.isEmpty {
                 Button { store.send(.selectionModeToggled) } label: {
@@ -224,6 +242,12 @@ public struct LibraryView: View {
                 actionRow
                     .padding(.horizontal, Tokens.Spacing.m)
             }
+            if store.currentFolderId == nil, !store.isSelecting, let resume = store.continueReading {
+                ContinueReadingBanner(comic: resume.comic, progress: resume.progress) {
+                    store.send(.comicTapped(resume.comic))
+                }
+                .padding(.horizontal, Tokens.Spacing.m)
+            }
             grid
         }
     }
@@ -237,9 +261,21 @@ public struct LibraryView: View {
         } else {
             ScrollView {
                 VStack(alignment: .leading, spacing: Tokens.Spacing.l) {
-                    LazyVGrid(columns: columns, spacing: Tokens.Spacing.l) {
+                    LazyVGrid(columns: columns, spacing: store.viewMode == .list ? Tokens.Spacing.s : Tokens.Spacing.l) {
                     if store.currentFolderId == nil {
                         ForEach(store.displayedFolders) { folder in
+                            if store.viewMode == .list {
+                                FolderListRow(
+                                    folder: folder,
+                                    comicCount: store.comics.filter { $0.folderId == folder.id }.count,
+                                    onTap: { store.send(.folderTapped(folder)) },
+                                    onRename: { store.send(.renameFolderRequested(folder.id)) },
+                                    onDelete: { store.send(.folderDeleteConfirmationRequested(folder.id)) },
+                                    onDropComic: { comicId in
+                                        store.send(.comicMoveToFolderRequested(comicId: comicId, folderId: folder.id))
+                                    }
+                                )
+                            } else {
                             FolderCard(
                                 folder: folder,
                                 comicsInFolder: store.comics.filter { $0.folderId == folder.id },
@@ -250,6 +286,7 @@ public struct LibraryView: View {
                                     store.send(.comicMoveToFolderRequested(comicId: comicId, folderId: folder.id))
                                 }
                             )
+                            }
                         }
                     }
                     ForEach(store.displayedComics) { comic in
@@ -260,12 +297,21 @@ public struct LibraryView: View {
                                 store.send(.comicTapped(comic))
                             }
                         } label: {
-                            LibraryCell(
-                                comic: comic,
-                                progress: store.progresses[comic.id],
-                                isSelectionMode: store.isSelecting,
-                                isSelected: store.selectedComicIds.contains(comic.id)
-                            )
+                            if store.viewMode == .list {
+                                LibraryListRow(
+                                    comic: comic,
+                                    progress: store.progresses[comic.id],
+                                    isSelectionMode: store.isSelecting,
+                                    isSelected: store.selectedComicIds.contains(comic.id)
+                                )
+                            } else {
+                                LibraryCell(
+                                    comic: comic,
+                                    progress: store.progresses[comic.id],
+                                    isSelectionMode: store.isSelecting,
+                                    isSelected: store.selectedComicIds.contains(comic.id)
+                                )
+                            }
                         }
                         .buttonStyle(.plain)
                         .draggable(

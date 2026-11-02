@@ -87,19 +87,23 @@ public final class FolderEntity {
     public var id: UUID = UUID()
     public var name: String = ""
     public var dateAdded: Date = Date(timeIntervalSince1970: 0)
+    /// Online series URL this folder was downloaded from, if any (SwiftData lightweight migration:
+    /// optional, defaults to nil for existing rows).
+    public var sourceURL: String?
 
-    public init(id: UUID, name: String, dateAdded: Date) {
+    public init(id: UUID, name: String, dateAdded: Date, sourceURL: String? = nil) {
         self.id = id
         self.name = name
         self.dateAdded = dateAdded
+        self.sourceURL = sourceURL
     }
 
     public func toModel() -> Folder {
-        Folder(id: id, name: name, dateAdded: dateAdded)
+        Folder(id: id, name: name, dateAdded: dateAdded, sourceURL: sourceURL)
     }
 
     public static func from(_ folder: Folder) -> FolderEntity {
-        FolderEntity(id: folder.id, name: folder.name, dateAdded: folder.dateAdded)
+        FolderEntity(id: folder.id, name: folder.name, dateAdded: folder.dateAdded, sourceURL: folder.sourceURL)
     }
 }
 

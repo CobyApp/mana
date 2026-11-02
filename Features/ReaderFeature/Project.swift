@@ -7,7 +7,6 @@ let project = Module(
     dependencies: [
         .project(target: "Domain", path: "../../Domain"),
         .project(target: "ImageCacheKit", path: "../../Data/ImageCacheKit"),
-        .project(target: "IntelligenceKit", path: "../../Data/IntelligenceKit"),
         .project(target: "PersistenceKit", path: "../../Data/PersistenceKit"),
         .project(target: "DesignSystem", path: "../../DesignSystem"),
         .project(target: "SharedUI", path: "../../SharedUI"),

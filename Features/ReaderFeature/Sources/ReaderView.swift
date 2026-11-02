@@ -2,13 +2,9 @@ import SwiftUI
 import ComposableArchitecture
 import Domain
 import ImageCacheKit
-import IntelligenceKit
 import DesignSystem
 import SharedUI
 import UIKit
-#if canImport(Translation)
-import Translation
-#endif
 
 private extension Bundle {
     /// Looks up a localized string honoring a SwiftUI environment `Locale`,
@@ -50,6 +46,7 @@ public struct ReaderView: View {
                 controlsOverlay
             }
         }
+        .overlay(alignment: .bottom) { nextChapterCardOverlay }
         .overlay { popoverDim }
         .overlay(alignment: .bottomTrailing) { controlsPopoverOverlay }
         .animation(.easeOut(duration: 0.12), value: showControlsPopover)
@@ -60,11 +57,7 @@ public struct ReaderView: View {
         .persistentSystemOverlays(.hidden)
         .background(SwipeBackBlocker())
         .task { await store.send(.task).finish() }
-        .modifier(TranslationSessionAttachment(
-            targetLanguage: store.translation.targetLanguage,
-            isAvailable: store.translation.isIntelligenceAvailable,
-            onSessionReady: { store.send(.translationSessionReady) }
-        ))
+        .onDisappear { store.send(.onDisappear) }
         .onLongPressGesture(minimumDuration: 0.4) {
             UIImpactFeedbackGenerator(style: .soft).impactOccurred()
             store.send(.toggleControls)
@@ -107,17 +100,7 @@ public struct ReaderView: View {
         let hint: (Int) -> Void = { idx in store.send(.prefetchHint(idx)) }
         let direction = store.pageProgressionDirection
         let centerTap: () -> Void = { store.send(.toggleControls) }
-        let translationState = store.translation
-        let pageOverlay: ((Int) -> AnyView)? = translationState.isIntelligenceAvailable
-            ? { idx in
-                AnyView(
-                    PageTranslationOverlay(
-                        page: translationState.pages[idx],
-                        isHidden: !translationState.isEnabled
-                    )
-                )
-              }
-            : nil
+        let pageOverlay: ((Int) -> AnyView)? = nil
 
         switch store.mode {
         case .single:
@@ -146,6 +129,53 @@ public struct ReaderView: View {
                 pageOffset: store.pageOffset,
                 pageOverlay: pageOverlay
             )
+        case .webtoon:
+            WebtoonRenderer(
+                totalPages: store.pageCount,
+                current: binding,
+                pageImage: provider,
+                onPrefetchHint: hint,
+                onCenterTap: centerTap,
+                pageOverlay: pageOverlay
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var nextChapterCardOverlay: some View {
+        let atEnd = store.pageCount > 0 && store.pageIndex >= store.pageCount - 1
+        if atEnd, let next = store.nextComic {
+            Button {
+                UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+                store.send(.openNext)
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "forward.end.fill")
+                        .font(.system(size: 16, weight: .black))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(verbatim: localized("reader.next_chapter"))
+                            .font(Tokens.Typography.caption)
+                            .foregroundStyle(Tokens.Colors.paper.opacity(0.7))
+                        Text(next.title)
+                            .font(Tokens.Typography.subtitle)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .black))
+                }
+                .foregroundStyle(Tokens.Colors.paper)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .frame(maxWidth: 420)
+                .background(Tokens.Colors.ink)
+                .overlay(Rectangle().strokeBorder(Tokens.Colors.paper, lineWidth: 1.5).padding(2))
+                .background(Tokens.Colors.accent.offset(x: 4, y: 4))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 20)
+            .padding(.bottom, store.isControlsVisible ? 150 : 40)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
 
@@ -253,6 +283,11 @@ public struct ReaderView: View {
                       isSelected: store.mode == .dual) {
                 store.send(.modeChanged(.dual))
             }
+            divider
+            optionRow(localized("mode.webtoon"),
+                      isSelected: store.mode == .webtoon) {
+                store.send(.modeChanged(.webtoon))
+            }
 
             sectionDivider
             sectionHeader(localized("reader.controls.direction"))
@@ -276,20 +311,6 @@ public struct ReaderView: View {
             optionRow(localized("reader.controls.page_offset.on"),
                       isSelected: store.pageOffset) {
                 store.send(.pageOffsetChanged(true))
-            }
-
-            if store.translation.isIntelligenceAvailable {
-                sectionDivider
-                sectionHeader(localized("reader.controls.translate"))
-                optionRow(localized("translate.off"),
-                          isSelected: !store.translation.isEnabled) {
-                    store.send(.translationToggleChanged(false))
-                }
-                divider
-                optionRow(localized("translate.on"),
-                          isSelected: store.translation.isEnabled) {
-                    store.send(.translationToggleChanged(true))
-                }
             }
         }
         .frame(width: 260)
@@ -376,52 +397,3 @@ public struct ReaderView: View {
         .overlay(Rectangle().strokeBorder(Tokens.Colors.paper.opacity(0.4), lineWidth: 1))
     }
 }
-
-// MARK: - Translation session attachment
-
-/// Attaches a SwiftUI `.translationTask` to the host view when running on
-/// iOS 18.0+. Drives `TranslationSessionHolder.shared`.
-private struct TranslationSessionAttachment: ViewModifier {
-    let targetLanguage: String
-    let isAvailable: Bool
-    let onSessionReady: () -> Void
-
-    func body(content: Content) -> some View {
-        if #available(iOS 18.0, *), isAvailable {
-            content.modifier(TranslationSessionAttachmentAvailable(
-                targetLanguage: targetLanguage,
-                onSessionReady: onSessionReady
-            ))
-        } else {
-            content
-        }
-    }
-}
-
-@available(iOS 18.0, *)
-private struct TranslationSessionAttachmentAvailable: ViewModifier {
-    let targetLanguage: String
-    let onSessionReady: () -> Void
-
-    @State private var config: TranslationSession.Configuration?
-
-    func body(content: Content) -> some View {
-        content
-            .onAppear {
-                config = TranslationSession.Configuration(
-                    source: Locale.Language(identifier: "ja"),
-                    target: Locale.Language(identifier: targetLanguage)
-                )
-            }
-            .translationTask(config) { session in
-                await TranslationSessionHolder.shared.set(session)
-                onSessionReady()
-            }
-            .onDisappear {
-                Task { @MainActor in
-                    TranslationSessionHolder.shared.set(nil)
-                }
-            }
-    }
-}
-

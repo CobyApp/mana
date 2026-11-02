@@ -1,7 +1,7 @@
 import Foundation
 import ComposableArchitecture
 import Domain
-import IntelligenceKit
+import BrowseFeature
 import LibraryFeature
 import ReaderFeature
 import SettingsFeature
@@ -14,6 +14,10 @@ public struct AppFeature {
     public enum Path {
         case reader(ReaderFeature)
         case settings(SettingsFeature)
+        case browse(BrowseFeature)
+        case mangaDetail(MangaDetailFeature)
+        case downloads(DownloadsFeature)
+        case onlineReader(OnlineReaderFeature)
     }
 
     @ObservableState
@@ -21,18 +25,15 @@ public struct AppFeature {
         public var library: LibraryFeature.State
         public var path: StackState<Path.State>
         public var appLanguage: AppLanguage
-        public var isIntelligenceAvailable: Bool
 
         public init(
             library: LibraryFeature.State = LibraryFeature.State(),
             path: StackState<Path.State> = StackState(),
-            appLanguage: AppLanguage = .system,
-            isIntelligenceAvailable: Bool = false
+            appLanguage: AppLanguage = .system
         ) {
             self.library = library
             self.path = path
             self.appLanguage = appLanguage
-            self.isIntelligenceAvailable = isIntelligenceAvailable
         }
     }
 
@@ -40,10 +41,13 @@ public struct AppFeature {
         case task
         case library(LibraryFeature.Action)
         case path(StackActionOf<Path>)
+        /// Deep link (`noiz://comic/<id>` from the home-screen widget, `noiz://library`).
+        case openURL(URL)
+        case openComicResolved(ComicItem)
     }
 
     @Dependency(\.userDefaults) var userDefaults
-    @Dependency(\.intelligenceAvailability) var intelligenceAvailability
+    @Dependency(\.comicRepository) var comicRepository
 
     public var body: some ReducerOf<Self> {
         Scope(state: \.library, action: \.library) {
@@ -53,7 +57,6 @@ public struct AppFeature {
         Reduce { state, action in
             switch action {
             case .task:
-                state.isIntelligenceAvailable = intelligenceAvailability.isAvailable
                 // Pre-`.system` builds auto-saved a concrete language (often "en")
                 // when the main bundle had no advertised localizations. Clear that
                 // stale value once so users land on `.system` by default.
@@ -71,27 +74,52 @@ public struct AppFeature {
                 return .none
 
             case let .library(.comicTapped(comic)):
-                let target = TargetLanguageResolver.resolve(appLanguageRawValue: state.appLanguage.rawValue)
-                let translation = ReaderFeature.TranslationState(
-                    isIntelligenceAvailable: state.isIntelligenceAvailable,
-                    targetLanguage: target
-                )
-                state.path.append(.reader(ReaderFeature.State(comic: comic, translation: translation)))
+                state.path.append(.reader(ReaderFeature.State(comic: comic)))
                 return .none
 
             case .library(.settingsTapped):
                 state.path.append(
                     .settings(
-                        SettingsFeature.State(
-                            appLanguage: state.appLanguage,
-                            isIntelligenceAvailable: state.isIntelligenceAvailable
-                        )
+                        SettingsFeature.State(appLanguage: state.appLanguage)
                     )
                 )
                 return .none
 
             case let .path(.element(id: _, action: .settings(.appLanguageChanged(lang)))):
                 state.appLanguage = lang
+                return .none
+
+            case let .openURL(url):
+                guard url.scheme == "noiz" else { return .none }
+                if url.host() == "comic",
+                   let id = url.pathComponents.dropFirst().first.flatMap(UUID.init(uuidString:)) {
+                    let repo = self.comicRepository
+                    return .run { send in
+                        if let comic = await repo.comic(id: id) { await send(.openComicResolved(comic)) }
+                    }
+                }
+                state.path.removeAll()
+                return .none
+
+            case let .openComicResolved(comic):
+                state.path.removeAll()
+                state.path.append(.reader(ReaderFeature.State(comic: comic)))
+                return .none
+
+            case .library(.browseTapped):
+                state.path.append(.browse(BrowseFeature.State()))
+                return .none
+
+            case .library(.downloadsTapped):
+                state.path.append(.downloads(DownloadsFeature.State()))
+                return .none
+
+            case let .path(.element(id: _, action: .browse(.mangaTapped(manga)))):
+                state.path.append(.mangaDetail(MangaDetailFeature.State(mangaURL: manga.url, preview: manga)))
+                return .none
+
+            case let .path(.element(id: _, action: .mangaDetail(.chapterTapped(chapter)))):
+                state.path.append(.onlineReader(OnlineReaderFeature.State(chapterURL: chapter.url, title: chapter.name)))
                 return .none
 
             case .library, .path:
@@ -103,15 +131,3 @@ public struct AppFeature {
 }
 
 extension AppFeature.Path.State: Equatable {}
-
-private enum IntelligenceAvailabilityKey: DependencyKey {
-    static let liveValue: any IntelligenceAvailability = UnavailableIntelligence()
-    static let testValue: any IntelligenceAvailability = UnavailableIntelligence()
-}
-
-extension DependencyValues {
-    public var intelligenceAvailability: any IntelligenceAvailability {
-        get { self[IntelligenceAvailabilityKey.self] }
-        set { self[IntelligenceAvailabilityKey.self] = newValue }
-    }
-}

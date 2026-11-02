@@ -2,6 +2,7 @@ import SwiftUI
 import ComposableArchitecture
 import AppFeature
 import AdKit
+import DesignSystem
 
 @main
 struct NOIZApp: App {
@@ -27,6 +28,8 @@ private struct RootContainer: View {
         AppFeature()
     }
     @State private var splashFinished: Bool = false
+    /// Lite mode is written by Settings as "true"/"false"; observing it here applies it live.
+    @AppStorage(LiteMode.storageKey) private var liteModeRaw: String = "false"
 
     var body: some View {
         ZStack {
@@ -40,5 +43,6 @@ private struct RootContainer: View {
             }
         }
         .animation(.easeInOut(duration: 0.3), value: splashFinished)
+        .environment(\.manaLiteMode, liteModeRaw == "true")
     }
 }
