@@ -20,6 +20,7 @@ public struct LibraryFeature {
     public init() {}
 
     public static let viewModeKey = "mana.libraryViewMode"
+    public static let sortKey = "mana.librarySort"
 
     public struct NewFolderSheet: Equatable, Sendable {
         public struct State: Equatable, Sendable {
@@ -70,10 +71,18 @@ public struct LibraryFeature {
         public var confirmDialog: ConfirmDialog?
         /// Cover grid or compact list; persisted under `LibraryFeature.viewModeKey`.
         public var viewMode: LibraryViewMode = .grid
+        /// False until the first catalog load lands, so the view shows a loader instead of
+        /// flashing the empty state.
+        public var hasLoaded: Bool = false
+        /// Folder-cover picker dialog (inside a folder).
+        public var isFolderCoverPickerPresented: Bool = false
+        /// Bumped whenever an import adds comics; the view plays a success haptic on change.
+        public var importSuccessCount: Int = 0
 
         public enum ConfirmDialog: Equatable, Sendable {
             case folderDelete(folderId: UUID, folderName: String, comicCount: Int)
             case bulkDelete(count: Int)
+            case comicDelete(comicId: UUID, title: String)
         }
 
         public init(
@@ -112,10 +121,34 @@ public struct LibraryFeature {
             switch sort {
             case .dateAddedDesc: return filtered.sorted { $0.dateAdded > $1.dateAdded }
             case .dateAddedAsc: return filtered.sorted { $0.dateAdded < $1.dateAdded }
+            // `localizedStandardCompare` is natural order ("Chapter 2" < "Chapter 10").
             case .titleAsc: return filtered.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
             case .titleDesc: return filtered.sorted { $0.title.localizedStandardCompare($1.title) == .orderedDescending }
+            case .pageCountDesc: return filtered.sorted { ($0.pageCount ?? 0) > ($1.pageCount ?? 0) }
             case .fileSizeDesc: return filtered.sorted { $0.fileSizeBytes > $1.fileSizeBytes }
             }
+        }
+
+        /// Cover shown for a folder: its custom cover, else the most recently added comic in it
+        /// that has a cover thumbnail.
+        public func coverData(for folder: Folder) -> Data? {
+            if let custom = folder.coverImage { return custom }
+            return comics
+                .filter { $0.folderId == folder.id && $0.coverThumbnail != nil }
+                .max { $0.dateAdded < $1.dateAdded }?
+                .coverThumbnail
+        }
+
+        public func comicCount(in folderId: UUID) -> Int {
+            comics.reduce(0) { $0 + ($1.folderId == folderId ? 1 : 0) }
+        }
+
+        /// Quick-fill names for the New Folder dialog, derived from the visible comics' titles.
+        public var folderNameSuggestions: [String] {
+            LibraryFeature.folderNameSuggestions(
+                titles: displayedComics.map(\.title),
+                existingFolders: folders.map(\.name)
+            )
         }
 
         public var currentFolder: Folder? {
@@ -123,10 +156,10 @@ public struct LibraryFeature {
             return folders[id: id]
         }
 
-        /// The most recently read comic that isn't finished, for the "continue reading" banner.
+        /// The most recently read comic (even if finished), for the "continue reading" banner
+        /// (Android `LibraryViewModel`: `progress.maxByOrNull { updatedAt }`).
         public var continueReading: (comic: ComicItem, progress: ReadingProgress)? {
             let candidates = progresses.values
-                .filter { $0.totalPages > 0 && $0.lastPageIndex < $0.totalPages - 1 }
                 .sorted { $0.updatedAt > $1.updatedAt }
             for p in candidates {
                 if let comic = comics[id: p.comicId] { return (comic, p) }
@@ -189,6 +222,15 @@ public struct LibraryFeature {
         case bulkMoveRequested
         case bulkMoveDestinationChosen(folderId: UUID?)
         case bulkMoveSheetDismissed
+        /// Long-press on a comic: enter selection mode with it selected.
+        case comicLongPressed(UUID)
+        // Folder cover (inside a folder)
+        case folderCoverRequested
+        case folderCoverDismissed
+        case folderCoverPicked(comicId: UUID)
+        case folderCoverReset
+        /// In-folder "Get more chapters" (☁). Handled by the parent (opens the source series).
+        case openSourceSeries(url: String)
 
         public enum Alert: Equatable {}
     }
@@ -205,6 +247,10 @@ public struct LibraryFeature {
             switch action {
             case .task:
                 state.viewMode = LibraryViewMode(rawStringOrDefault: UserDefaults.standard.string(forKey: Self.viewModeKey) ?? "")
+                if let raw = UserDefaults.standard.string(forKey: Self.sortKey),
+                   let saved = LibrarySortOrder(rawValue: raw) {
+                    state.sort = saved
+                }
                 let repo = self.repo
                 let folderRepo = self.folderRepo
                 let progressRepo = self.progressRepo
@@ -243,6 +289,7 @@ public struct LibraryFeature {
 
             case let .refreshed(items):
                 state.comics = IdentifiedArray(uniqueElements: items)
+                state.hasLoaded = true
                 return .none
 
             case let .foldersRefreshed(folders):
@@ -284,6 +331,7 @@ public struct LibraryFeature {
 
             case let .imported(items):
                 state.isImporting = false
+                if !items.isEmpty { state.importSuccessCount += 1 }
                 for item in items {
                     state.comics.updateOrAppend(item)
                 }
@@ -326,6 +374,7 @@ public struct LibraryFeature {
 
             case let .sortChanged(s):
                 state.sort = s
+                UserDefaults.standard.set(s.rawValue, forKey: Self.sortKey)
                 return .none
 
             case let .filterChanged(f):
@@ -353,8 +402,10 @@ public struct LibraryFeature {
                 return .none
 
             case .newFolderSubmitted:
-                guard let sheet = state.newFolderSheet, !sheet.name.isEmpty else { return .none }
-                let folder = Folder(id: uuid(), name: sheet.name, dateAdded: now)
+                guard let sheet = state.newFolderSheet else { return .none }
+                let name = sheet.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !name.isEmpty else { return .none }
+                let folder = Folder(id: uuid(), name: name, dateAdded: now)
                 state.folders.append(folder)
                 state.newFolderSheet = nil
                 let folderRepo = self.folderRepo
@@ -377,39 +428,7 @@ public struct LibraryFeature {
                 return .none
 
             case let .folderDeleteRequested(id):
-                state.folders.remove(id: id)
-                // Comics that were in this folder fall back to root.
-                for var comic in state.comics where comic.folderId == id {
-                    let updated = ComicItem(
-                        id: comic.id, url: comic.url, format: comic.format, title: comic.title,
-                        pageCount: comic.pageCount, coverThumbnail: comic.coverThumbnail,
-                        dateAdded: comic.dateAdded, fileSizeBytes: comic.fileSizeBytes,
-                        readingMode: comic.readingMode,
-                        folderId: nil, pageProgressionDirection: comic.pageProgressionDirection
-                    )
-                    state.comics.updateOrAppend(updated)
-                    _ = comic
-                }
-                if state.currentFolderId == id { state.currentFolderId = nil }
-                let folderRepo2 = self.folderRepo
-                let repo2 = self.repo
-                let affectedIds = state.comics.filter { $0.folderId == nil }.map(\.id)
-                return .run { send in
-                    try? await folderRepo2.delete(id)
-                    // Persist the folder-clear on the orphaned comics.
-                    let all = await repo2.all()
-                    for var item in all where affectedIds.contains(item.id) && item.folderId != nil {
-                        item = ComicItem(
-                            id: item.id, url: item.url, format: item.format, title: item.title,
-                            pageCount: item.pageCount, coverThumbnail: item.coverThumbnail,
-                            dateAdded: item.dateAdded, fileSizeBytes: item.fileSizeBytes,
-                            readingMode: item.readingMode,
-                            folderId: nil, pageProgressionDirection: item.pageProgressionDirection
-                        )
-                        try? await repo2.upsert(item)
-                    }
-                    await send(.folderDeleted(id))
-                }
+                return deleteFolderKeepingComics(&state, folderId: id)
 
             case .folderDeleted:
                 return .none
@@ -443,13 +462,10 @@ public struct LibraryFeature {
                 return .none
 
             case let .deleteComicRequested(id):
+                // Goes through the confirm dialog; the actual delete happens on confirm.
                 guard let comic = state.comics[id: id] else { return .none }
-                state.comics.remove(id: id)
-                let repo = self.repo
-                return .run { _ in
-                    Self.deleteComicFile(at: comic.url)
-                    try? await repo.delete(id)
-                }
+                state.confirmDialog = .comicDelete(comicId: id, title: comic.title)
+                return .none
 
             case let .renameFolderRequested(folderId):
                 guard let folder = state.folders[id: folderId] else { return .none }
@@ -466,10 +482,12 @@ public struct LibraryFeature {
 
             case .renameFolderSubmitted:
                 guard let sheet = state.renameFolderSheet,
-                      !sheet.name.isEmpty,
                       let existing = state.folders[id: sheet.folderId]
                 else { return .none }
-                let renamed = Folder(id: existing.id, name: sheet.name, dateAdded: existing.dateAdded)
+                let name = sheet.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !name.isEmpty else { return .none }
+                // Keep sourceURL + cover: upsert writes every field.
+                let renamed = existing.renamed(name)
                 state.folders.updateOrAppend(renamed)
                 state.renameFolderSheet = nil
                 let folderRepo = self.folderRepo
@@ -501,12 +519,13 @@ public struct LibraryFeature {
 
             case .renameComicSubmitted:
                 guard let sheet = state.renameComicSheet,
-                      !sheet.title.isEmpty,
                       let existing = state.comics[id: sheet.comicId]
                 else { return .none }
+                let title = sheet.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !title.isEmpty else { return .none }
                 let renamed = ComicItem(
                     id: existing.id, url: existing.url, format: existing.format,
-                    title: sheet.title, pageCount: existing.pageCount,
+                    title: title, pageCount: existing.pageCount,
                     coverThumbnail: existing.coverThumbnail, dateAdded: existing.dateAdded,
                     fileSizeBytes: existing.fileSizeBytes,
                     readingMode: existing.readingMode, folderId: existing.folderId,
@@ -565,19 +584,17 @@ public struct LibraryFeature {
                 state.confirmDialog = nil
                 switch dialog {
                 case let .folderDelete(folderId, _, _):
-                    let comicsToDelete = state.comics.filter { $0.folderId == folderId }
-                    for comic in comicsToDelete { state.comics.remove(id: comic.id) }
-                    state.folders.remove(id: folderId)
-                    if state.currentFolderId == folderId { state.currentFolderId = nil }
+                    // Never deletes the comics: they move back to the library root.
+                    return deleteFolderKeepingComics(&state, folderId: folderId)
+
+                case let .comicDelete(comicId, _):
+                    guard let comic = state.comics[id: comicId] else { return .none }
+                    state.comics.remove(id: comicId)
+                    state.selectedComicIds.remove(comicId)
                     let repo = self.repo
-                    let folderRepo = self.folderRepo
-                    return .run { send in
-                        for comic in comicsToDelete {
-                            Self.deleteComicFile(at: comic.url)
-                            try? await repo.delete(comic.id)
-                        }
-                        try? await folderRepo.delete(folderId)
-                        await send(.folderDeleted(folderId))
+                    return .run { _ in
+                        Self.deleteComicFile(at: comic.url)
+                        try? await repo.delete(comicId)
                     }
 
                 case .bulkDelete:
@@ -631,6 +648,43 @@ public struct LibraryFeature {
             case .bulkMoveSheetDismissed:
                 state.bulkMoveSheet = nil
                 return .none
+
+            case let .comicLongPressed(id):
+                guard state.comics[id: id] != nil else { return .none }
+                state.isSelecting = true
+                state.selectedComicIds.insert(id)
+                return .none
+
+            case .folderCoverRequested:
+                guard state.currentFolderId != nil else { return .none }
+                state.isFolderCoverPickerPresented = true
+                return .none
+
+            case .folderCoverDismissed:
+                state.isFolderCoverPickerPresented = false
+                return .none
+
+            case let .folderCoverPicked(comicId):
+                state.isFolderCoverPickerPresented = false
+                guard let folderId = state.currentFolderId,
+                      let folder = state.folders[id: folderId],
+                      let cover = state.comics[id: comicId]?.coverThumbnail
+                else { return .none }
+                state.folders.updateOrAppend(folder.withCover(cover))
+                let folderRepo = self.folderRepo
+                return .run { _ in try? await folderRepo.setCover(folderId: folderId, image: cover) }
+
+            case .folderCoverReset:
+                state.isFolderCoverPickerPresented = false
+                guard let folderId = state.currentFolderId,
+                      let folder = state.folders[id: folderId]
+                else { return .none }
+                state.folders.updateOrAppend(folder.withCover(nil))
+                let folderRepo = self.folderRepo
+                return .run { _ in try? await folderRepo.setCover(folderId: folderId, image: nil) }
+
+            case .openSourceSeries:
+                return .none
             }
         }
         .ifLet(\.$alert, action: \.alert)
@@ -638,6 +692,68 @@ public struct LibraryFeature {
 
     private static func deleteComicFile(at url: URL) {
         try? FileManager.default.removeItem(at: url)
+    }
+
+    /// Deletes a folder but keeps its comics: they're detached back to the library root
+    /// (Android `FolderRepositoryImpl.delete`: `detachComics` then `deleteById`).
+    private func deleteFolderKeepingComics(_ state: inout State, folderId: UUID) -> Effect<Action> {
+        state.folders.remove(id: folderId)
+        let detached = state.comics.filter { $0.folderId == folderId }.map { $0.movedTo(folderId: nil) }
+        for comic in detached { state.comics.updateOrAppend(comic) }
+        if state.currentFolderId == folderId { state.currentFolderId = nil }
+        state.isFolderCoverPickerPresented = false
+        let folderRepo = self.folderRepo
+        let repo = self.repo
+        return .run { send in
+            // Persist the detach on the comics first so nothing is lost if the folder delete fails.
+            for comic in detached { try? await repo.upsert(comic) }
+            try? await folderRepo.delete(folderId)
+            await send(.folderDeleted(folderId))
+        }
+    }
+
+    // Trailing chapter/volume markers, so "One Piece Chapter 1012" suggests "One Piece".
+    nonisolated(unsafe) private static let chapterTail: NSRegularExpression? = try? NSRegularExpression(
+        pattern: #"(?i)[\s\-_·:]*(chapter|chap|ch|episode|ep|vol|volume|season|part|화|권|第)?\.?\s*#?\d+(\.\d+)?\s*$"#
+    )
+
+    /// Suggested folder names from comic titles: strips trailing chapter numbers to recover a
+    /// series name, ranks by how many comics share it (then alphabetically), drops names that
+    /// are already folders, max 6. Ported from Android `folderNameSuggestions`.
+    public static func folderNameSuggestions(titles: [String], existingFolders: [String]) -> [String] {
+        let existing = Set(existingFolders.map { $0.lowercased() })
+        let trimSet = CharacterSet(charactersIn: "-_·:. ").union(.whitespacesAndNewlines)
+        var counts: [String: Int] = [:]
+        for title in titles {
+            var stripped = title
+            if let regex = chapterTail {
+                let range = NSRange(title.startIndex..., in: title)
+                stripped = regex.stringByReplacingMatches(in: title, range: range, withTemplate: "")
+            }
+            let name = stripped.trimmingCharacters(in: trimSet)
+            guard !name.isEmpty else { continue }
+            counts[name, default: 0] += 1
+        }
+        return counts
+            .sorted { a, b in
+                a.value != b.value ? a.value > b.value : a.key.lowercased() < b.key.lowercased()
+            }
+            .map(\.key)
+            .filter { !existing.contains($0.lowercased()) }
+            .prefix(6)
+            .map { $0 }
+    }
+}
+
+private extension ComicItem {
+    func movedTo(folderId: UUID?) -> ComicItem {
+        ComicItem(
+            id: id, url: url, format: format, title: title,
+            pageCount: pageCount, coverThumbnail: coverThumbnail,
+            dateAdded: dateAdded, fileSizeBytes: fileSizeBytes,
+            readingMode: readingMode, folderId: folderId,
+            pageProgressionDirection: pageProgressionDirection, pageOffset: pageOffset
+        )
     }
 }
 
@@ -647,6 +763,7 @@ public enum LibrarySortOrder: String, CaseIterable, Sendable, Equatable {
     case dateAddedAsc
     case titleAsc
     case titleDesc
+    case pageCountDesc
     case fileSizeDesc
 
     public var localizationKey: String {
@@ -655,6 +772,7 @@ public enum LibrarySortOrder: String, CaseIterable, Sendable, Equatable {
         case .dateAddedAsc:  return "library.sort.oldest"
         case .titleAsc:      return "library.sort.title_asc"
         case .titleDesc:     return "library.sort.title_desc"
+        case .pageCountDesc: return "library.sort.pages"
         case .fileSizeDesc:  return "library.sort.size_desc"
         }
     }

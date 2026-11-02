@@ -1,0 +1,4 @@
+"resume_downloads.title" = "ダウンロードを再開？";
+"resume_downloads.message" = "中断されたダウンロードが%lld件あります。再開しますか？";
+"resume_downloads.confirm" = "再開";
+"resume_downloads.dismiss" = "破棄";

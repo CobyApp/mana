@@ -15,7 +15,8 @@ public struct SettingsFeature {
         public var appLanguage: AppLanguage
         /// Flattens decorative effects (halftone, glitch, speed lines) for performance / e-ink.
         public var liteMode: Bool
-        @Presents public var resetAlert: AlertState<Action.ResetAlert>?
+        /// Manga-styled reset confirm dialog (Android `ResetConfirmDialog`).
+        public var isResetConfirmPresented: Bool = false
 
         public init(
             defaultMode: ReadingMode = .single,
@@ -40,12 +41,9 @@ public struct SettingsFeature {
         case appLanguageChanged(AppLanguage)
         case liteModeChanged(Bool)
         case resetLibraryRequested
-        case resetAlert(PresentationAction<ResetAlert>)
+        case resetConfirmDismissed
+        case resetConfirmed
         case resetLibraryCompleted
-
-        public enum ResetAlert: Equatable, Sendable {
-            case confirm
-        }
     }
 
     @Dependency(\.userDefaults) var defaults
@@ -99,35 +97,25 @@ public struct SettingsFeature {
                 return .none
 
             case .resetLibraryRequested:
-                state.resetAlert = AlertState {
-                    TextState("settings.reset_title", bundle: .module)
-                } actions: {
-                    ButtonState(role: .destructive, action: .confirm) {
-                        TextState("settings.reset_confirm", bundle: .module)
-                    }
-                    ButtonState(role: .cancel) {
-                        TextState("settings.cancel", bundle: .module)
-                    }
-                } message: {
-                    TextState("settings.reset_message", bundle: .module)
-                }
+                state.isResetConfirmPresented = true
                 return .none
 
-            case .resetAlert(.presented(.confirm)):
+            case .resetConfirmDismissed:
+                state.isResetConfirmPresented = false
+                return .none
+
+            case .resetConfirmed:
+                state.isResetConfirmPresented = false
                 let resetService = self.libraryResetService
                 return .run { send in
                     try? await resetService.resetAll()
                     await send(.resetLibraryCompleted)
                 }
 
-            case .resetAlert:
-                return .none
-
             case .resetLibraryCompleted:
                 return .none
             }
         }
-        .ifLet(\.$resetAlert, action: \.resetAlert)
     }
 
     public static let modeKey = "mana.defaultReadingMode"

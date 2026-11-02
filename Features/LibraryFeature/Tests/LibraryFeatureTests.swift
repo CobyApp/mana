@@ -34,12 +34,14 @@ import Domain
             $0.comicRepository = repo
             $0.libraryImporter = StubImporter()
             $0.folderRepository = StubFolderRepo()
+            $0.progressRepository = StubProgressRepo()
         }
         store.exhaustivity = .off(showSkippedAssertions: false)
 
         await store.send(.task)
         await store.receive(\.refreshed) {
             $0.comics = IdentifiedArray(uniqueElements: initial)
+            $0.hasLoaded = true
         }
     }
 
@@ -62,6 +64,7 @@ import Domain
         await store.receive(\.imported) {
             $0.comics = IdentifiedArray(uniqueElements: [imported])
             $0.isImporting = false
+            $0.importSuccessCount = 1
         }
     }
 
@@ -329,4 +332,123 @@ actor StubFolderRepo: FolderRepository {
         else { items.append(f) }
     }
     func delete(_ id: UUID) async throws { items.removeAll { $0.id == id } }
+}
+
+@Test func folderDeleteConfirmedKeepsComics() async {
+    let folder = Folder(id: UUID(), name: "F", dateAdded: .init(timeIntervalSince1970: 0))
+    let comic = ComicItem(id: UUID(), url: URL(fileURLWithPath: "/f"), format: .cbz, title: "In",
+                          pageCount: 0, coverThumbnail: nil, dateAdded: .init(timeIntervalSince1970: 0),
+                          fileSizeBytes: 0, folderId: folder.id)
+    let comicRepo = StubComicRepo(initial: [comic])
+    var initialState = LibraryFeature.State(
+        comics: IdentifiedArray(uniqueElements: [comic]),
+        folders: IdentifiedArray(uniqueElements: [folder]),
+        currentFolderId: folder.id
+    )
+    initialState.confirmDialog = .folderDelete(folderId: folder.id, folderName: "F", comicCount: 1)
+
+    let store = await TestStore(initialState: initialState) {
+        LibraryFeature()
+    } withDependencies: {
+        $0.comicRepository = comicRepo
+        $0.libraryImporter = StubImporter()
+        $0.folderRepository = StubFolderRepo()
+    }
+    store.exhaustivity = .off(showSkippedAssertions: false)
+
+    await store.send(.confirmDialogConfirmed) {
+        $0.confirmDialog = nil
+        $0.folders = []
+        $0.currentFolderId = nil
+        $0.comics[id: comic.id] = ComicItem(
+            id: comic.id, url: comic.url, format: comic.format, title: comic.title,
+            pageCount: comic.pageCount, coverThumbnail: nil, dateAdded: comic.dateAdded,
+            fileSizeBytes: 0, folderId: nil
+        )
+    }
+    await store.receive(\.folderDeleted)
+    let stored = await comicRepo.all()
+    #expect(stored.count == 1)
+    #expect(stored.first?.folderId == nil)
+}
+
+@Test func deleteComicRequestedAsksForConfirmation() async {
+    let comic = ComicItem(id: UUID(), url: URL(fileURLWithPath: "/c"), format: .cbz, title: "C",
+                          pageCount: 0, coverThumbnail: nil, dateAdded: .init(timeIntervalSince1970: 0), fileSizeBytes: 0)
+    let store = await TestStore(initialState: LibraryFeature.State(comics: IdentifiedArray(uniqueElements: [comic]))) {
+        LibraryFeature()
+    } withDependencies: {
+        $0.comicRepository = StubComicRepo(initial: [comic])
+        $0.libraryImporter = StubImporter()
+        $0.folderRepository = StubFolderRepo()
+    }
+    await store.send(.deleteComicRequested(comic.id)) {
+        $0.confirmDialog = .comicDelete(comicId: comic.id, title: "C")
+    }
+}
+
+@Test func renameFolderKeepsSourceAndCover() async {
+    let folder = Folder(id: UUID(), name: "Old", dateAdded: .init(timeIntervalSince1970: 0),
+                        sourceURL: "https://example.com/s", coverImage: Data([1, 2, 3]))
+    var initialState = LibraryFeature.State(folders: IdentifiedArray(uniqueElements: [folder]))
+    initialState.renameFolderSheet = LibraryFeature.RenameFolderSheet.State(folderId: folder.id, name: "New")
+    let store = await TestStore(initialState: initialState) {
+        LibraryFeature()
+    } withDependencies: {
+        $0.comicRepository = StubComicRepo(initial: [])
+        $0.libraryImporter = StubImporter()
+        $0.folderRepository = StubFolderRepo()
+    }
+    store.exhaustivity = .off(showSkippedAssertions: false)
+    await store.send(.renameFolderSubmitted) {
+        $0.folders[id: folder.id] = folder.renamed("New")
+        $0.renameFolderSheet = nil
+    }
+}
+
+@Test func comicLongPressEntersSelection() async {
+    let comic = ComicItem(id: UUID(), url: URL(fileURLWithPath: "/c"), format: .cbz, title: "C",
+                          pageCount: 0, coverThumbnail: nil, dateAdded: .init(timeIntervalSince1970: 0), fileSizeBytes: 0)
+    let store = await TestStore(initialState: LibraryFeature.State(comics: IdentifiedArray(uniqueElements: [comic]))) {
+        LibraryFeature()
+    } withDependencies: {
+        $0.comicRepository = StubComicRepo(initial: [comic])
+        $0.libraryImporter = StubImporter()
+        $0.folderRepository = StubFolderRepo()
+    }
+    await store.send(.comicLongPressed(comic.id)) {
+        $0.isSelecting = true
+        $0.selectedComicIds = [comic.id]
+    }
+}
+
+@Test func folderNameSuggestionsStripChapterMarkers() {
+    let titles = ["One Piece Chapter 1012", "One Piece ch. 1013", "Berserk Vol 3", "Solo 화 12", "Existing 1"]
+    let result = LibraryFeature.folderNameSuggestions(titles: titles, existingFolders: ["existing"])
+    #expect(result.first == "One Piece")
+    #expect(result.contains("Berserk"))
+    #expect(!result.contains("Existing"))
+    #expect(result.count <= 6)
+}
+
+@Test func continueReadingIncludesFinishedComic() {
+    let comic = ComicItem(id: UUID(), url: URL(fileURLWithPath: "/c"), format: .cbz, title: "Done",
+                          pageCount: 10, coverThumbnail: nil, dateAdded: .init(timeIntervalSince1970: 0), fileSizeBytes: 0)
+    var state = LibraryFeature.State(comics: IdentifiedArray(uniqueElements: [comic]))
+    state.progresses[comic.id] = ReadingProgress(comicId: comic.id, lastPageIndex: 9, totalPages: 10,
+                                                 updatedAt: .init(timeIntervalSince1970: 5))
+    #expect(state.continueReading?.comic.id == comic.id)
+}
+
+@Test func sortByPageCountDesc() {
+    let a = ComicItem(id: UUID(), url: URL(fileURLWithPath: "/a"), format: .cbz, title: "A", pageCount: 5, coverThumbnail: nil, dateAdded: .init(timeIntervalSince1970: 0), fileSizeBytes: 0)
+    let b = ComicItem(id: UUID(), url: URL(fileURLWithPath: "/b"), format: .cbz, title: "B", pageCount: 50, coverThumbnail: nil, dateAdded: .init(timeIntervalSince1970: 0), fileSizeBytes: 0)
+    let state = LibraryFeature.State(comics: IdentifiedArray(uniqueElements: [a, b]), sort: .pageCountDesc)
+    #expect(state.displayedComics.map(\.title) == ["B", "A"])
+}
+
+struct StubProgressRepo: ProgressRepository {
+    func all() async -> [ReadingProgress] { [] }
+    func load(comicId: UUID) async -> ReadingProgress? { nil }
+    func save(_ progress: ReadingProgress) async throws {}
 }

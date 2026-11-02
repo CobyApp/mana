@@ -12,7 +12,11 @@ import LibraryFeature
 /// 2. **Reindex** — picks up files that exist on disk but have no catalog
 ///    entry (e.g. after a reinstall that preserved Application Support via
 ///    backup) and imports them.
-/// 3. **Orphan cleanup** — deletes catalog entries whose backing file no
+/// 3. **Relocation** — the app container path changes across reinstalls and
+///    some updates, so a stored absolute URL can go stale while the file is
+///    still in the library folder. Those entries are re-pointed (keeping title,
+///    folder and progress) instead of being treated as orphans.
+/// 4. **Orphan cleanup** — deletes catalog entries whose backing file no
 ///    longer exists.
 public struct LibraryReconcileService: Sendable {
     let repo: any ComicRepository
@@ -36,7 +40,7 @@ public struct LibraryReconcileService: Sendable {
 
         // Refresh catalog snapshot after URL rewrites.
         let refreshedComics = await repo.all()
-        await deleteOrphans(comics: refreshedComics, fm: fm)
+        await relocateOrDeleteOrphans(comics: refreshedComics, libraryDir: libraryDir, fm: fm)
 
         await importNewFiles(libraryDir: libraryDir, fm: fm)
 
@@ -65,27 +69,36 @@ public struct LibraryReconcileService: Sendable {
             let comicPath = comic.url.standardizedFileURL.path
             guard comicPath.hasPrefix(legacyPath) else { continue }
             let newURL = libraryDir.appending(path: comic.url.lastPathComponent)
-            let rewritten = ComicItem(
-                id: comic.id,
-                url: newURL,
-                format: comic.format,
-                title: comic.title,
-                pageCount: comic.pageCount,
-                coverThumbnail: comic.coverThumbnail,
-                dateAdded: comic.dateAdded,
-                fileSizeBytes: comic.fileSizeBytes,
-                readingMode: comic.readingMode,
-                folderId: comic.folderId,
-                pageProgressionDirection: comic.pageProgressionDirection
-            )
-            try? await repo.upsert(rewritten)
+            try? await repo.upsert(Self.moved(comic, to: newURL))
         }
     }
 
-    private func deleteOrphans(comics: [ComicItem], fm: FileManager) async {
+    private func relocateOrDeleteOrphans(comics: [ComicItem], libraryDir: URL, fm: FileManager) async {
         for comic in comics where !fm.fileExists(atPath: comic.url.path) {
-            try? await repo.delete(comic.id)
+            let relocated = libraryDir.appending(path: comic.url.lastPathComponent)
+            if fm.fileExists(atPath: relocated.path) {
+                try? await repo.upsert(Self.moved(comic, to: relocated))
+            } else {
+                try? await repo.delete(comic.id)
+            }
         }
+    }
+
+    private static func moved(_ comic: ComicItem, to url: URL) -> ComicItem {
+        ComicItem(
+            id: comic.id,
+            url: url,
+            format: comic.format,
+            title: comic.title,
+            pageCount: comic.pageCount,
+            coverThumbnail: comic.coverThumbnail,
+            dateAdded: comic.dateAdded,
+            fileSizeBytes: comic.fileSizeBytes,
+            readingMode: comic.readingMode,
+            folderId: comic.folderId,
+            pageProgressionDirection: comic.pageProgressionDirection,
+            pageOffset: comic.pageOffset
+        )
     }
 
     private func importNewFiles(libraryDir: URL, fm: FileManager) async {

@@ -67,6 +67,7 @@ private struct StubRouter: ArchiveReaderRouter {
         } withDependencies: {
             $0.archiveReaderRouter = router
             $0.progressRepository = progressRepo
+            $0.comicRepository = StubComicRepoForReader(initial: [comic])
             $0.imageCache = ImageCache.inMemoryOnly()
             $0.mainQueue = .immediate
             $0.userDefaults = InMemoryUserDefaults()
@@ -234,6 +235,80 @@ private struct StubRouter: ArchiveReaderRouter {
     #expect(stored.first?.pageOffset == true)
 }
 
+private struct FailingReader: ArchiveReader {
+    func openArchive(at url: URL) async throws -> ArchiveHandle { throw ArchiveError.indexOutOfBounds(0) }
+    func pageCount(_ handle: ArchiveHandle) async -> Int { 0 }
+    func pageData(_ handle: ArchiveHandle, index: Int) async throws -> Data { throw ArchiveError.indexOutOfBounds(index) }
+    func closeArchive(_ handle: ArchiveHandle) async {}
+}
+
+@MainActor @Test func openFailureShowsInlineRetryAndRetryReopens() async {
+    let store = await TestStore(initialState: ReaderFeature.State(comic: sampleComic())) {
+        ReaderFeature()
+    } withDependencies: {
+        $0.archiveReaderRouter = StubRouter(reader: FailingReader())
+        $0.progressRepository = InMemoryProgressRepo(initial: [])
+        $0.imageCache = ImageCache.inMemoryOnly()
+        $0.mainQueue = .immediate
+        $0.userDefaults = InMemoryUserDefaults()
+    }
+    store.exhaustivity = .off(showSkippedAssertions: false)
+
+    await store.send(.task)
+    await store.receive(\.openFailed) {
+        $0.loadFailed = true
+    }
+    // No alert any more — the view shows the inline failure state.
+    #expect(store.state.alert == nil)
+    await store.send(.retry) {
+        $0.loadFailed = false
+    }
+    await store.receive(\.openFailed) {
+        $0.loadFailed = true
+    }
+}
+
+@MainActor @Test(arguments: [(ReadingMode.single, 3), (ReadingMode.dual, 6)])
+func prefetchWarmsSpreadsAhead(mode: ReadingMode, pagesAhead: Int) async {
+    let pages = (0..<20).map { Data([UInt8($0)]) }
+    let handle = ArchiveHandle()
+    let cache = ImageCache.inMemoryOnly()
+    let comic = sampleComic(pageCount: 20)
+    let store = await TestStore(
+        initialState: ReaderFeature.State(comic: comic, handle: handle, pageIndex: 0, pageCount: 20, mode: mode)
+    ) {
+        ReaderFeature()
+    } withDependencies: {
+        $0.archiveReaderRouter = StubRouter(reader: StubReader(handle: handle, pages: pages))
+        $0.progressRepository = InMemoryProgressRepo(initial: [])
+        $0.imageCache = cache
+        $0.mainQueue = .immediate
+        $0.userDefaults = InMemoryUserDefaults()
+    }
+    store.exhaustivity = .off(showSkippedAssertions: false)
+
+    await store.send(.prefetchHint(5))
+    await store.finish()
+    for i in 4...(5 + pagesAhead) {
+        #expect(await cache.data(for: PageKey(comicId: comic.id, pageIndex: i)) != nil)
+    }
+    #expect(await cache.data(for: PageKey(comicId: comic.id, pageIndex: 6 + pagesAhead)) == nil)
+    #expect(await cache.data(for: PageKey(comicId: comic.id, pageIndex: 3)) == nil)
+}
+
+@Test func spreadMappingMatchesDualPairing() {
+    // Plain pairs: 0-1 | 2-3 | 4
+    #expect(ReaderSpreads.count(pageCount: 5, mode: .dual, pageOffset: false) == 3)
+    #expect(ReaderSpreads.position(ofPage: 4, mode: .dual, pageOffset: false) == 2)
+    #expect(ReaderSpreads.firstPage(ofPosition: 1, pageCount: 5, mode: .dual, pageOffset: false) == 2)
+    // Cover solo: 0 | 1-2 | 3-4
+    #expect(ReaderSpreads.count(pageCount: 5, mode: .dual, pageOffset: true) == 3)
+    #expect(ReaderSpreads.position(ofPage: 3, mode: .dual, pageOffset: true) == 2)
+    #expect(ReaderSpreads.firstPage(ofPosition: 2, pageCount: 5, mode: .dual, pageOffset: true) == 3)
+    // Single/webtoon are identity.
+    #expect(ReaderSpreads.count(pageCount: 5, mode: .single, pageOffset: true) == 5)
+    #expect(ReaderSpreads.firstPage(ofPosition: 9, pageCount: 5, mode: .webtoon, pageOffset: false) == 4)
+}
 
 actor InMemoryProgressRepo: ProgressRepository {
     private var store: [UUID: ReadingProgress]

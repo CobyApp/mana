@@ -5,15 +5,8 @@ import SourceKit
 import LibraryFeature
 import ZIPFoundation
 import UserNotifications
-
-// MARK: - Array chunking
-
-private extension Array {
-    func chunked(_ size: Int) -> [[Element]] {
-        guard size > 0 else { return [self] }
-        return stride(from: 0, to: count, by: size).map { Array(self[$0..<Swift.min($0 + size, count)]) }
-    }
-}
+import UIKit
+import ImageIO
 
 // MARK: - ChapterDownloader
 
@@ -27,7 +20,7 @@ public struct ChapterDownloaderLive: ChapterDownloader {
     private let comicRepo: any ComicRepository
     private let folderRepo: any FolderRepository
 
-    private static let maxConcurrentPages = 6
+    private static let maxConcurrentPages = 8
     private static let maxFetchAttempts = 3
     private static let retryBackoffMillis: UInt64 = 600
 
@@ -64,23 +57,25 @@ public struct ChapterDownloaderLive: ChapterDownloader {
         try fm.createDirectory(at: tmp, withIntermediateDirectories: true)
         defer { try? fm.removeItem(at: tmp) }
 
-        var written = 0
-        for (chunkIndex, chunk) in urls.chunked(Self.maxConcurrentPages).enumerated() {
-            let fetched = try await withThrowingTaskGroup(of: (Int, Data).self) { group -> [Int: Data] in
-                for (i, u) in chunk.enumerated() {
-                    group.addTask { (i, try await fetchPage(u, headers: headers)) }
-                }
-                var dict: [Int: Data] = [:]
-                for try await (i, data) in group { dict[i] = data }
-                return dict
+        // Sliding window: keep `maxConcurrentPages` fetches in flight at all times so one slow page
+        // doesn't stall a whole batch, and write each page to disk as soon as it lands.
+        try await withThrowingTaskGroup(of: (Int, Data).self) { group in
+            var next = 0
+            func addNext() {
+                guard next < total else { return }
+                let index = next
+                let url = urls[index]
+                group.addTask { (index, try await fetchPage(url, headers: headers)) }
+                next += 1
             }
-            for i in 0..<chunk.count {
-                guard let data = fetched[i] else { continue }
-                let index = chunkIndex * Self.maxConcurrentPages + i
+            for _ in 0..<min(Self.maxConcurrentPages, total) { addNext() }
+            var written = 0
+            while let (index, data) = try await group.next() {
                 let name = String(format: "%03d.%@", index + 1, extensionOf(urls[index]))
                 try data.write(to: tmp.appending(path: name))
                 written += 1
                 onProgress(written, total)
+                addNext()
             }
         }
 
@@ -91,6 +86,14 @@ public struct ChapterDownloaderLive: ChapterDownloader {
         defer { try? fm.removeItem(at: cbz) }
 
         let folder = try await findOrCreateFolder(name: ComicNaming.seriesFolderName(title: seriesTitle, url: seriesURL), sourceURL: seriesURL)
+        // Auto folder cover: the first time we download into a folder without a cover, use the
+        // online series' cover art (downsampled) so it shows the book cover. Failures are ignored.
+        if folder.coverImage == nil, let seriesCoverURL {
+            if let bytes = try? await http.getBytes(seriesCoverURL, headers: headers),
+               let cover = Self.downsampledJPEG(bytes, maxPixel: 512) {
+                try? await folderRepo.setCover(folderId: folder.id, image: cover)
+            }
+        }
         let imported = try await importer.importFiles([cbz], folderId: folder.id)
         guard let comic = imported.first else { throw DownloadError.importFailed }
 
@@ -112,7 +115,11 @@ public struct ChapterDownloaderLive: ChapterDownloader {
         for attempt in 0..<Self.maxFetchAttempts {
             do {
                 return try await http.getBytes(url, headers: headers)
+            } catch let SourceHTTP.HTTPError.status(code, _) where (400..<500).contains(code) && code != 408 && code != 429 {
+                // Permanent client error (missing page, forbidden) — retrying won't help.
+                throw DownloadError.fetchFailed(url)
             } catch {
+                try Task.checkCancellation()
                 lastError = error
                 if attempt < Self.maxFetchAttempts - 1 {
                     try? await Task.sleep(nanoseconds: Self.retryBackoffMillis * UInt64(attempt + 1) * 1_000_000)
@@ -123,11 +130,7 @@ public struct ChapterDownloaderLive: ChapterDownloader {
     }
 
     private func findOrCreateFolder(name: String, sourceURL: String) async throws -> Folder {
-        let all = await folderRepo.all()
-        if let existing = all.first(where: { $0.name == name }) { return existing }
-        let folder = Folder(id: UUID(), name: name, dateAdded: Date(), sourceURL: sourceURL)
-        try await folderRepo.upsert(folder)
-        return folder
+        try await SeriesFolderGate.shared.findOrCreate(name: name, sourceURL: sourceURL, repo: folderRepo)
     }
 
     private func extensionOf(_ url: String) -> String {
@@ -137,7 +140,46 @@ public struct ChapterDownloaderLive: ChapterDownloader {
         return ok ? ext : "jpg"
     }
 
+    /// Decodes `data` at most `maxPixel` on its long edge (ImageIO thumbnailing, no full decode)
+    /// and re-encodes it as JPEG. Returns nil if the bytes aren't a decodable image.
+    static func downsampledJPEG(_ data: Data, maxPixel: Int) -> Data? {
+        guard !data.isEmpty,
+              let src = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary)
+        else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixel,
+        ]
+        guard let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, options as CFDictionary) else { return nil }
+        return UIImage(cgImage: cg).jpegData(compressionQuality: 0.85)
+    }
+
     public enum DownloadError: Error, Sendable { case noPages, importFailed, fetchFailed(String) }
+}
+
+/// Serialises series-folder lookup/creation so two chapters of the same series downloading in
+/// parallel can't both create the folder.
+private actor SeriesFolderGate {
+    static let shared = SeriesFolderGate()
+
+    /// Actor methods are re-entrant across `await`, so chain each call behind the previous one.
+    private var tail: Task<Void, Never>?
+
+    func findOrCreate(name: String, sourceURL: String, repo: any FolderRepository) async throws -> Folder {
+        let previous = tail
+        let work = Task { () async throws -> Folder in
+            await previous?.value
+            let all = await repo.all()
+            if let existing = all.first(where: { $0.name == name }) { return existing }
+            let folder = Folder(id: UUID(), name: name, dateAdded: Date(), sourceURL: sourceURL)
+            try await repo.upsert(folder)
+            return folder
+        }
+        tail = Task { _ = try? await work.value }
+        return try await work.value
+    }
 }
 
 // MARK: - DownloadQueueStore
@@ -191,12 +233,41 @@ public struct DownloadNotifier: Sendable {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
+    /// Routes notification taps to `noiz://downloads` and lets completions show while the app is
+    /// in the foreground.
+
+    public func installTapHandler() {
+        UNUserNotificationCenter.current().delegate = DownloadNotificationDelegate.shared
+    }
+
     public func notifyCompleted(series: String, chapter: String) {
         let content = UNMutableNotificationContent()
         content.title = series
         content.body = chapter
+        content.userInfo = ["url": "noiz://downloads"]
+        content.threadIdentifier = series
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
+    }
+}
+
+final class DownloadNotificationDelegate: NSObject, UNUserNotificationCenterDelegate, @unchecked Sendable {
+    static let shared = DownloadNotificationDelegate()
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        [.banner, .list]
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        guard let raw = response.notification.request.content.userInfo["url"] as? String,
+              let url = URL(string: raw) else { return }
+        await MainActor.run { UIApplication.shared.open(url) }
     }
 }
 

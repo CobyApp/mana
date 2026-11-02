@@ -1,0 +1,4 @@
+"resume_downloads.title" = "Resume downloads?";
+"resume_downloads.message" = "%lld download(s) were interrupted. Resume them?";
+"resume_downloads.confirm" = "Resume";
+"resume_downloads.dismiss" = "Discard";

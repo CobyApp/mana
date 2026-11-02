@@ -27,6 +27,16 @@ public struct MangaDetailFeature {
         public var read: Set<String> = []
         public var selectionMode: Bool = false
         public var selected: Set<String> = []
+        /// "Download all?" dialog; `downloadAllPending` is the count captured when it opened.
+        public var downloadAllPresented: Bool = false
+        public var downloadAllPending: Int = 0
+        /// Non-nil while the "N chapter(s) added" toast is showing.
+        public var queuedToastCount: Int?
+
+        /// Chapters that "Download all" would queue (not downloaded, not already in the queue).
+        public var pendingDownloadAllCount: Int {
+            (detail?.chapters ?? []).filter { !downloaded.contains($0.url) && downloading[$0.url] == nil }.count
+        }
 
         public init(mangaURL: String, preview: SourceManga? = nil) {
             self.mangaURL = mangaURL
@@ -43,6 +53,10 @@ public struct MangaDetailFeature {
         case downloadChapter(SourceChapter)
         case cancelChapter(SourceChapter)
         case downloadAll
+        case downloadAllTapped
+        case downloadAllDismissed
+        case downloadAllConfirmed
+        case toastExpired
         case enterSelection
         case clearSelection
         case toggleSelect(SourceChapter)
@@ -58,8 +72,9 @@ public struct MangaDetailFeature {
     @Dependency(\.comicRepository) var comicRepo
     @Dependency(\.folderRepository) var folderRepo
     @Dependency(\.readChapterRepository) var readChapters
+    @Dependency(\.continuousClock) var clock
 
-    private enum CancelID: Hashable { case active, read }
+    private enum CancelID: Hashable { case active, read, toast }
 
     public var body: some ReducerOf<Self> {
         Reduce { state, action in
@@ -69,6 +84,8 @@ public struct MangaDetailFeature {
                 return .merge(loadDetail(state.mangaURL), observeActive(), observeRead())
 
             case .retry:
+                state.loading = true
+                state.error = false
                 return loadDetail(state.mangaURL)
 
             case let .detailLoaded(detail):
@@ -91,6 +108,31 @@ public struct MangaDetailFeature {
 
             case .downloadAll:
                 enqueue(state.detail?.chapters ?? [], state)
+                return .none
+
+            case .downloadAllTapped:
+                state.downloadAllPending = state.pendingDownloadAllCount
+                state.downloadAllPresented = true
+                return .none
+
+            case .downloadAllDismissed:
+                state.downloadAllPresented = false
+                return .none
+
+            case .downloadAllConfirmed:
+                let count = state.downloadAllPending
+                state.downloadAllPresented = false
+                enqueue(state.detail?.chapters ?? [], state)
+                state.queuedToastCount = count
+                let clock = self.clock
+                return .run { send in
+                    try await clock.sleep(for: .seconds(2))
+                    await send(.toastExpired)
+                }
+                .cancellable(id: CancelID.toast, cancelInFlight: true)
+
+            case .toastExpired:
+                state.queuedToastCount = nil
                 return .none
 
             case .enterSelection:
@@ -130,10 +172,12 @@ public struct MangaDetailFeature {
                     case .failed: failed.insert(e.chapterURL)
                     }
                 }
+                // A completion drops out of the queue → recompute which chapters are now downloaded.
+                // Progress ticks alone don't change that, so skip the library scan for them.
+                let finished = !Set(state.downloading.keys).subtracting(downloading.keys).isEmpty
                 state.downloading = downloading
                 state.failed = failed
-                // A completion drops out of the queue → recompute which chapters are now downloaded.
-                if let detail = state.detail { return computeDownloaded(detail) }
+                if finished, let detail = state.detail { return computeDownloaded(detail) }
                 return .none
 
             case let .readUpdated(urls):

@@ -2,6 +2,7 @@ import SwiftUI
 import UIKit
 import Domain
 import SharedUI
+import DesignSystem
 
 public struct DualPageRenderer: View, PageRenderer {
     let totalPages: Int
@@ -14,6 +15,9 @@ public struct DualPageRenderer: View, PageRenderer {
     let onCenterTap: () -> Void
     let pageOffset: Bool
     let pageOverlay: ((Int) -> AnyView)?
+    /// Optional extra page after the last spread (e.g. the "next chapter" card); visual only.
+    let endPage: AnyView?
+    @State private var showingEnd = false
 
     /// The two pages composited side-by-side into a single image, so they render flush
     /// (no gap) and the whole spread is zoomable as one unit via `ZoomableImageView`.
@@ -29,7 +33,8 @@ public struct DualPageRenderer: View, PageRenderer {
         swipeEnabled: Bool = true,
         onCenterTap: @escaping () -> Void = {},
         pageOffset: Bool = false,
-        pageOverlay: ((Int) -> AnyView)? = nil
+        pageOverlay: ((Int) -> AnyView)? = nil,
+        endPage: AnyView? = nil
     ) {
         self.totalPages = totalPages
         self._current = current
@@ -41,6 +46,7 @@ public struct DualPageRenderer: View, PageRenderer {
         self.onCenterTap = onCenterTap
         self.pageOffset = pageOffset
         self.pageOverlay = pageOverlay
+        self.endPage = endPage
     }
 
     /// Returns (leftPageIndex, rightPageIndex) — visual pair.
@@ -64,7 +70,13 @@ public struct DualPageRenderer: View, PageRenderer {
 
     public var body: some View {
         ZStack {
-            if let spreadImage {
+            if showingEnd, let endPage {
+                EndPageContainer(
+                    content: endPage,
+                    onLeftTap: { applyDelta(.left) },
+                    onRightTap: { applyDelta(.right) }
+                )
+            } else if let spreadImage {
                 let pair = logicalPair()
                 ZoomableImageView(
                     image: spreadImage,
@@ -97,6 +109,7 @@ public struct DualPageRenderer: View, PageRenderer {
         .task(id: TaskKey(current: current, offset: pageOffset)) {
             await loadPair()
         }
+        .onChange(of: current) { _, _ in showingEnd = false }
     }
 
     private enum TapDir { case left, right }
@@ -109,17 +122,27 @@ public struct DualPageRenderer: View, PageRenderer {
         case (.left, .rightToLeft): advance = true
         case (.right, .rightToLeft): advance = false
         }
+        if showingEnd {
+            if !advance { showingEnd = false; MangaHaptic.tick.play() }
+            return
+        }
         if advance { goNext() } else { goPrev() }
     }
 
     private func goNext() {
         if pageOffset {
             let next = current == 0 ? 1 : current + 2
-            if next < totalPages { current = next }
+            if next < totalPages { current = next } else { showEndIfAvailable() }
         } else {
             let next = current + 2
-            if next < totalPages { current = next }
+            if next < totalPages { current = next } else { showEndIfAvailable() }
         }
+    }
+
+    private func showEndIfAvailable() {
+        guard endPage != nil else { return }
+        showingEnd = true
+        MangaHaptic.tick.play()
     }
 
     private func goPrev() {

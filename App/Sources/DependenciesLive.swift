@@ -86,10 +86,8 @@ enum LiveDependencies {
         // Keep the "continue reading" home-screen widget in sync with reading progress.
         ContinueReadingWidgetBridge(progressRepo: progressRepo, comicRepo: comicRepo).start()
 
-        // Surface and auto-resume any downloads interrupted by a previous app kill.
-        Task {
-            await downloadManager.restore()
-            downloadManager.resumePending()
-        }
+        // Interrupted downloads are restored by AppFeature at launch, which asks before resuming.
+        // Tapping a download notification opens the Downloads screen.
+        downloadNotifier.installTapHandler()
     }
 }

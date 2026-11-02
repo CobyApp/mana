@@ -28,11 +28,13 @@ public struct LibraryView: View {
             .background(Tokens.Colors.paper.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
             .overlay { popoverOverlay }
-            .overlay(alignment: .topTrailing) { popoverPanelOverlay }
+            .overlayPreferenceValue(SortChipAnchorKey.self) { anchor in
+                popoverPanelOverlay(anchor: anchor)
+            }
             .animation(.easeOut(duration: 0.12), value: activePopover)
-            .overlay { confirmDialogOverlay }
-            .animation(.easeOut(duration: 0.18), value: store.confirmDialog)
             .overlay { if store.isImporting { importingOverlay } }
+            .overlay { dialogs }
+            .sensoryFeedback(.success, trigger: store.importSuccessCount)
             .fileImporter(
                 isPresented: $showImporter,
                 allowedContentTypes: importContentTypes,
@@ -42,7 +44,7 @@ public struct LibraryView: View {
             .dropDestination(for: URL.self, action: handleDrop)
             .task { await store.send(.task).finish() }
             .onAppear { store.send(.onAppear) }
-            .modifier(LibrarySheetsAndAlerts(store: store))
+            .alert($store.scope(state: \.alert, action: \.alert))
             .safeAreaInset(edge: .bottom) {
                 if store.isSelecting && !store.selectedComicIds.isEmpty {
                     selectionActionBar
@@ -61,6 +63,7 @@ public struct LibraryView: View {
         [
             UTType(filenameExtension: "cbz") ?? .archive,
             UTType(filenameExtension: "cbr") ?? .archive,
+            UTType(filenameExtension: "rar") ?? .archive,
             .zip,
             .pdf
         ]
@@ -78,27 +81,32 @@ public struct LibraryView: View {
         return true
     }
 
+    // MARK: - Header
+
+    /// Root: [⚙] … [Downloads][Browse][Select]. Folder: [‹] … [☁][🖼][✏][🗑][Select].
+    /// Everything except Select/Done hides while selecting. (Android `LibraryScreen` header.)
     @ViewBuilder
     private var headerBar: some View {
         HStack(spacing: Tokens.Spacing.s) {
             leadingButton
-            if store.currentFolderId == nil, !store.isSelecting {
-                Button { store.send(.browseTapped) } label: {
-                    MangaIconBadge(systemName: "globe")
-                }
-                .buttonStyle(.plain)
-                Button { store.send(.downloadsTapped) } label: {
-                    MangaIconBadge(systemName: "arrow.down.circle.fill")
-                }
-                .buttonStyle(.plain)
-            }
-            if !store.isSelecting {
-                Button { store.send(.viewModeToggled) } label: {
-                    MangaIconBadge(systemName: store.viewMode == .grid ? "list.bullet" : "square.grid.2x2.fill")
-                }
-                .buttonStyle(.plain)
-            }
             Spacer(minLength: 0)
+            if !store.isSelecting {
+                if let folder = store.currentFolder {
+                    if let source = folder.sourceURL {
+                        headerIcon("icloud.and.arrow.down.fill") {
+                            store.send(.openSourceSeries(url: source))
+                        }
+                    }
+                    headerIcon("photo.fill") { store.send(.folderCoverRequested) }
+                    headerIcon("pencil") { store.send(.renameFolderRequested(folder.id)) }
+                    headerIcon("trash.fill", isAccent: true) {
+                        store.send(.folderDeleteConfirmationRequested(folder.id))
+                    }
+                } else if store.currentFolderId == nil {
+                    headerIcon("arrow.down.circle.fill") { store.send(.downloadsTapped) }
+                    headerIcon("globe") { store.send(.browseTapped) }
+                }
+            }
             if !store.displayedComics.isEmpty || !store.displayedFolders.isEmpty {
                 Button { store.send(.selectionModeToggled) } label: {
                     MangaTextBadge(
@@ -106,19 +114,7 @@ public struct LibraryView: View {
                         isActive: store.isSelecting
                     )
                 }
-                .buttonStyle(.plain)
-            }
-            if let folderId = store.currentFolderId, !store.isSelecting {
-                Button { store.send(.renameFolderRequested(folderId)) } label: {
-                    MangaIconBadge(systemName: "pencil")
-                }
-                .buttonStyle(.plain)
-                Button(role: .destructive) {
-                    store.send(.folderDeleteConfirmationRequested(folderId))
-                } label: {
-                    MangaIconBadge(systemName: "trash.fill", isAccent: true)
-                }
-                .buttonStyle(.plain)
+                .buttonStyle(MangaPressStyle(haptic: .tick))
             }
         }
         .padding(.horizontal, Tokens.Spacing.m)
@@ -126,63 +122,60 @@ public struct LibraryView: View {
         .padding(.bottom, Tokens.Spacing.xs)
     }
 
+    private func headerIcon(_ systemName: String, isAccent: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            MangaIconBadge(systemName: systemName, isAccent: isAccent)
+        }
+        .buttonStyle(MangaPressStyle(haptic: .tap))
+    }
+
     @ViewBuilder
     private var leadingButton: some View {
         if store.currentFolderId != nil {
-            Button { store.send(.backToRoot) } label: {
-                MangaIconBadge(systemName: "chevron.left")
-            }
-            .buttonStyle(.plain)
+            headerIcon("chevron.left") { store.send(.backToRoot) }
         } else {
-            Button { store.send(.settingsTapped) } label: {
-                MangaIconBadge(systemName: "gearshape.fill")
-            }
-            .buttonStyle(.plain)
+            headerIcon("gearshape.fill") { store.send(.settingsTapped) }
         }
     }
 
+    // MARK: - Selection bar
 
+    /// [count] … [✏ Rename (exactly 1)] [📁 Move to] [🗑 Delete]. (Android `SelectionActionBar`.)
     private var selectionActionBar: some View {
-        HStack(spacing: Tokens.Spacing.m) {
-            Text(verbatim: String(
-                format: Bundle.module.localized("library.selected_count", for: locale),
-                store.selectedComicIds.count
-            ))
-            .font(Tokens.Typography.mono)
-            .foregroundStyle(Tokens.Colors.paper)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(Tokens.Colors.ink)
-
-            Spacer()
-
-            Button {
-                store.send(.bulkMoveRequested)
-            } label: {
-                Label {
-                    Text("library.move_to", bundle: .module)
-                        .font(Tokens.Typography.subtitle)
-                } icon: {
-                    Image(systemName: "folder.fill")
-                }
-                .foregroundStyle(Tokens.Colors.ink)
-            }
-
-            Button(role: .destructive) {
-                store.send(.bulkDeleteRequested)
-            } label: {
-                Label {
-                    Text("library.delete", bundle: .module)
-                        .font(Tokens.Typography.subtitle)
-                } icon: {
-                    Image(systemName: "trash.fill")
-                }
+        HStack(spacing: Tokens.Spacing.s) {
+            Text(verbatim: "\(store.selectedComicIds.count)")
+                .font(Tokens.Typography.mono)
                 .foregroundStyle(Tokens.Colors.paper)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Tokens.Colors.accent)
-                .overlay(Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.bold))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Tokens.Colors.ink)
+                .accessibilityLabel(Text(verbatim: String(
+                    format: Bundle.module.localized("library.selected_count", for: locale),
+                    store.selectedComicIds.count
+                )))
+
+            Spacer(minLength: 0)
+
+            if store.selectedComicIds.count == 1, let only = store.selectedComicIds.first {
+                Button { store.send(.renameComicRequested(only)) } label: {
+                    MangaActionChip(systemName: "pencil", title: Text("library.rename", bundle: .module))
+                }
+                .buttonStyle(MangaPressStyle(haptic: .tap))
             }
+
+            Button { store.send(.bulkMoveRequested) } label: {
+                MangaActionChip(systemName: "folder.fill", title: Text("library.move_to", bundle: .module))
+            }
+            .buttonStyle(MangaPressStyle(haptic: .tap))
+
+            Button { store.send(.bulkDeleteRequested) } label: {
+                MangaActionChip(
+                    systemName: "trash.fill",
+                    title: Text("library.delete", bundle: .module),
+                    isAccent: true
+                )
+            }
+            .buttonStyle(MangaPressStyle(haptic: .tap))
         }
         .padding(Tokens.Spacing.m)
         .background(Tokens.Colors.paper)
@@ -193,27 +186,40 @@ public struct LibraryView: View {
         }
     }
 
+    // MARK: - Importing overlay
+
     private var importingOverlay: some View {
-        VStack(spacing: Tokens.Spacing.s) {
-            SoundEffectText(
-                "LOADING…",
-                font: Tokens.Typography.displayM,
-                fill: Tokens.Colors.accent,
-                stroke: Tokens.Colors.ink,
-                strokeWidth: 4,
-                tilt: -4
-            )
-            ProgressView()
-                .tint(Tokens.Colors.ink)
-            Text("library.importing", bundle: .module)
-                .font(Tokens.Typography.mono)
-                .foregroundStyle(Tokens.Colors.ink)
+        ZStack {
+            Tokens.Colors.ink.opacity(0.35)
+                .ignoresSafeArea()
+            VStack(spacing: Tokens.Spacing.s) {
+                SoundEffectText(
+                    "LOADING…",
+                    font: Tokens.Typography.displayM,
+                    fill: Tokens.Colors.accent,
+                    stroke: Tokens.Colors.ink,
+                    strokeWidth: 4,
+                    tilt: -4,
+                    shadowOffset: .init(width: 4, height: 4)
+                )
+                .glitchPulse(every: 0.9, intensity: 10)
+                Text("library.importing", bundle: .module)
+                    .font(Tokens.Typography.mono)
+                    .foregroundStyle(Tokens.Colors.ink)
+            }
+            .padding(Tokens.Spacing.l)
+            .background {
+                // Speed-line burst behind the loading title.
+                SpeedLines(color: Tokens.Colors.accent.opacity(0.18), lineCount: 44)
+                    .clipped()
+            }
+            .background(Tokens.Colors.paper)
+            .overlay(Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.panel))
+            .background(Tokens.Colors.ink.offset(x: 5, y: 6))
         }
-        .padding(Tokens.Spacing.l)
-        .background(Tokens.Colors.paper)
-        .overlay(Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.panel))
-        .background(Tokens.Colors.ink.offset(x: 5, y: 6))
     }
+
+    // MARK: - Content
 
     private var isLibraryEmpty: Bool {
         store.currentFolderId == nil
@@ -247,101 +253,57 @@ public struct LibraryView: View {
                     store.send(.comicTapped(resume.comic))
                 }
                 .padding(.horizontal, Tokens.Spacing.m)
+                .padding(.trailing, 5) // room for the hard ink shadow
             }
-            grid
+            folderTransitionContainer
         }
     }
 
+    /// Folder enter/exit: direction-aware slide + fade (Android `AnimatedContent`
+    /// "folderTransition"). Root always leaves/returns on the leading side and a folder always
+    /// enters/leaves on the trailing side, so each view's transition is static.
+    private var folderTransitionContainer: some View {
+        ZStack {
+            grid
+                .id(store.currentFolderId)
+                .transition(store.currentFolderId == nil ? Self.rootTransition : Self.folderTransition)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
+        .animation(.easeOut(duration: 0.25), value: store.currentFolderId)
+    }
+
+    private static let rootTransition: AnyTransition = .asymmetric(
+        insertion: .offset(x: -60).combined(with: .opacity.animation(.easeOut(duration: 0.22))),
+        removal: .offset(x: -60).combined(with: .opacity.animation(.easeOut(duration: 0.15)))
+    )
+
+    private static let folderTransition: AnyTransition = .asymmetric(
+        insertion: .offset(x: 60).combined(with: .opacity.animation(.easeOut(duration: 0.22))),
+        removal: .offset(x: 60).combined(with: .opacity.animation(.easeOut(duration: 0.15)))
+    )
+
     @ViewBuilder
     private var grid: some View {
-        if isLibraryEmpty {
-            emptyLibraryState
+        if !store.hasLoaded && isLibraryEmpty {
+            ManaLoader()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if isLibraryEmpty {
+            emptyState(isRoot: true)
         } else if isFolderEmpty {
-            emptyFolderState
+            emptyState(isRoot: false)
         } else {
             ScrollView {
                 VStack(alignment: .leading, spacing: Tokens.Spacing.l) {
                     LazyVGrid(columns: columns, spacing: store.viewMode == .list ? Tokens.Spacing.s : Tokens.Spacing.l) {
-                    if store.currentFolderId == nil {
-                        ForEach(store.displayedFolders) { folder in
-                            if store.viewMode == .list {
-                                FolderListRow(
-                                    folder: folder,
-                                    comicCount: store.comics.filter { $0.folderId == folder.id }.count,
-                                    onTap: { store.send(.folderTapped(folder)) },
-                                    onRename: { store.send(.renameFolderRequested(folder.id)) },
-                                    onDelete: { store.send(.folderDeleteConfirmationRequested(folder.id)) },
-                                    onDropComic: { comicId in
-                                        store.send(.comicMoveToFolderRequested(comicId: comicId, folderId: folder.id))
-                                    }
-                                )
-                            } else {
-                            FolderCard(
-                                folder: folder,
-                                comicsInFolder: store.comics.filter { $0.folderId == folder.id },
-                                onTap: { store.send(.folderTapped(folder)) },
-                                onRename: { store.send(.renameFolderRequested(folder.id)) },
-                                onDelete: { store.send(.folderDeleteConfirmationRequested(folder.id)) },
-                                onDropComic: { comicId in
-                                    store.send(.comicMoveToFolderRequested(comicId: comicId, folderId: folder.id))
-                                }
-                            )
+                        if store.currentFolderId == nil {
+                            ForEach(store.displayedFolders) { folder in
+                                folderItem(folder)
                             }
                         }
-                    }
-                    ForEach(store.displayedComics) { comic in
-                        Button {
-                            if store.isSelecting {
-                                store.send(.comicSelectionToggled(comic.id))
-                            } else {
-                                store.send(.comicTapped(comic))
-                            }
-                        } label: {
-                            if store.viewMode == .list {
-                                LibraryListRow(
-                                    comic: comic,
-                                    progress: store.progresses[comic.id],
-                                    isSelectionMode: store.isSelecting,
-                                    isSelected: store.selectedComicIds.contains(comic.id)
-                                )
-                            } else {
-                                LibraryCell(
-                                    comic: comic,
-                                    progress: store.progresses[comic.id],
-                                    isSelectionMode: store.isSelecting,
-                                    isSelected: store.selectedComicIds.contains(comic.id)
-                                )
-                            }
+                        ForEach(store.displayedComics) { comic in
+                            comicItem(comic)
                         }
-                        .buttonStyle(.plain)
-                        .draggable(
-                            ComicDragPayload(comicIds: dragPayloadFor(comic.id)),
-                            preview: { dragPreview(for: comic) }
-                        )
-                        .contextMenu {
-                            if !store.isSelecting {
-                                Button {
-                                    store.send(.renameComicRequested(comic.id))
-                                } label: {
-                                    Label {
-                                        Text("library.rename_comic", bundle: .module)
-                                    } icon: {
-                                        Image(systemName: "pencil")
-                                    }
-                                }
-                                moveMenu(for: comic)
-                                Button(role: .destructive) {
-                                    store.send(.deleteComicRequested(comic.id))
-                                } label: {
-                                    Label {
-                                        Text("library.delete", bundle: .module)
-                                    } icon: {
-                                        Image(systemName: "trash")
-                                    }
-                                }
-                            }
-                        }
-                    }
                     }
                 }
                 .padding(Tokens.Spacing.m)
@@ -351,6 +313,102 @@ public struct LibraryView: View {
                     .opacity(0.7)
                     .ignoresSafeArea()
             )
+        }
+    }
+
+    @ViewBuilder
+    private func folderItem(_ folder: Folder) -> some View {
+        let cover = store.state.coverData(for: folder)
+        let count = store.state.comicCount(in: folder.id)
+        let onDrop: (UUID) -> Void = { comicId in
+            store.send(.comicMoveToFolderRequested(comicId: comicId, folderId: folder.id))
+        }
+        if store.viewMode == .list {
+            FolderListRow(
+                folder: folder,
+                cover: cover,
+                comicCount: count,
+                onTap: { store.send(.folderTapped(folder)) },
+                onLongPress: { store.send(.folderDeleteConfirmationRequested(folder.id)) },
+                onDropComic: onDrop
+            )
+        } else {
+            FolderCard(
+                folder: folder,
+                cover: cover,
+                count: count,
+                onTap: { store.send(.folderTapped(folder)) },
+                onLongPress: { store.send(.folderDeleteConfirmationRequested(folder.id)) },
+                onDropComic: onDrop
+            )
+        }
+    }
+
+    /// Tap opens (or toggles in selection mode). Long-press enters selection mode with this comic
+    /// selected (Android). In selection mode the long-press is disabled so the system context
+    /// menu (rename / move / delete) and drag-to-folder take over the hold.
+    @ViewBuilder
+    private func comicItem(_ comic: ComicItem) -> some View {
+        Group {
+            if store.viewMode == .list {
+                LibraryListRow(
+                    comic: comic,
+                    progress: store.progresses[comic.id],
+                    isSelectionMode: store.isSelecting,
+                    isSelected: store.selectedComicIds.contains(comic.id)
+                )
+            } else {
+                LibraryCell(
+                    comic: comic,
+                    progress: store.progresses[comic.id],
+                    isSelectionMode: store.isSelecting,
+                    isSelected: store.selectedComicIds.contains(comic.id)
+                )
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if store.isSelecting {
+                MangaHaptic.tick.play()
+                store.send(.comicSelectionToggled(comic.id))
+            } else {
+                MangaHaptic.tap.play()
+                store.send(.comicTapped(comic))
+            }
+        }
+        .gesture(
+            LongPressGesture(minimumDuration: 0.4).onEnded { _ in
+                MangaHaptic.longPress.play()
+                store.send(.comicLongPressed(comic.id))
+            },
+            including: store.isSelecting ? .subviews : .all
+        )
+        .draggable(
+            ComicDragPayload(comicIds: dragPayloadFor(comic.id)),
+            preview: { dragPreview(for: comic) }
+        )
+        .contextMenu {
+            if store.isSelecting {
+                Button {
+                    store.send(.renameComicRequested(comic.id))
+                } label: {
+                    Label {
+                        Text("library.rename", bundle: .module)
+                    } icon: {
+                        Image(systemName: "pencil")
+                    }
+                }
+                moveMenu(for: comic)
+                Button(role: .destructive) {
+                    store.send(.deleteComicRequested(comic.id))
+                } label: {
+                    Label {
+                        Text("library.delete", bundle: .module)
+                    } icon: {
+                        Image(systemName: "trash")
+                    }
+                }
+            }
         }
     }
 
@@ -383,6 +441,9 @@ public struct LibraryView: View {
         !store.isSelecting
     }
 
+    // MARK: - Action row
+
+    /// [📁+ New folder] [📄+ Import…] … [list/grid toggle] [sort]. (Android action row.)
     @ViewBuilder
     private var actionRow: some View {
         HStack(spacing: Tokens.Spacing.s) {
@@ -392,7 +453,7 @@ public struct LibraryView: View {
                     title: Text("library.new_folder", bundle: .module)
                 )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(MangaPressStyle(haptic: .tap))
 
             Button { showImporter = true } label: {
                 MangaActionChip(
@@ -401,17 +462,22 @@ public struct LibraryView: View {
                     isAccent: true
                 )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(MangaPressStyle(haptic: .confirm))
 
             Spacer(minLength: 0)
 
-            Button { activePopover = (activePopover == .sort) ? nil : .sort } label: {
-                MangaActionChip(
-                    systemName: "arrow.up.arrow.down",
-                    title: Text("library.sort", bundle: .module)
-                )
+            Button { store.send(.viewModeToggled) } label: {
+                MangaActionChip(systemName: store.viewMode == .grid ? "list.bullet" : "square.grid.2x2.fill")
             }
-            .buttonStyle(.plain)
+            .buttonStyle(MangaPressStyle(haptic: .tick))
+            .accessibilityLabel(Text(verbatim: store.viewMode == .grid ? "List" : "Grid"))
+
+            Button { activePopover = (activePopover == .sort) ? nil : .sort } label: {
+                MangaActionChip(systemName: "arrow.up.arrow.down")
+            }
+            .buttonStyle(MangaPressStyle(haptic: .tap))
+            .accessibilityLabel(Text("library.sort", bundle: .module))
+            .anchorPreference(key: SortChipAnchorKey.self, value: .bounds) { $0 }
         }
         .padding(.horizontal, Tokens.Spacing.s)
     }
@@ -427,7 +493,7 @@ public struct LibraryView: View {
                     activePopover = nil
                 }
                 if index < LibrarySortOrder.allCases.count - 1 {
-                    Rectangle().fill(Tokens.Colors.ink).frame(height: 1)
+                    Rectangle().fill(Tokens.Colors.ink.opacity(0.15)).frame(height: Tokens.Stroke.hair)
                 }
             }
         }
@@ -459,32 +525,16 @@ public struct LibraryView: View {
         }
     }
 
+    /// Sort menu anchored just below the sort chip, right-aligned to it.
     @ViewBuilder
-    private var confirmDialogOverlay: some View {
-        if let dialog = store.confirmDialog {
-            ZStack {
-                Tokens.Colors.ink.opacity(0.45)
-                    .ignoresSafeArea()
-                    .onTapGesture { store.send(.confirmDialogDismissed) }
-
-                ConfirmDialogPanel(
-                    dialog: dialog,
-                    onCancel: { store.send(.confirmDialogDismissed) },
-                    onConfirm: { store.send(.confirmDialogConfirmed) }
-                )
-                .padding(Tokens.Spacing.l)
-                .transition(.scale(scale: 0.92).combined(with: .opacity))
+    private func popoverPanelOverlay(anchor: Anchor<CGRect>?) -> some View {
+        GeometryReader { proxy in
+            if activePopover == .sort, let anchor, showsActionRow {
+                let rect = proxy[anchor]
+                sortPopover
+                    .offset(x: max(Tokens.Spacing.m, rect.maxX - 240), y: rect.maxY + Tokens.Spacing.s)
+                    .transition(.scale(scale: 0.9, anchor: .topTrailing).combined(with: .opacity))
             }
-        }
-    }
-
-    @ViewBuilder
-    private var popoverPanelOverlay: some View {
-        if activePopover == .sort {
-            sortPopover
-                .padding(.trailing, Tokens.Spacing.l)
-                .padding(.top, 210)
-                .transition(.opacity)
         }
     }
 
@@ -508,7 +558,7 @@ public struct LibraryView: View {
             .background(isSelected ? Tokens.Colors.accent : Tokens.Colors.paper)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(MangaPressStyle(haptic: .tick, pressedScale: 0.98))
     }
 
     private var headerSubtitle: String {
@@ -521,12 +571,15 @@ public struct LibraryView: View {
         }
     }
 
-    private var emptyLibraryState: some View {
+    // MARK: - Empty states
+
+    /// Root: "EMPTY!" + import hint + Import… chip. Folder: "…SHIIN" + "This folder is empty."
+    private func emptyState(isRoot: Bool) -> some View {
         ZStack {
             HalftoneBackground()
-            VStack(spacing: Tokens.Spacing.l) {
+            VStack(spacing: 0) {
                 SoundEffectText(
-                    "EMPTY!",
+                    isRoot ? "EMPTY!" : "…SHIIN",
                     font: Tokens.Typography.displayXL,
                     fill: Tokens.Colors.accent,
                     stroke: Tokens.Colors.ink,
@@ -534,56 +587,28 @@ public struct LibraryView: View {
                     tilt: -8,
                     shadowOffset: .init(width: 5, height: 7)
                 )
-                Text("library.empty.description", bundle: .module)
+                .glitchPulse(every: 2.6, intensity: 9)
+                Text(isRoot ? "library.empty.description" : "library.folder_empty.description", bundle: .module)
                     .font(Tokens.Typography.body)
                     .foregroundStyle(Tokens.Colors.ink)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, Tokens.Spacing.l)
-
-                Button {
-                    showImporter = true
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "doc.badge.plus")
-                        Text("library.import_dotdotdot", bundle: .module)
-                            .font(Tokens.Typography.title)
+                    .padding(Tokens.Spacing.l)
+                if isRoot {
+                    Button { showImporter = true } label: {
+                        MangaActionChip(
+                            systemName: "doc.badge.plus",
+                            title: Text("library.import_dotdotdot", bundle: .module),
+                            isAccent: true
+                        )
                     }
-                    .foregroundStyle(Tokens.Colors.paper)
-                    .padding(.horizontal, Tokens.Spacing.l)
-                    .padding(.vertical, Tokens.Spacing.s)
-                    .background(Tokens.Colors.ink)
-                    .overlay(
-                        Rectangle()
-                            .strokeBorder(Tokens.Colors.paper, lineWidth: 1.5)
-                            .padding(3)
-                    )
+                    .buttonStyle(MangaPressStyle(haptic: .confirm))
                 }
-                .buttonStyle(.plain)
             }
-            .padding(.bottom, 140)
+            .padding(.bottom, 80)
         }
     }
 
-    private var emptyFolderState: some View {
-        ZStack {
-            HalftoneBackground()
-            VStack(spacing: Tokens.Spacing.m) {
-                SoundEffectText(
-                    "…SHIIN",
-                    font: Tokens.Typography.displayL,
-                    fill: Tokens.Colors.accentSecondary,
-                    stroke: Tokens.Colors.ink,
-                    strokeWidth: 5,
-                    tilt: -5
-                )
-                Text("library.folder_empty.description", bundle: .module)
-                    .font(Tokens.Typography.body)
-                    .foregroundStyle(Tokens.Colors.ink)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, Tokens.Spacing.l)
-            }
-        }
-    }
+    // MARK: - Drag
 
     /// Floating drag preview: stacked offset cards + count chip when more than one is grabbed.
     @ViewBuilder
@@ -657,14 +682,6 @@ public struct LibraryView: View {
         }
     }
 
-    private var newFolderLabel: some View {
-        Label(title: { Text("library.new_folder", bundle: .module) }, icon: { Image(systemName: "folder.badge.plus") })
-    }
-
-    private var importLabel: some View {
-        Label(title: { Text("library.import_dotdotdot", bundle: .module) }, icon: { Image(systemName: "doc.badge.plus") })
-    }
-
     @ViewBuilder
     private func moveMenu(for comic: ComicItem) -> some View {
         Menu {
@@ -680,224 +697,257 @@ public struct LibraryView: View {
             Label(title: { Text("library.move_to", bundle: .module) }, icon: { Image(systemName: "folder") })
         }
     }
-}
 
-// MARK: - Confirm Dialog
+    // MARK: - Dialogs
 
-private struct ConfirmDialogPanel: View {
-    let dialog: LibraryFeature.State.ConfirmDialog
-    let onCancel: () -> Void
-    let onConfirm: () -> Void
-    @Environment(\.locale) private var locale
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Tokens.Spacing.l) {
-            SoundEffectText(
-                titleText.uppercased(),
-                font: Tokens.Typography.displayM,
-                fill: Tokens.Colors.accent,
-                stroke: Tokens.Colors.ink,
-                strokeWidth: 4,
-                tilt: -3,
-                shadowOffset: .init(width: 3, height: 4)
-            )
-
-            Text(messageText)
-                .font(Tokens.Typography.body)
-                .foregroundStyle(Tokens.Colors.ink)
-                .fixedSize(horizontal: false, vertical: true)
-
-            HStack(spacing: Tokens.Spacing.m) {
-                Button(action: onCancel) {
-                    Text("library.cancel", bundle: .module)
-                        .font(Tokens.Typography.title)
-                        .foregroundStyle(Tokens.Colors.ink)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Tokens.Colors.paper)
-                        .overlay(Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.regular))
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-
-                Button(action: onConfirm) {
-                    Text("library.delete", bundle: .module)
-                        .font(Tokens.Typography.title)
-                        .foregroundStyle(Tokens.Colors.paper)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Tokens.Colors.accent)
-                        .overlay(Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.regular))
-                        .background(
-                            Rectangle()
-                                .fill(Tokens.Colors.ink)
-                                .offset(x: 4, y: 5)
-                        )
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
+    @ViewBuilder
+    private var dialogs: some View {
+        ZStack {
+            confirmDialogHost
+            newFolderDialogHost
+            renameFolderDialogHost
+            renameComicDialogHost
+            moveToDialogHost
+            folderCoverDialogHost
         }
-        .padding(Tokens.Spacing.l)
-        .frame(maxWidth: 400)
-        .background(Tokens.Colors.paper)
-        .overlay(Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.regular))
-        .background(
-            Rectangle()
-                .fill(Tokens.Colors.ink)
-                .offset(x: 6, y: 7)
-        )
     }
 
-    private var titleText: String {
+    private var confirmDialogHost: some View {
+        MangaDialogHost(
+            isPresented: store.confirmDialog != nil,
+            onDismiss: { store.send(.confirmDialogDismissed) }
+        ) {
+            if let dialog = store.confirmDialog {
+                MangaDialogPanel(
+                    title: confirmTitle(dialog),
+                    message: confirmMessage(dialog),
+                    cancelTitle: Bundle.module.localized("library.cancel", for: locale),
+                    confirmTitle: Bundle.module.localized("library.delete", for: locale),
+                    onCancel: { store.send(.confirmDialogDismissed) },
+                    onConfirm: { store.send(.confirmDialogConfirmed) }
+                )
+            }
+        }
+    }
+
+    private func confirmTitle(_ dialog: LibraryFeature.State.ConfirmDialog) -> String {
         switch dialog {
         case .folderDelete:
             return Bundle.module.localized("library.delete_folder_title", for: locale)
-        case .bulkDelete:
+        case .bulkDelete, .comicDelete:
             return Bundle.module.localized("library.bulk_delete_title", for: locale)
         }
     }
 
-    private var messageText: String {
+    private func confirmMessage(_ dialog: LibraryFeature.State.ConfirmDialog) -> String {
         switch dialog {
-        case let .folderDelete(_, folderName, comicCount):
+        case let .folderDelete(_, folderName, _):
             return String(
                 format: Bundle.module.localized("library.delete_folder_message", for: locale),
-                folderName, comicCount
+                folderName
             )
         case let .bulkDelete(count):
             return String(
                 format: Bundle.module.localized("library.bulk_delete_message", for: locale),
                 count
             )
+        case let .comicDelete(_, title):
+            return String(
+                format: Bundle.module.localized("library.delete_comic_message", for: locale),
+                title
+            )
         }
     }
-}
 
-// MARK: - Sheets and Alerts
-
-private struct LibrarySheetsAndAlerts: ViewModifier {
-    @Bindable var store: StoreOf<LibraryFeature>
-
-    func body(content: Content) -> some View {
-        content
-            .alert($store.scope(state: \.alert, action: \.alert))
-            .sheet(isPresented: newFolderBinding) {
-                if let sheet = store.newFolderSheet {
-                    NewFolderSheetView(
-                        name: Binding(
-                            get: { sheet.name },
-                            set: { store.send(.newFolderNameChanged($0)) }
-                        ),
-                        onSubmit: { store.send(.newFolderSubmitted) },
-                        onCancel: { store.send(.newFolderSheetDismissed) }
-                    )
-                }
+    private var newFolderDialogHost: some View {
+        MangaDialogHost(
+            isPresented: store.newFolderSheet != nil,
+            onDismiss: { store.send(.newFolderSheetDismissed) }
+        ) {
+            if let sheet = store.newFolderSheet {
+                NameEntryDialog(
+                    name: Binding(
+                        get: { sheet.name },
+                        set: { store.send(.newFolderNameChanged($0)) }
+                    ),
+                    titleKey: "library.new_folder",
+                    submitKey: "library.create",
+                    fieldLabelKey: "library.folder_name",
+                    placeholderKey: "library.folder_name_placeholder",
+                    suggestions: store.state.folderNameSuggestions,
+                    onSubmit: { store.send(.newFolderSubmitted) },
+                    onCancel: { store.send(.newFolderSheetDismissed) }
+                )
             }
-            .sheet(isPresented: renameFolderBinding) {
-                if let sheet = store.renameFolderSheet {
-                    NewFolderSheetView(
-                        name: Binding(
-                            get: { sheet.name },
-                            set: { store.send(.renameFolderNameChanged($0)) }
-                        ),
-                        titleKey: "library.rename_folder",
-                        submitKey: "library.save",
-                        onSubmit: { store.send(.renameFolderSubmitted) },
-                        onCancel: { store.send(.renameFolderSheetDismissed) }
-                    )
-                }
+        }
+    }
+
+    private var renameFolderDialogHost: some View {
+        MangaDialogHost(
+            isPresented: store.renameFolderSheet != nil,
+            onDismiss: { store.send(.renameFolderSheetDismissed) }
+        ) {
+            if let sheet = store.renameFolderSheet {
+                NameEntryDialog(
+                    name: Binding(
+                        get: { sheet.name },
+                        set: { store.send(.renameFolderNameChanged($0)) }
+                    ),
+                    titleKey: "library.rename_folder",
+                    submitKey: "library.save",
+                    fieldLabelKey: "library.folder_name",
+                    placeholderKey: "library.folder_name_placeholder",
+                    onSubmit: { store.send(.renameFolderSubmitted) },
+                    onCancel: { store.send(.renameFolderSheetDismissed) }
+                )
             }
-            .sheet(isPresented: renameComicBinding) {
-                if let sheet = store.renameComicSheet {
-                    NewFolderSheetView(
-                        name: Binding(
-                            get: { sheet.title },
-                            set: { store.send(.renameComicTitleChanged($0)) }
-                        ),
-                        titleKey: "library.rename_comic",
-                        submitKey: "library.save",
-                        placeholderKey: "library.comic_title_placeholder",
-                        onSubmit: { store.send(.renameComicSubmitted) },
-                        onCancel: { store.send(.renameComicSheetDismissed) }
-                    )
-                }
+        }
+    }
+
+    private var renameComicDialogHost: some View {
+        MangaDialogHost(
+            isPresented: store.renameComicSheet != nil,
+            onDismiss: { store.send(.renameComicSheetDismissed) }
+        ) {
+            if let sheet = store.renameComicSheet {
+                NameEntryDialog(
+                    name: Binding(
+                        get: { sheet.title },
+                        set: { store.send(.renameComicTitleChanged($0)) }
+                    ),
+                    titleKey: "library.rename_comic",
+                    submitKey: "library.save",
+                    fieldLabelKey: "library.comic_title",
+                    placeholderKey: "library.comic_title_placeholder",
+                    onSubmit: { store.send(.renameComicSubmitted) },
+                    onCancel: { store.send(.renameComicSheetDismissed) }
+                )
             }
-            .sheet(isPresented: bulkMoveBinding) {
-                if store.bulkMoveSheet != nil {
-                    BulkMoveSheet(store: store)
-                }
-            }
+        }
     }
 
-    private var newFolderBinding: Binding<Bool> {
-        Binding(
-            get: { store.newFolderSheet != nil },
-            set: { if !$0 { store.send(.newFolderSheetDismissed) } }
-        )
-    }
-
-    private var renameFolderBinding: Binding<Bool> {
-        Binding(
-            get: { store.renameFolderSheet != nil },
-            set: { if !$0 { store.send(.renameFolderSheetDismissed) } }
-        )
-    }
-
-    private var renameComicBinding: Binding<Bool> {
-        Binding(
-            get: { store.renameComicSheet != nil },
-            set: { if !$0 { store.send(.renameComicSheetDismissed) } }
-        )
-    }
-
-    private var bulkMoveBinding: Binding<Bool> {
-        Binding(
-            get: { store.bulkMoveSheet != nil },
-            set: { if !$0 { store.send(.bulkMoveSheetDismissed) } }
-        )
-    }
-}
-
-private struct BulkMoveSheet: View {
-    @Bindable var store: StoreOf<LibraryFeature>
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Button {
-                    store.send(.bulkMoveDestinationChosen(folderId: nil))
-                } label: {
-                    Label {
-                        Text("library.move_to_root", bundle: .module)
-                    } icon: {
-                        Image(systemName: "tray")
+    /// "MOVE TO": [tray] Library (root), then one row per folder; scrolls past 320pt.
+    /// (Android `ManaDialogs.MoveToDialog`.)
+    private var moveToDialogHost: some View {
+        MangaDialogHost(
+            isPresented: store.bulkMoveSheet != nil,
+            onDismiss: { store.send(.bulkMoveSheetDismissed) }
+        ) {
+            if store.bulkMoveSheet != nil {
+                BareMangaDialogPanel(title: Bundle.module.localized("library.move_to", for: locale)) {
+                    CappedScrollView(maxHeight: 320) {
+                        VStack(spacing: Tokens.Spacing.s) {
+                            moveRow(systemName: "tray.fill", title: Bundle.module.localized("library.root", for: locale)) {
+                                store.send(.bulkMoveDestinationChosen(folderId: nil))
+                            }
+                            ForEach(store.state.displayedFoldersForMove) { folder in
+                                moveRow(systemName: "folder.fill", title: folder.name) {
+                                    store.send(.bulkMoveDestinationChosen(folderId: folder.id))
+                                }
+                            }
+                        }
+                        .padding(.trailing, 2)
                     }
                 }
-                ForEach(store.folders.elements) { folder in
-                    Button {
-                        store.send(.bulkMoveDestinationChosen(folderId: folder.id))
-                    } label: {
-                        Label {
-                            Text(folder.name)
-                        } icon: {
-                            Image(systemName: "folder")
+            }
+        }
+    }
+
+    private func moveRow(systemName: String, title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: Tokens.Spacing.s) {
+                Image(systemName: systemName)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Tokens.Colors.ink)
+                    .frame(width: 20)
+                Text(verbatim: title)
+                    .font(Tokens.Typography.subtitle)
+                    .foregroundStyle(Tokens.Colors.ink)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, Tokens.Spacing.m)
+            .padding(.vertical, Tokens.Spacing.s)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Tokens.Colors.paper)
+            .overlay(Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.regular))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(MangaPressStyle(haptic: .tick, pressedScale: 0.98))
+    }
+
+    /// "FOLDER COVER": 3-column grid of this folder's comic covers (tap to use), plus
+    /// "Use default" when a custom cover is set. (Android `ManaDialogs.FolderCoverDialog`.)
+    private var folderCoverDialogHost: some View {
+        MangaDialogHost(
+            isPresented: store.isFolderCoverPickerPresented,
+            onDismiss: { store.send(.folderCoverDismissed) }
+        ) {
+            if store.isFolderCoverPickerPresented {
+                let withCovers = store.displayedComics.filter { $0.coverThumbnail != nil }
+                BareMangaDialogPanel(title: Bundle.module.localized("library.folder_cover", for: locale)) {
+                    if withCovers.isEmpty {
+                        Text("library.cover_empty", bundle: .module)
+                            .font(Tokens.Typography.body)
+                            .foregroundStyle(Tokens.Colors.ink)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Text("library.cover_pick", bundle: .module)
+                            .font(Tokens.Typography.caption)
+                            .foregroundStyle(Tokens.Colors.ink.opacity(0.7))
+                        CappedScrollView(maxHeight: 340) {
+                            LazyVGrid(
+                                columns: Array(repeating: GridItem(.flexible(), spacing: Tokens.Spacing.s), count: 3),
+                                spacing: Tokens.Spacing.s
+                            ) {
+                                ForEach(withCovers) { comic in
+                                    coverPickCell(comic)
+                                }
+                            }
+                        }
+                    }
+                    if store.currentFolder?.coverImage != nil {
+                        MangaDialogButton(
+                            title: Bundle.module.localized("library.cover_reset", for: locale),
+                            isAccent: false
+                        ) {
+                            store.send(.folderCoverReset)
                         }
                     }
                 }
             }
-            .navigationTitle(Text("library.move_to", bundle: .module))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button {
-                        store.send(.bulkMoveSheetDismissed)
-                    } label: {
-                        Text("library.cancel", bundle: .module)
+        }
+    }
+
+    private func coverPickCell(_ comic: ComicItem) -> some View {
+        Button { store.send(.folderCoverPicked(comicId: comic.id)) } label: {
+            Color.clear
+                .aspectRatio(0.7, contentMode: .fit)
+                .overlay {
+                    if let data = comic.coverThumbnail, let img = UIImage(data: data) {
+                        Image(uiImage: img).resizable().aspectRatio(contentMode: .fill)
                     }
                 }
-            }
+                .clipped()
+                .overlay(Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.regular))
+                .contentShape(Rectangle())
         }
-        .presentationDetents([.medium, .large])
+        .buttonStyle(MangaPressStyle(haptic: .tap, pressedScale: 0.96))
+        .accessibilityLabel(Text(comic.title))
+    }
+}
+
+/// Bounds of the sort chip, so the sort popover can anchor right below it.
+private struct SortChipAnchorKey: PreferenceKey {
+    static let defaultValue: Anchor<CGRect>? = nil
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
+        value = value ?? nextValue()
+    }
+}
+
+private extension LibraryFeature.State {
+    /// Every folder (newest first) as a move destination, regardless of the current level.
+    var displayedFoldersForMove: [Folder] {
+        folders.elements.sorted { $0.dateAdded > $1.dateAdded }
     }
 }

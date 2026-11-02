@@ -31,7 +31,7 @@ public struct MangaIconBadge: View {
 /// Use as the label of a `Button` or `Menu` for primary screen actions.
 public struct MangaActionChip: View {
     private let systemName: String
-    private let title: Text
+    private let title: Text?
     private let isAccent: Bool
 
     public init(systemName: String, title: Text, isAccent: Bool = false) {
@@ -40,16 +40,25 @@ public struct MangaActionChip: View {
         self.isAccent = isAccent
     }
 
+    /// Icon-only variant (Android `MangaActionChip(label = null)`), tighter horizontal padding.
+    public init(systemName: String, isAccent: Bool = false) {
+        self.systemName = systemName
+        self.title = nil
+        self.isAccent = isAccent
+    }
+
     public var body: some View {
         HStack(spacing: 6) {
             Image(systemName: systemName)
                 .font(.system(size: 13, weight: .black))
-            title
-                .font(Tokens.Typography.subtitle)
-                .lineLimit(1)
+            if let title {
+                title
+                    .font(Tokens.Typography.subtitle)
+                    .lineLimit(1)
+            }
         }
         .foregroundStyle(isAccent ? Tokens.Colors.paper : Tokens.Colors.ink)
-        .padding(.horizontal, 12)
+        .padding(.horizontal, title == nil ? 8 : 12)
         .padding(.vertical, 8)
         .background(isAccent ? Tokens.Colors.accent : Tokens.Colors.paper)
         .overlay(

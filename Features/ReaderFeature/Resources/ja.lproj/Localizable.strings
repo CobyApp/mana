@@ -18,3 +18,10 @@
 "translate.off" = "オフ";
 "mode.webtoon"             = "縦読み";
 "reader.next_chapter"      = "次の話";
+"reader.read_next"         = "続けて読む →";
+"reader.back_to_library"   = "ライブラリへ";
+"reader.go_to_page"        = "ページ移動";
+"reader.jump.go"           = "移動";
+"reader.jump.cancel"       = "キャンセル";
+"reader.load_failed"       = "チャプターを読み込めませんでした。";
+"reader.retry"             = "再試行";

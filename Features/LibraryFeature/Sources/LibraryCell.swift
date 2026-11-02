@@ -46,6 +46,9 @@ public struct LibraryCell: View {
                 }
             }
             .opacity(isSelectionMode && !isSelected ? 0.55 : 1.0)
+            // Selected covers pop forward slightly (Android: spring 0.45 damping, 1.05 scale).
+            .scaleEffect(isSelected ? 1.05 : 1)
+            .animation(.spring(response: 0.3, dampingFraction: 0.45), value: isSelected)
             .glitch(trigger: isSelected, intensity: 6)
 
             Text(comic.title)
@@ -120,11 +123,12 @@ public struct LibraryCell: View {
         return min(1.0, max(0.0, raw))
     }
 
+    /// Square 28pt checkbox: accent fill when selected, bold ink stroke.
     private var selectionBadge: some View {
         ZStack {
-            Circle()
+            Rectangle()
                 .fill(isSelected ? Tokens.Colors.accent : Tokens.Colors.paper)
-            Circle()
+            Rectangle()
                 .strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.bold)
             if isSelected {
                 Image(systemName: "checkmark")

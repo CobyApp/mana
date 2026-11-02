@@ -18,3 +18,10 @@
 "translate.off" = "Off";
 "mode.webtoon"             = "Webtoon";
 "reader.next_chapter"      = "Next chapter";
+"reader.read_next"         = "Read next →";
+"reader.back_to_library"   = "Back to library";
+"reader.go_to_page"        = "Go to page";
+"reader.jump.go"           = "Go";
+"reader.jump.cancel"       = "Cancel";
+"reader.load_failed"       = "Couldn’t load the chapter.";
+"reader.retry"             = "Retry";

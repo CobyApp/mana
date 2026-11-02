@@ -1,0 +1,4 @@
+"resume_downloads.title" = "다운로드 이어받기?";
+"resume_downloads.message" = "중단된 다운로드 %lld개가 있어요. 이어서 받을까요?";
+"resume_downloads.confirm" = "이어받기";
+"resume_downloads.dismiss" = "버리기";

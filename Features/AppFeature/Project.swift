@@ -6,10 +6,12 @@ let project = Module(
     kind: .feature,
     dependencies: [
         .project(target: "Domain", path: "../../Domain"),
+        .project(target: "DesignSystem", path: "../../DesignSystem"),
         .project(target: "BrowseFeature", path: "../BrowseFeature"),
         .project(target: "LibraryFeature", path: "../LibraryFeature"),
         .project(target: "ReaderFeature", path: "../ReaderFeature"),
         .project(target: "SettingsFeature", path: "../SettingsFeature")
     ],
-    externalDependencies: ["ComposableArchitecture"]
+    externalDependencies: ["ComposableArchitecture"],
+    hasResources: true
 ).project()

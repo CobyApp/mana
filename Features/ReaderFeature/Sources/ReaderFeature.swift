@@ -23,6 +23,8 @@ public struct ReaderFeature {
         public var securityScopedURL: URL?
         /// The next chapter in this comic's folder (natural order), resolved after open.
         public var nextComic: ComicItem?
+        /// The archive couldn't be opened; the view shows an inline retry instead of a spinner.
+        public var loadFailed: Bool = false
         @Presents public var alert: AlertState<Action.Alert>?
 
         public init(
@@ -63,11 +65,15 @@ public struct ReaderFeature {
         case alert(PresentationAction<Alert>)
         case nextComicResolved(ComicItem?)
         case openNext
+        case retry
 
         public enum Alert: Equatable {}
     }
 
     private enum CancelID: Hashable { case session }
+
+    /// How many spreads ahead to warm into the image cache while reading (Android `PREFETCH_AHEAD`).
+    public static let prefetchSpreadsAhead = 3
 
     @Dependency(\.archiveReaderRouter) var router
     @Dependency(\.progressRepository) var progress
@@ -126,13 +132,18 @@ public struct ReaderFeature {
                 }
                 return resolveNext
 
-            case let .openFailed(message):
-                state.alert = AlertState {
-                    TextState("reader.error.cannot_open", bundle: .module)
-                } message: {
-                    TextState(verbatim: message)
-                }
+            case .openFailed:
+                // Inline failure state (message + Retry + back) rather than an alert over a
+                // spinner, so the reader is never a dead end. Mirrors Android `reader_load_failed`.
+                state.loadFailed = true
                 return .none
+
+            case .retry:
+                state.loadFailed = false
+                state.handle = nil
+                state.pageCount = 0
+                state.loadedIndices = []
+                return openEffect(comic: state.comic)
 
             case let .pageChanged(index):
                 guard index != state.pageIndex, index >= 0, index < state.pageCount else { return .none }
@@ -148,7 +159,11 @@ public struct ReaderFeature {
                 let comicId = state.comic.id
                 let format = state.comic.format
                 let pageCount = state.pageCount
-                let neighbors = ([index, index - 1, index + 1]).filter { $0 >= 0 && $0 < pageCount }
+                // Warm the current page, then `prefetchSpreadsAhead` spreads forward (a dual
+                // spread is two pages), then the previous page for a back-swipe.
+                let pagesPerSpread = state.mode == .dual ? 2 : 1
+                let ahead = (1...(Self.prefetchSpreadsAhead * pagesPerSpread)).map { index + $0 }
+                let neighbors = ([index] + ahead + [index - 1]).filter { $0 >= 0 && $0 < pageCount }
                 let router = self.router
                 let imageCache = self.imageCache
                 return .run { send in
@@ -263,6 +278,7 @@ public struct ReaderFeature {
                 state.pageCount = 0
                 state.loadedIndices = []
                 state.nextComic = nil
+                state.loadFailed = false
                 state.isControlsVisible = false
                 return openEffect(comic: next)
 

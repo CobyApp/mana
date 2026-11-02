@@ -32,10 +32,13 @@ public struct SettingsView: View {
                 .padding(.top, Tokens.Spacing.s)
                 .padding(.bottom, Tokens.Spacing.s)
 
+            // Title stays fixed under the header (Android keeps it outside the scroll area).
+            header
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, Tokens.Spacing.l)
+
             ScrollView {
                 VStack(alignment: .leading, spacing: Tokens.Spacing.l) {
-                    header
-
                     section(title: localized("settings.general")) {
                     settingRow(title: localized("settings.default_mode")) {
                         MangaToggle(
@@ -114,27 +117,42 @@ public struct SettingsView: View {
                     }
                 }
 
-                section(title: localized("settings.danger_zone"), accent: Tokens.Colors.accent) {
-                    Button(role: .destructive) {
-                        store.send(.resetLibraryRequested)
-                    } label: {
-                        HStack {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                            Text("settings.reset_library", bundle: .module)
-                                .font(Tokens.Typography.title)
-                            Spacer()
-                        }
-                        .foregroundStyle(Tokens.Colors.paper)
-                        .padding(.horizontal, Tokens.Spacing.m)
-                        .padding(.vertical, Tokens.Spacing.s)
-                        .background(Tokens.Colors.accent)
-                        .overlay(Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.bold))
+                section(title: localized("settings.about")) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(verbatim: localized("settings.version"))
+                            .font(Tokens.Typography.caption)
+                            .foregroundStyle(Tokens.Colors.ink.opacity(0.7))
+                            .textCase(.uppercase)
+                        Spacer()
+                        Text(verbatim: Self.appVersion)
+                            .font(Tokens.Typography.title)
+                            .foregroundStyle(Tokens.Colors.ink)
                     }
-                    .buttonStyle(.plain)
+                }
 
-                    Text("settings.reset_footer", bundle: .module)
-                        .font(Tokens.Typography.caption)
-                        .foregroundStyle(Tokens.Colors.ink.opacity(0.7))
+                section(title: localized("settings.danger_zone"), accent: Tokens.Colors.accent) {
+                    settingRow(
+                        title: localized("settings.reset_library"),
+                        footer: localized("settings.reset_footer")
+                    ) {
+                        Button {
+                            store.send(.resetLibraryRequested)
+                        } label: {
+                            HStack(spacing: Tokens.Spacing.s) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                Text(verbatim: localized("settings.reset_confirm"))
+                                    .font(Tokens.Typography.title)
+                            }
+                            .foregroundStyle(Tokens.Colors.paper)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Tokens.Colors.accent)
+                            .overlay(Rectangle().strokeBorder(Tokens.Colors.ink, lineWidth: Tokens.Stroke.bold))
+                            .background(Rectangle().fill(Tokens.Colors.ink).offset(x: 4, y: 5))
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(MangaPressStyle(haptic: .longPress))
+                    }
                 }
                 }
                 .padding(Tokens.Spacing.l)
@@ -150,7 +168,28 @@ public struct SettingsView: View {
         .toolbar(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(true)
         .task { await store.send(.task).finish() }
-        .alert($store.scope(state: \.resetAlert, action: \.resetAlert))
+        .overlay {
+            MangaDialogHost(
+                isPresented: store.isResetConfirmPresented,
+                onDismiss: { store.send(.resetConfirmDismissed) }
+            ) {
+                MangaDialogPanel(
+                    title: localized("settings.reset_title"),
+                    message: localized("settings.reset_message"),
+                    cancelTitle: localized("settings.cancel"),
+                    confirmTitle: localized("settings.reset_confirm"),
+                    onCancel: { store.send(.resetConfirmDismissed) },
+                    onConfirm: { store.send(.resetConfirmed) }
+                )
+            }
+        }
+    }
+
+    static var appVersion: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "—"
+        let build = info?["CFBundleVersion"] as? String
+        return build.map { "\(version) (\($0))" } ?? version
     }
 
     private var backHeader: some View {
@@ -158,7 +197,7 @@ public struct SettingsView: View {
             Button { dismiss() } label: {
                 MangaIconBadge(systemName: "chevron.left")
             }
-            .buttonStyle(.plain)
+            .buttonStyle(MangaPressStyle())
             Spacer()
         }
     }

@@ -12,6 +12,9 @@ public struct WebtoonRenderer: View {
     let onPrefetchHint: (Int) -> Void
     let onCenterTap: () -> Void
     let pageOverlay: ((Int) -> AnyView)?
+    /// Optional full-height item after the last page (e.g. the "next chapter" card). It has no
+    /// page index, so scrolling onto it never moves `current` past the last real page.
+    let endPage: AnyView?
 
     /// The index last reported from scrolling, used to tell internal scroll updates apart from
     /// external `current` changes so we don't fight the user's scroll with programmatic jumps.
@@ -23,7 +26,8 @@ public struct WebtoonRenderer: View {
         pageImage: @escaping (Int) async -> UIImage?,
         onPrefetchHint: @escaping (Int) -> Void,
         onCenterTap: @escaping () -> Void = {},
-        pageOverlay: ((Int) -> AnyView)? = nil
+        pageOverlay: ((Int) -> AnyView)? = nil,
+        endPage: AnyView? = nil
     ) {
         self.totalPages = totalPages
         self._current = current
@@ -31,6 +35,7 @@ public struct WebtoonRenderer: View {
         self.onPrefetchHint = onPrefetchHint
         self.onCenterTap = onCenterTap
         self.pageOverlay = pageOverlay
+        self.endPage = endPage
     }
 
     public var body: some View {
@@ -55,6 +60,11 @@ public struct WebtoonRenderer: View {
                                     )
                                 }
                             )
+                        }
+                        if let endPage {
+                            endPage
+                                .frame(width: outer.size.width, height: outer.size.height)
+                                .id("webtoon.end")
                         }
                     }
                 }
