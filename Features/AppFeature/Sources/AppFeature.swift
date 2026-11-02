@@ -25,6 +25,8 @@ public struct AppFeature {
         public var library: LibraryFeature.State
         public var path: StackState<Path.State>
         public var appLanguage: AppLanguage
+        /// Downloads interrupted by a previous app kill; > 0 shows the "Resume downloads?" prompt.
+        public var pendingResumeCount: Int = 0
 
         public init(
             library: LibraryFeature.State = LibraryFeature.State(),
@@ -44,10 +46,14 @@ public struct AppFeature {
         /// Deep link (`noiz://comic/<id>` from the home-screen widget, `noiz://library`).
         case openURL(URL)
         case openComicResolved(ComicItem)
+        case pendingResumeLoaded(Int)
+        case resumeDownloadsConfirmed
+        case resumeDownloadsDismissed
     }
 
     @Dependency(\.userDefaults) var userDefaults
     @Dependency(\.comicRepository) var comicRepository
+    @Dependency(\.downloadManager) var downloadManager
 
     public var body: some ReducerOf<Self> {
         Scope(state: \.library, action: \.library) {
@@ -71,6 +77,26 @@ public struct AppFeature {
                 } else {
                     state.appLanguage = .system
                 }
+                // Surface downloads interrupted by an app kill and ask before restarting them.
+                let downloads = self.downloadManager
+                return .run { send in
+                    await downloads.restore()
+                    let count = downloads.pendingResume.count
+                    if count > 0 { await send(.pendingResumeLoaded(count)) }
+                }
+
+            case let .pendingResumeLoaded(count):
+                state.pendingResumeCount = count
+                return .none
+
+            case .resumeDownloadsConfirmed:
+                state.pendingResumeCount = 0
+                downloadManager.resumePending()
+                return .none
+
+            case .resumeDownloadsDismissed:
+                state.pendingResumeCount = 0
+                downloadManager.dismissPending()
                 return .none
 
             case let .library(.comicTapped(comic)):
@@ -99,6 +125,10 @@ public struct AppFeature {
                     }
                 }
                 state.path.removeAll()
+                // `noiz://downloads` — tapping a download notification.
+                if url.host() == "downloads" {
+                    state.path.append(.downloads(DownloadsFeature.State()))
+                }
                 return .none
 
             case let .openComicResolved(comic):
@@ -110,6 +140,11 @@ public struct AppFeature {
                 state.path.append(.browse(BrowseFeature.State()))
                 return .none
 
+            case let .library(.openSourceSeries(url)):
+                // "Get more chapters" from a downloaded series folder.
+                state.path.append(.mangaDetail(MangaDetailFeature.State(mangaURL: url)))
+                return .none
+
             case .library(.downloadsTapped):
                 state.path.append(.downloads(DownloadsFeature.State()))
                 return .none
@@ -118,8 +153,13 @@ public struct AppFeature {
                 state.path.append(.mangaDetail(MangaDetailFeature.State(mangaURL: manga.url, preview: manga)))
                 return .none
 
-            case let .path(.element(id: _, action: .mangaDetail(.chapterTapped(chapter)))):
-                state.path.append(.onlineReader(OnlineReaderFeature.State(chapterURL: chapter.url, title: chapter.name)))
+            case let .path(.element(id: id, action: .mangaDetail(.chapterTapped(chapter)))):
+                // The reader's top bar shows the series title, like Android.
+                var title = chapter.name
+                if case let .mangaDetail(detail)? = state.path[id: id] {
+                    title = detail.detail?.title ?? detail.preview?.title ?? chapter.name
+                }
+                state.path.append(.onlineReader(OnlineReaderFeature.State(chapterURL: chapter.url, title: title)))
                 return .none
 
             case .library, .path:

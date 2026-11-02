@@ -54,7 +54,7 @@ import Domain
         #expect(defaults.string(forKey: SettingsFeature.directionKey) == "rightToLeft")
     }
 
-    @Test func appLanguageChangedSetsAppleLanguages() async {
+    @Test func appLanguageChangedPersistsWithoutAppleLanguagesOverride() async {
         let defaults = InMemoryUserDefaults()
         let store = await TestStore(initialState: SettingsFeature.State()) {
             SettingsFeature()
@@ -66,9 +66,8 @@ import Domain
             $0.appLanguage = .ja
         }
         #expect(defaults.string(forKey: SettingsFeature.languageKey) == "ja")
-        // InMemory stores [String] as a comma-joined string; verify the value is non-nil
-        // (Live variant writes a real [String] array that iOS reads correctly).
-        #expect(defaults.string(forKey: "AppleLanguages") != nil)
+        // The live `\.locale` environment applies the language; AppleLanguages is left alone.
+        #expect(defaults.string(forKey: "AppleLanguages") == nil)
     }
 
 }
